@@ -1,9 +1,12 @@
-// src/pages/AIPlanner.jsx
+// src/pages/AIPlanner.jsx - Add Link import
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom'; // Add this import
 import { Bot, Calendar, MapPin, Users, Sparkles, Send } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card, { CardContent } from '../components/ui/Card';
+
+// Rest of the code remains the same...
 
 const AIPlanner = () => {
   const [formData, setFormData] = useState({

@@ -1,10 +1,12 @@
-// src/pages/Booking.jsx
+// src/pages/Booking.jsx - Add Hotel import
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, CreditCard, Plane, Hotel, Car, AlertCircle } from 'lucide-react';
+import { Calendar, Users, CreditCard, Plane, Hotel, Car, AlertCircle } from 'lucide-react'; // Added Hotel
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+
+// Rest of the code remains the same...
 
 const Booking = () => {
   const [bookingType, setBookingType] = useState('flight');

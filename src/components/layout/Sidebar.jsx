@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.jsx
+// src/components/layout/Sidebar.jsx - Add onToggle prop
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-const Sidebar = ({ collapsed, onToggle }) => {
+const Sidebar = ({ collapsed, onToggle }) => { // Make sure onToggle is received
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/explore', icon: Compass, label: 'Explore' },
