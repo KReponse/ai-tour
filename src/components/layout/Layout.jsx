@@ -17,7 +17,7 @@ const Layout = ({ children }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+<div className="w-full min-h-screen overflow-x-hidden bg-background">
       <Navbar onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
       <div className="flex pt-16">
         {!isMobile && <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />}

@@ -1,71 +1,100 @@
-// src/data/mockData.js
 export const destinations = [
   {
     id: 1,
-    name: 'Paris, France',
-    image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800',
-    price: 899,
-    rating: 4.8,
-    duration: '5 days'
+    name: 'Volcanoes National Park',
+    image:
+      'https://images.unsplash.com/photo-1516426122078-c23e76319801?q=80&w=1200&auto=format&fit=crop',
+    price: 1200,
+    rating: 4.9,
+    description:
+      'Home of mountain gorillas and breathtaking volcano views.',
   },
+
   {
     id: 2,
-    name: 'Bali, Indonesia',
-    image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800',
-    price: 699,
-    rating: 4.9,
-    duration: '7 days'
+    name: 'Kigali City',
+    image:
+      'https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=1200&auto=format&fit=crop',
+    price: 300,
+    rating: 4.8,
+    description:
+      'Clean modern city with culture, restaurants, and nightlife.',
   },
+
   {
     id: 3,
-    name: 'Tokyo, Japan',
-    image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800',
-    price: 1299,
-    rating: 4.9,
-    duration: '6 days'
+    name: 'Lake Kivu',
+    image:
+      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop',
+    price: 450,
+    rating: 4.7,
+    description:
+      'Relax on beautiful beaches and enjoy peaceful lake views.',
   },
+
   {
     id: 4,
-    name: 'New York, USA',
-    image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800',
-    price: 999,
-    rating: 4.7,
-    duration: '4 days'
-  }
+    name: 'Akagera National Park',
+    image:
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop',
+    price: 800,
+    rating: 4.9,
+    description:
+      'Experience the Big Five safari adventure in Rwanda.',
+  },
+
+  {
+    id: 5,
+    name: 'Nyungwe Forest',
+    image:
+      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200&auto=format&fit=crop',
+    price: 650,
+    rating: 4.8,
+    description:
+      'Explore rainforest trails, waterfalls, and canopy walks.',
+  },
 ];
 
 export const testimonials = [
   {
     id: 1,
-    name: 'Sarah Johnson',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    text: 'AI Tour made planning my vacation so easy! The AI planner created the perfect itinerary.',
-    rating: 5
+    name: 'John Smith',
+    avatar:
+      'https://randomuser.me/api/portraits/men/32.jpg',
+    rating: 5,
+    text:
+      'AI Tour made my Rwanda trip unforgettable. Everything was perfectly planned.',
   },
+
   {
     id: 2,
-    name: 'Michael Chen',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    text: 'Amazing experience! Found the best deals and the booking process was seamless.',
-    rating: 5
-  }
-];
+    name: 'Sarah Johnson',
+    avatar:
+      'https://randomuser.me/api/portraits/women/44.jpg',
+    rating: 5,
+    text:
+      'The AI planner recommended amazing places I would never have discovered myself.',
+  },
 
+  {
+    id: 3,
+    name: 'David Wilson',
+    avatar:
+      'https://randomuser.me/api/portraits/men/75.jpg',
+    rating: 4,
+    text:
+      'Professional service, beautiful destinations, and smooth booking experience.',
+  },
+];
 export const trips = [
   {
     id: 1,
-    destination: 'Paris, France',
-    startDate: '2024-03-15',
-    endDate: '2024-03-20',
-    status: 'upcoming',
-    image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800'
+    title: "Kigali City Tour",
+    location: "Kigali",
   },
   {
     id: 2,
-    destination: 'Bali, Indonesia',
-    startDate: '2024-02-10',
-    endDate: '2024-02-17',
-    status: 'completed',
-    image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800'
-  }
+    title: "Volcano Visit",
+    location: "Musanze",
+  },
 ];

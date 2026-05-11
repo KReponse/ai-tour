@@ -21,7 +21,7 @@ const Explore = () => {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10 md:space-y-12 lg:space-y-14 animate-fade-in pb-20 md:pb-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl md:text-4xl font-bold mb-2">Explore Destinations</h1>
