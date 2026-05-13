@@ -6,13 +6,22 @@ import App from './App';
 import './index.css';
 
 import { ThemeProvider } from './contexts/ThemeContext';
+import { BookingProvider } from './contexts/BookingContext';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(
+  document.getElementById('root')
+).render(
   <React.StrictMode>
     <BrowserRouter>
+
       <ThemeProvider>
-        <App />
+
+        <BookingProvider>
+          <App />
+        </BookingProvider>
+
       </ThemeProvider>
+
     </BrowserRouter>
   </React.StrictMode>
 );

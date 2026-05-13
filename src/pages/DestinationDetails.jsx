@@ -401,10 +401,18 @@ const DestinationDetails = () => {
                   Book Now
                 </Button>
               </Link>
-              <Link to="/custom-request">
-                <Button variant="outline" className="w-full h-10 md:h-12 rounded-xl text-sm md:text-base">
-                  Custom Package
-                </Button>
+              <Link
+  to="/custom-request"
+  state={{
+    destination: destination.name,
+  }}
+>
+                <Button
+  variant="outline"
+  className=" mt-3 w-full h-10 md:h-12 rounded-xl text-sm md:text-base"
+>
+  Create AI Trip
+</Button>
               </Link>
             </div>
           </Card>

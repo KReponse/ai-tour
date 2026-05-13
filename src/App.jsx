@@ -19,6 +19,9 @@ import SignUp from './pages/SignUp';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import CustomRequest from './pages/CustomRequest';
+
+
 
 
 function App() {
@@ -28,7 +31,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/ai-planner" element={<AIPlanner />} />
-        <Route path="/booking" element={<Booking />} />
+        <Route path="/booking/:id"  element={<Booking />} />
         <Route path="/trips" element={<Trips />} />
         <Route path="/reviews" element={<Reviews />} />
         <Route path="/profile" element={<Profile />} />
@@ -42,6 +45,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/custom-request" element={<CustomRequest />} />
       </Routes>
     </Layout>
   );
