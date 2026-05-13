@@ -26,7 +26,8 @@ const Reviews = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="w-full max-w-7xl mx-auto px-2 sm:px-3 md:px-4 lg:px-5 space-y-8 sm:space-y-10 md:space-y-12 lg:space-y-14 animate-fade-in pb-20 md:pb-6 overflow-x-hidden">
+
       <div>
         <h1 className="text-3xl md:text-4xl font-bold mb-2">Traveler Reviews</h1>
         <p className="text-gray-600 dark:text-gray-300">
