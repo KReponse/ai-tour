@@ -20,6 +20,8 @@ import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CustomRequest from './pages/CustomRequest';
+import AIChat from './pages/AIChat';
+import FloatingAIButton from './components/FloatingAIButton';
 
 
 
@@ -46,7 +48,11 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/custom-request" element={<CustomRequest />} />
+        <Route path="/ai-chat" element={<AIChat />} />
+
       </Routes>
+      <FloatingAIButton />
+
     </Layout>
   );
 }

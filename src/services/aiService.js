@@ -1,8 +1,7 @@
 // src/services/aiService.js
 
 export const generateTripPlan = async (prompt) => {
-  const API_KEY =
-    'AIzaSyDvzJP665P73hNME5kIko-aM0AQ2-dV-nQ';
+ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
   try {
     const response = await fetch(
