@@ -32,6 +32,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import { destinations } from '../data/mockData';
+import { generateTripPlan } from '../services/aiService';
 
 const AIPlanner = () => {
   const [step, setStep] = useState(1);
@@ -136,20 +137,44 @@ const AIPlanner = () => {
     return 3;
   };
 
-  const generateAITrip = async () => {
-    setLoading(true);
-    setLoadingProgress(0);
+const [aiText, setAiText] = useState('');
+
+const generateAITrip = async () => {
+  setLoading(true);
+  setLoadingProgress(0);
+
+  const prompt = `
+Destination: ${formData.destination}
+Mood: ${formData.mood}
+Budget: ${formData.budget}
+Travelers: ${formData.travelers}
+Interests: ${formData.interests.join(', ')}
+Travel Style: ${formData.travelStyle}
+Accommodation: ${formData.accommodation}
+`;
+
+  try {
+    // REAL AI RESPONSE
+    const aiResponse = await generateTripPlan(prompt);
+
+    console.log(aiResponse);
+
+    setAiText(aiResponse);
 
     const daysCount = calculateDays();
 
     const selectedDestination =
-      destinations.find((d) => d.name === formData.destination) ||
-      destinations[0];
+      destinations.find(
+        (d) => d.name === formData.destination
+      ) || destinations[0];
 
     const intervals = [25, 50, 75, 100];
 
     for (let i = 0; i < intervals.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) =>
+        setTimeout(resolve, 800)
+      );
+
       setLoadingProgress(intervals[i]);
     }
 
@@ -160,26 +185,31 @@ const AIPlanner = () => {
         'Mountain Hiking',
         'Kayaking',
       ],
+
       Relaxation: [
         'Lake Boat Cruise',
         'Spa Session',
         'Sunset Relaxation',
       ],
+
       Luxury: [
         'Luxury Resort Stay',
         'Private Tour',
         'Fine Dining Experience',
       ],
+
       Romantic: [
         'Couple Sunset Dinner',
         'Private Boat Ride',
         'Romantic Picnic',
       ],
+
       Nature: [
         'Forest Walk',
         'Bird Watching',
         'Nature Photography',
       ],
+
       Cultural: [
         'Museum Visit',
         'Traditional Dance',
@@ -188,13 +218,15 @@ const AIPlanner = () => {
     };
 
     const selectedActivities =
-      activitiesByMood[formData.mood] || activitiesByMood.Nature;
+      activitiesByMood[formData.mood] ||
+      activitiesByMood.Nature;
 
     const itinerary = [];
 
     for (let i = 1; i <= daysCount; i++) {
       itinerary.push({
         day: i,
+
         title:
           i === 1
             ? 'Arrival & Welcome'
@@ -205,11 +237,14 @@ const AIPlanner = () => {
         activities: [
           {
             time: '09:00',
+
             title:
               selectedActivities[
                 i % selectedActivities.length
               ],
+
             cost: 80,
+
             icon: Sparkles,
           },
 
@@ -232,17 +267,26 @@ const AIPlanner = () => {
 
     const recommendationsData = {
       destination: selectedDestination,
+
       itinerary,
+
       daysCount,
+
       totalCost: formData.budget - 100,
+
       savings: 100,
-      dailyBudget: Math.round(formData.budget / daysCount),
+
+      dailyBudget: Math.round(
+        formData.budget / daysCount
+      ),
 
       aiInsights: [
         `🎯 Perfect for ${formData.mood.toLowerCase()} travelers`,
+
         `📸 Great destination for ${
           formData.interests[0] || 'exploration'
         }`,
+
         `💰 Budget optimized for ${daysCount} days`,
       ],
 
@@ -258,6 +302,8 @@ const AIPlanner = () => {
 
       localTips:
         'Learn basic Kinyarwanda greetings and use local transport apps like Yango.',
+
+      aiGeneratedPlan: aiResponse,
     };
 
     setRecommendations(recommendationsData);
@@ -265,7 +311,15 @@ const AIPlanner = () => {
     setLoading(false);
 
     setStep(4);
-  };
+
+  } catch (error) {
+    console.error(error);
+
+    alert('AI failed to generate trip');
+
+    setLoading(false);
+  }
+};
 
   const saveTrip = () => {
     const newTrip = {
@@ -705,6 +759,18 @@ const AIPlanner = () => {
                 </div>
               </div>
             </Card>
+
+            {/* REAL AI RESPONSE */}
+
+<Card className="p-6 rounded-[32px] shadow-xl">
+  <h3 className="text-2xl font-black mb-5 dark:text-white">
+    AI Travel Plan
+  </h3>
+
+  <div className="whitespace-pre-line text-gray-700 dark:text-gray-200 leading-8">
+    {aiText}
+  </div>
+</Card>
 
             {/* AI Insights */}
 
