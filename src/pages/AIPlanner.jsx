@@ -309,7 +309,7 @@ const AIPlanner = () => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-32 md:pb-10 space-y-8">
+    <div className="space-y-6 animate-fade-in">
 
       {/* HERO */}
 
