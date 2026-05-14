@@ -309,8 +309,8 @@ const AIPlanner = () => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-32 md:pb-10 space-y-8">
-
+    
+<div className="space-y-6 animate-fade-in">
       {/* HERO */}
 
       <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white p-8 md:p-12 shadow-2xl">

@@ -113,7 +113,7 @@ const bookingServices = [
 
 const Home = () => {
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-3 md:px-4 lg:px-5 space-y-8 sm:space-y-10 md:space-y-12 lg:space-y-14 animate-fade-in pb-20 md:pb-6 overflow-x-hidden">
+    <div className="space-y-6 animate-fade-in">
 
       {/* Background Glow Effects */}
 <div className="absolute top-0 left-0 w-72 h-72 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
