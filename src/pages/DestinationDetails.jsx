@@ -22,7 +22,10 @@ import {
 
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { destinations } from '../data/mockData';
+import { rwandaDestinations as destinations } from '../data/destinations';
+import LocationMap from '../components/ui/LocationMap';
+
+
 
 // Icon mapping for amenities
 const amenityIcons = {
@@ -138,7 +141,7 @@ const DestinationDetails = () => {
       </div>
 
       {/* Hero Image Section */}
-      <div className="relative rounded-3xl overflow-hidden h-[320px] md:h-[500px] group">
+<div className="w-full h-full object-cover scale-100 group-hover:scale-105 transition-transform duration-700 relative rounded-3xl overflow-hidden h-[320px] md:h-[500px] group">
         <img
           src={images[currentImage]}
           alt={destination.name}
@@ -291,6 +294,11 @@ const DestinationDetails = () => {
             </div>
           </Card>
 
+          <LocationMap 
+  destinationName={destination.name}
+  address={destination.address || `${destination.name}, Rwanda`}
+/>
+
           {/* AI Travel Tip */}
           <Card className="p-4 md:p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700 rounded-2xl md:rounded-3xl">
             <div className="flex items-start gap-3 md:gap-4">
@@ -306,6 +314,18 @@ const DestinationDetails = () => {
               </div>
             </div>
           </Card>
+
+          <Card className="p-6 rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white">
+  <h2 className="text-2xl font-bold mb-3">
+    AI Recommendation
+  </h2>
+
+  <p className="leading-relaxed">
+    Based on traveler interests, this destination is perfect for
+    adventure lovers, photographers, honeymoon trips, and luxury
+    experiences in Rwanda.
+  </p>
+</Card>
 
           {/* Related Destinations */}
           <section>

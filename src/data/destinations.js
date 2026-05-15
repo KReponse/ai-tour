@@ -1,4 +1,9 @@
-// src/data/destinations.js
+import kigaliImg from "../assets/images/destinations/kigali.jpg";
+import kivuImg from "../assets/images/destinations/kivu.jpg";
+import volcanoImg from "../assets/images/destinations/gorilla.jpg";
+import akageraImg from "../assets/images/destinations/akagera.jpg";
+import nyungweImg from "../assets/images/destinations/nyungwe.jpg";
+import nyanzaImg from "../assets/images/destinations/kings-palace.jpg";
 
 export const rwandaDestinations = [
   {
@@ -7,102 +12,116 @@ export const rwandaDestinations = [
     location: "Musanze, Northern Province",
     price: 1500,
     rating: 4.9,
-    image: "https://imaes.unsplash.com/photo-1540518614847-7f27f2f2b4b2?w=600&h=400&fit=crop",
-    category: "National Parks",
-    description: "Home to the endangered mountain gorillas. A once-in-a-lifetime trekking experience in the bamboo forest.",
-    activities: ["Gorilla Trekking", "Golden Monkey Tracking", "Visit Karisoke Research Center", "Hike Bisoke Volcano"],
-    duration: "1-2 days",
-    bestTime: "June-September & December-February"
+    image: volcanoImg,
+    category: "Wildlife",
+    description:
+      "Experience unforgettable mountain gorilla trekking in Rwanda’s most iconic national park surrounded by volcanoes and lush rainforest.",
+    activities: [
+      "Gorilla Trekking",
+      "Golden Monkey Tracking",
+      "Bisoke Hiking",
+      "Nature Walks",
+    ],
+    duration: "1-2 Days",
+    bestTime: "June - September",
   },
+
   {
     id: 2,
     name: "Lake Kivu",
-    location: "Rubavu / Karongi, Western Province",
+    location: "Rubavu & Karongi",
     price: 120,
-    rating: 4.7,
-    image: "https://images.unsplash.com/photo-1590859808308-3d2d9c515b1a?w=600&h=400&fit=crop",
-    category: "Nature & Relaxation",
-    description: "One of Africa's Great Lakes, surrounded by green hills. Perfect for boat trips, kayaking, and beach relaxation.",
-    activities: ["Boat Cruise", "Kayaking", "Island Hopping to Napoleon Island", "Bike Ride on Congo Nile Trail"],
-    duration: "1-3 days",
-    bestTime: "May-October"
+    rating: 4.8,
+    image: kivuImg,
+    category: "Relaxation",
+    description:
+      "Enjoy breathtaking lake views, relaxing beaches, kayaking adventures, and luxury resorts along Rwanda’s beautiful Lake Kivu.",
+    activities: [
+      "Boat Cruises",
+      "Kayaking",
+      "Beach Relaxation",
+      "Island Tours",
+    ],
+    duration: "1-3 Days",
+    bestTime: "May - October",
   },
+
   {
     id: 3,
     name: "Nyungwe National Park",
-    location: "Nyamasheke / Rusizi, South-Western Province",
+    location: "Nyamasheke",
     price: 400,
     rating: 4.8,
-    image: "https://images.unsplash.com/photo-1547471080-7cc2caa01b1e?w=600&h=400&fit=crop",
-    category: "National Parks",
-    description: "Ancient montane rainforest with chimpanzees and the famous Canopy Walkway.",
-    activities: ["Chimpanzee Trekking", "Canopy Walk", "Colobus Monkey Tracking", "Waterfall Trail", "Bird Watching"],
-    duration: "1-2 days",
-    bestTime: "June-August & December-February"
+    image: nyungweImg,
+    category: "Nature",
+    description:
+      "Explore one of Africa’s oldest rainforests featuring chimpanzees, canopy walks, waterfalls, and rich biodiversity.",
+    activities: [
+      "Chimpanzee Trekking",
+      "Canopy Walk",
+      "Bird Watching",
+      "Forest Hiking",
+    ],
+    duration: "1-2 Days",
+    bestTime: "June - August",
   },
+
   {
     id: 4,
     name: "Kigali City",
-    location: "Kigali, Central Province",
+    location: "Kigali",
     price: 80,
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=600&h=400&fit=crop",
-    category: "City Tours",
-    description: "Africa's cleanest city. Art, culture, nightlife, and the moving Kigali Genocide Memorial.",
-    activities: ["Kigali Genocide Memorial", "Visit Inema Arts Center", "Local Food Tour", "Nightlife in Kimihurura", "Shopping at Caplaki"],
-    duration: "1 day",
-    bestTime: "Year-round"
+    rating: 4.7,
+    image: kigaliImg,
+    description:
+      "Discover Africa’s cleanest city with modern cafes, cultural experiences, museums, nightlife, and premium hospitality.",
+    activities: [
+      "Kigali Genocide Memorial",
+      "Art Galleries",
+      "Coffee Tours",
+      "Nightlife",
+    ],
+    duration: "1 Day",
+    bestTime: "All Year",
   },
+
   {
     id: 5,
     name: "Akagera National Park",
-    location: "Eastern Province (Kirehe/Kayonza)",
+    location: "Eastern Province",
     price: 350,
-    rating: 4.7,
-    image: "https://images.unsplash.com/photo-1564760055775-d63b17a55c44?w=600&h=400&fit=crop",
-    category: "National Parks",
-    description: "Savannah park with the Big Five. Game drives and boat safari on Lake Ihema.",
-    activities: ["Game Drive (Lions, Elephants, Giraffes)", "Boat Safari on Lake Ihema", "Spot Hippos & Crocodiles", "Night Safari"],
-    duration: "1-2 days",
-    bestTime: "June-September (dry season)"
+    rating: 4.8,
+    image: akageraImg,
+    category: "Safari",
+    description:
+      "Experience Rwanda’s Big Five safari destination with game drives, lake safaris, and luxury lodges.",
+    activities: [
+      "Game Drives",
+      "Boat Safari",
+      "Night Safari",
+      "Wildlife Photography",
+    ],
+    duration: "1-2 Days",
+    bestTime: "June - September",
   },
+
   {
     id: 6,
-    name: "Gisenyi (Rubavu)",
-    location: "Rubavu, Western Province",
-    price: 90,
-    rating: 4.5,
-    image: "https://images.unsplash.com/photo-1590859808301-3d2d9c515b1a?w=600&h=400&fit=crop",
-    category: "Beach & Relaxation",
-    description: "Lake Kivu beach town with black volcanic sand. Perfect for weekend getaways.",
-    activities: ["Swimming in Lake Kivu", "Visit Gisenyi Hot Springs", "Beach Volleyball", "Sunset Boat Cruise"],
-    duration: "1-2 days",
-    bestTime: "May-October"
-  },
-  {
-    id: 7,
-    name: "King's Palace Museum (Nyanza)",
-    location: "Nyanza, Southern Province",
+    name: "King's Palace Museum",
+    location: "Nyanza",
     price: 20,
-    rating: 4.4,
-    image: "https://images.unsplash.com/photo-1590859808308-3d2d9c515b1a?w=600&h=400&fit=crop",
-    category: "Cultural Tours",
-    description: "Replica of the traditional Rwandan king's palace with Inyambo (sacred cows) cultural experience.",
-    activities: ["See Inyambo Cattle Dancing", "Learn Ancient Rwandan Architecture", "Visit the King's Hut", "Traditional Dance Performance"],
-    duration: "2-3 hours",
-    bestTime: "Year-round"
+    rating: 4.5,
+    image: nyanzaImg,
+    category: "Culture",
+    description:
+      "Discover Rwanda’s royal heritage, traditional architecture, and the famous Inyambo sacred cows.",
+    activities: [
+      "Cultural Tours",
+      "Traditional Dance",
+      "Royal History",
+      "Inyambo Experience",
+    ],
+    duration: "2-3 Hours",
+    bestTime: "All Year",
   },
-  {
-    id: 8,
-    name: "Mount Bisoke",
-    location: "Volcanoes National Park / Musanze",
-    price: 400,
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1540518614847-7f27f2f2b4b2?w=600&h=400&fit=crop",
-    category: "Adventure",
-    description: "An active volcano with a stunning crater lake at the summit. A challenging day hike.",
-    activities: ["Hike to Crater Lake", "Bird Watching", "Views of Virunga Mountains"],
-    duration: "1 day",
-    bestTime: "June-September"
-  }
 ];

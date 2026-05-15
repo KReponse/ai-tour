@@ -2,9 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================
+/* ==================================================
    BASE STYLES
-========================= */
+================================================== */
 @layer base {
   * {
     margin: 0;
@@ -19,7 +19,8 @@
   }
 
   body {
-    @apply bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 antialiased;
+    @apply bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800
+    text-gray-900 dark:text-gray-100 antialiased;
 
     width: 100%;
     min-height: 100vh;
@@ -39,11 +40,18 @@
     max-width: 100%;
     display: block;
   }
+
+  button,
+  a,
+  [role='button'] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
 }
 
-/* =========================
+/* ==================================================
    UTILITIES
-========================= */
+================================================== */
 @layer utilities {
   /* Hide scrollbar */
   .scrollbar-hide {
@@ -55,30 +63,20 @@
     display: none;
   }
 
-  /* Smooth horizontal scrolling */
+  /* Smooth scrolling */
   .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
 
-  /* Safe containers */
-  .container,
-  .max-w-7xl,
-  .max-w-6xl,
-  .max-w-5xl {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Prevent overflow */
+  /* Safe layout */
   .safe-layout {
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
   }
 
-  /* Line clamp */
+  /* Line Clamp */
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
@@ -94,13 +92,24 @@
   }
 }
 
-/* =========================
+/* ==================================================
    ANIMATIONS
-========================= */
+================================================== */
+
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
 
   to {
@@ -109,7 +118,7 @@
   }
 }
 
-@keyframes slide-in-left {
+@keyframes slide-left {
   from {
     opacity: 0;
     transform: translateX(-20px);
@@ -121,7 +130,7 @@
   }
 }
 
-@keyframes slide-in-right {
+@keyframes slide-right {
   from {
     opacity: 0;
     transform: translateX(20px);
@@ -133,21 +142,58 @@
   }
 }
 
+@keyframes bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Animation Classes */
+
 .animate-fade-in {
-  animation: fade-in 0.5s ease-out;
+  animation: fade-in 0.3s ease-out;
 }
 
-.animate-slide-in-left {
-  animation: slide-in-left 0.5s ease-out;
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
 }
 
-.animate-slide-in-right {
-  animation: slide-in-right 0.5s ease-out;
+.animate-slide-left {
+  animation: slide-left 0.4s ease-out;
 }
 
-/* =========================
+.animate-slide-right {
+  animation: slide-right 0.4s ease-out;
+}
+
+.animate-bounce-soft {
+  animation: bounce-soft 1.5s infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.5s infinite;
+}
+
+/* ==================================================
    CARD EFFECTS
-========================= */
+================================================== */
+
 .card-hover {
   transition:
     transform 0.3s ease,
@@ -162,19 +208,56 @@
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* =========================
-   TOUCH TARGETS
-========================= */
-button,
-a,
-[role='button'] {
-  cursor: pointer;
-  touch-action: manipulation;
+/* Glass Effect */
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* =========================
+/* ==================================================
+   SCROLLBAR
+================================================== */
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Dark Mode */
+
+.dark .overflow-y-auto::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark .overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+.dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* ==================================================
    MOBILE FIXES
-========================= */
+================================================== */
+
 @media (max-width: 640px) {
   html,
   body,
@@ -184,24 +267,40 @@ a,
     max-width: 100%;
   }
 
-  .overflow-x-hidden {
-    overflow-x: hidden !important;
+  section,
+  div {
+    max-width: 100%;
   }
 
   .overflow-x-auto {
     width: 100%;
   }
+}
 
-  section {
-    max-width: 100%;
+@keyframes ping {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
   }
 }
-/* Hide scrollbar */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.animate-ping {
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
