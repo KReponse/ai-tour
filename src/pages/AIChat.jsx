@@ -747,7 +747,14 @@ Respond professionally.
           )}
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 scroll-smooth">
+          <div className="
+  flex-1
+  overflow-y-auto
+  p-3 md:p-6
+  space-y-4
+  scroll-smooth
+  overscroll-contain
+">
             {chat.map((msg) => (
               <div
                 key={msg.id}
