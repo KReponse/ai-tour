@@ -590,7 +590,7 @@ Respond professionally.
   const currentSuggestions = suggestedQuestionsByLang[language] || suggestedQuestionsByLang.en;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className=" max-h-full min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -613,11 +613,21 @@ Respond professionally.
         </div>
       )}
 
-      <div className="relative z-10 max-w-6xl mx-auto p-4 md:p-6 min-h-screen flex flex-col">
-        
-        {/* Chat Card */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
-          
+      {/* MAIN WRAPPER */}
+<div className="w-full min-h-screen px-2 sm:px-4 md:px-6 py-2 md:py-6">
+  
+  {/* Chat Card */}
+  <div className="
+    w-full
+    h-[100dvh] md:h-auto
+    flex flex-col
+    bg-white dark:bg-gray-800
+    rounded-none md:rounded-3xl
+    shadow-2xl
+    overflow-hidden
+    border-0 md:border
+    border-gray-100 dark:border-gray-700
+  ">
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white p-4 md:p-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -935,29 +945,48 @@ Respond professionally.
               {/* Text Input */}
               <div className="flex-1 relative">
                 <textarea
-                  ref={inputRef}
-                  value={message}
-                  onChange={(e) => {
-  setMessage(e.target.value);
+  ref={inputRef}
+  value={message}
+  onChange={(e) => {
+    setMessage(e.target.value);
 
-  e.target.style.height = 'auto';
- e.target.style.height =
-  Math.min(e.target.scrollHeight, 180) + 'px';
-}}
-                  onKeyPress={handleKeyPress}
-                 placeholder={
-  language === 'en'
-    ? "Ask about Rwanda safaris, gorilla trekking, hotels, destinations..."
-    : language === 'fr'
-    ? "Demandez sur les safaris, hôtels, gorilles ou voyages au Rwanda..."
-    : language === 'rw'
-    ? "Baza ibyerekeye safari, gusura ingagi, amahoteli cyangwa ingendo mu Rwanda..."
-    : "Uliza kuhusu safari, hoteli, gorilla trekking au utalii Rwanda..."
-}
-                  className="w-full h-12 md:h-14 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
-                  rows="1"
-                  style={{ minHeight: '48px' }}
-                />
+    e.target.style.height = 'auto';
+    e.target.style.height =
+      Math.min(e.target.scrollHeight, 180) + 'px';
+  }}
+  onKeyPress={handleKeyPress}
+  placeholder={
+    language === 'en'
+      ? "Ask about Rwanda safaris, hotels, gorilla trekking..."
+      : language === 'fr'
+      ? "Posez des questions sur les safaris, hôtels..."
+      : language === 'rw'
+      ? "Baza ibyerekeye safari, hoteli cyangwa ingendo..."
+      : "Uliza kuhusu safari, hoteli au utalii..."
+  }
+  className="
+    w-full
+    min-h-[52px]
+    max-h-[180px]
+    px-3 md:px-4
+    py-3
+    pr-10
+    rounded-xl
+    border border-gray-200 dark:border-gray-700
+    bg-gray-50 dark:bg-gray-900
+    text-sm md:text-base
+    text-gray-800 dark:text-white
+    placeholder:text-xs
+    md:placeholder:text-sm
+    placeholder:leading-tight
+    focus:outline-none
+    focus:ring-2
+    focus:ring-emerald-500
+    resize-none
+    overflow-y-auto
+  "
+  rows="1"
+/>
               </div>
               
               {/* Voice Input Button */}

@@ -26,7 +26,7 @@ import Card, {
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 
-import { destinations } from '../data/mockData';
+import { rwandaDestinations as destinations } from '../data/destinations';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useBooking } from '../contexts/BookingContext';
 
@@ -129,8 +129,16 @@ const Booking = () => {
 
   const navigate = useNavigate();
 
-const handleSubmit = (e) => {
+const [submitting, setSubmitting] = useState(false);
+
+const handleSubmit = async (e) => {
   e.preventDefault();
+
+  setSubmitting(true);
+
+  await new Promise((resolve) =>
+    setTimeout(resolve, 1500)
+  );
 
   navigate('/payment', {
     state: {
@@ -140,7 +148,35 @@ const handleSubmit = (e) => {
       total,
     },
   });
+
+  setSubmitting(false);
 };
+if (!destination) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
+
+      <div className="max-w-md">
+
+        <h1 className="text-4xl font-bold mb-4 dark:text-white">
+          No Destination Selected
+        </h1>
+
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
+          Please choose a destination before making a booking.
+        </p>
+
+        <Link to="/explore">
+          <Button>
+            Explore Destinations
+          </Button>
+        </Link>
+
+      </div>
+
+    </div>
+  );
+}
+
 
   return (
     <div className="max-w-7xl mx-auto px-3 md:px-5 space-y-8 pb-32 md:pb-10 animate-fade-in">
@@ -438,6 +474,31 @@ const handleSubmit = (e) => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+  <div>
+    <label className="block text-sm font-medium mb-2 dark:text-white">
+      Full Name
+    </label>
+
+    <Input
+      placeholder="Your full name"
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium mb-2 dark:text-white">
+      Email Address
+    </label>
+
+    <Input
+      type="email"
+      placeholder="example@gmail.com"
+    />
+  </div>
+
+</div>
+
               {/* AI TIP */}
               <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 p-5 border border-blue-100 dark:border-gray-700">
 
@@ -460,14 +521,29 @@ const handleSubmit = (e) => {
                   </div>
                 </div>
               </div>
+              <div className="mt-4 p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50">
+  <p className="text-sm font-semibold dark:text-white">
+    Recommended Package:
+  </p>
+
+  <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+    3 Days Luxury Rwanda Experience
+    including airport pickup,
+    premium hotel, safari tour,
+    and cultural activities.
+  </p>
+</div>
 
               {/* BUTTON */}
               <Button
-                type="submit"
-                className="w-full h-14 rounded-2xl text-lg bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:scale-[1.02] transition-all duration-300"
-              >
-                Continue Booking
-              </Button>
+  type="submit"
+  disabled={submitting}
+  className="w-full h-14 rounded-2xl text-lg bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:scale-[1.02] transition-all duration-300"
+>
+  {submitting
+    ? 'Preparing Your Booking...'
+    : 'Continue Booking'}
+</Button>
             </form>
           </Card>
         </div>
