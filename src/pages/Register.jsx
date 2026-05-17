@@ -1,4 +1,4 @@
-```jsx
+
 import React, { useState } from 'react';
 
 import {
@@ -378,4 +378,4 @@ const Register = () => {
 };
 
 export default Register;
-```
+
