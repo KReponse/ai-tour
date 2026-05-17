@@ -65,10 +65,9 @@ function App() {
         />
 
         <Route
-  path="/signup"
+  path="/register"
   element={<Register />}
 />
-
         <Route
           path="/login"
           element={<Login />}
