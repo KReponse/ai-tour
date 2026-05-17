@@ -1,5 +1,3 @@
-// src/contexts/ThemeContext.jsx
-
 import {
   createContext,
   useContext,
@@ -14,75 +12,51 @@ export const ThemeProvider = ({
   children,
 }) => {
 
+  // GET SAVED THEME
   const [darkMode, setDarkMode] =
-    useState(false);
+    useState(() => {
 
-  // LOAD THEME
+      const savedTheme =
+        localStorage.getItem(
+          'theme'
+        );
+
+      return savedTheme === 'dark';
+    });
+
+  // APPLY THEME
   useEffect(() => {
 
-    const savedTheme =
-      localStorage.getItem(
-        'theme'
-      );
-
-    if (savedTheme === 'dark') {
-
-      setDarkMode(true);
+    if (darkMode) {
 
       document.documentElement.classList.add(
         'dark'
       );
 
-    } else {
+      localStorage.setItem(
+        'theme',
+        'dark'
+      );
 
-      setDarkMode(false);
+    } else {
 
       document.documentElement.classList.remove(
         'dark'
       );
+
+      localStorage.setItem(
+        'theme',
+        'light'
+      );
     }
 
-  }, []);
-
-  // TOGGLE THEME
-  const toggleTheme = () => {
-
-    setDarkMode((prev) => {
-
-      const newTheme = !prev;
-
-      if (newTheme) {
-
-        document.documentElement.classList.add(
-          'dark'
-        );
-
-        localStorage.setItem(
-          'theme',
-          'dark'
-        );
-
-      } else {
-
-        document.documentElement.classList.remove(
-          'dark'
-        );
-
-        localStorage.setItem(
-          'theme',
-          'light'
-        );
-      }
-
-      return newTheme;
-    });
-  };
+  }, [darkMode]);
 
   return (
     <ThemeContext.Provider
       value={{
         darkMode,
-        toggleTheme,
+        setDarkMode,
       }}
     >
       {children}
