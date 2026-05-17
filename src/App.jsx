@@ -27,12 +27,13 @@ import TripResults from './pages/TripResults';
 import RequestTrip from './pages/RequestTrip';
 import Payment from './pages/Payment';
 import EditProfile from './pages/EditProfile';
-import SignUp from './pages/SignUp';
+
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CustomRequest from './pages/CustomRequest';
 import AIChat from './pages/AIChat';
+import Register from './pages/Register';
 
 
 function App() {
@@ -64,9 +65,9 @@ function App() {
         />
 
         <Route
-          path="/signup"
-          element={<SignUp />}
-        />
+  path="/signup"
+  element={<Register />}
+/>
 
         <Route
           path="/login"
