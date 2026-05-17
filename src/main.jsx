@@ -7,6 +7,10 @@ import './index.css';
 
 import { ThemeProvider } from './contexts/ThemeContext';
 import { BookingProvider } from './contexts/BookingContext';
+import {  AuthProvider  } from './contexts/AuthContext';
+
+
+ 
 
 ReactDOM.createRoot(
   document.getElementById('root')
@@ -16,9 +20,13 @@ ReactDOM.createRoot(
 
       <ThemeProvider>
 
+        <AuthProvider>
+
         <BookingProvider>
           <App />
         </BookingProvider>
+
+        </AuthProvider>
 
       </ThemeProvider>
 

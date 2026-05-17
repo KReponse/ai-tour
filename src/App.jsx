@@ -1,7 +1,19 @@
 // src/App.jsx
+
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+import {
+  Routes,
+  Route,
+} from 'react-router-dom';
+
 import Layout from './components/layout/Layout';
+
+import ProtectedRoute from './components/ProtectedRoute';
+
+import FloatingAIButton from './components/FloatingAIButton';
+
+// PAGES
 import Home from './pages/Home';
 import Explore from './pages/Explore';
 import AIPlanner from './pages/AIPlanner';
@@ -21,36 +33,158 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CustomRequest from './pages/CustomRequest';
 import AIChat from './pages/AIChat';
-import FloatingAIButton from './components/FloatingAIButton';
-
-
-
 
 function App() {
   return (
     <Layout>
+
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/explore" element={<Explore />} />
-        <Route path="/ai-planner" element={<AIPlanner />} />
-        <Route path="/booking/:id"  element={<Booking />} />
-        <Route path="/trips" element={<Trips />} />
-        <Route path="/reviews" element={<Reviews />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/destination/:id" element={<DestinationDetails />} />
-        <Route path="/trip-results" element={<TripResults />} />
-        <Route path="/request-trip" element={<RequestTrip />} />
-        <Route path="/payment" element={<Payment />} />
-        <Route path="/edit-profile" element={<EditProfile />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/custom-request" element={<CustomRequest />} />
-        <Route path="/ai-chat" element={<AIChat />} />
+
+        {/* PUBLIC ROUTES */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
+        <Route
+          path="/explore"
+          element={<Explore />}
+        />
+
+        <Route
+          path="/destination/:id"
+          element={<DestinationDetails />}
+        />
+
+        <Route
+          path="/reviews"
+          element={<Reviews />}
+        />
+
+        <Route
+          path="/signup"
+          element={<SignUp />}
+        />
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
+
+        {/* PROTECTED ROUTES */}
+
+        <Route
+          path="/ai-planner"
+          element={
+            <ProtectedRoute>
+              <AIPlanner />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/booking/:id"
+          element={
+            <ProtectedRoute>
+              <Booking />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trips"
+          element={
+            <ProtectedRoute>
+              <Trips />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trip-results"
+          element={
+            <ProtectedRoute>
+              <TripResults />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/request-trip"
+          element={
+            <ProtectedRoute>
+              <RequestTrip />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payment"
+          element={
+            <ProtectedRoute>
+              <Payment />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/edit-profile"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/custom-request"
+          element={
+            <ProtectedRoute>
+              <CustomRequest />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/ai-chat"
+          element={
+            <ProtectedRoute>
+              <AIChat />
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
+
       <FloatingAIButton />
 
     </Layout>

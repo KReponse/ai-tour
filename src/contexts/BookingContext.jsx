@@ -1,149 +1,97 @@
-// src/context/BookingContext.jsx
+// src/contexts/BookingContext.jsx
 
-import React, {
+import {
   createContext,
   useContext,
-  useState,
   useEffect,
+  useState,
 } from 'react';
 
-// Create Context
-const BookingContext = createContext();
+const BookingContext =
+  createContext();
 
-// Provider
 export const BookingProvider = ({
   children,
 }) => {
 
-  // Initial State
-  const [bookingData, setBookingData] =
-    useState(() => {
+  const [bookings, setBookings] =
+    useState([]);
 
-      // Load from localStorage
-      const savedBooking =
-        localStorage.getItem(
-          'ai-tour-booking'
-        );
-
-      return savedBooking
-        ? JSON.parse(savedBooking)
-        : {
-            destination: null,
-            bookingType: 'flight',
-
-            formData: {
-              from: '',
-              to: '',
-              departDate: '',
-              returnDate: '',
-              travelers: 1,
-              class: 'economy',
-            },
-
-            total: 0,
-
-            paymentMethod: '',
-
-            paymentData: {
-              names: '',
-              phone: '',
-              cardNumber: '',
-              expiry: '',
-              cvv: '',
-            },
-          };
-    });
-
-  // Save to localStorage
+  /**
+   * LOAD BOOKINGS
+   */
   useEffect(() => {
+
+    const savedBookings =
+      localStorage.getItem(
+        'bookings'
+      );
+
+    if (savedBookings) {
+
+      setBookings(
+        JSON.parse(savedBookings)
+      );
+    }
+
+  }, []);
+
+  /**
+   * SAVE BOOKINGS
+   */
+  useEffect(() => {
+
     localStorage.setItem(
-      'ai-tour-booking',
-      JSON.stringify(bookingData)
+      'bookings',
+      JSON.stringify(bookings)
     );
-  }, [bookingData]);
 
-  // Update Entire Booking
-  const updateBooking = (data) => {
-    setBookingData((prev) => ({
+  }, [bookings]);
+
+  /**
+   * ADD BOOKING
+   */
+  const addBooking = (
+    bookingData
+  ) => {
+
+    setBookings((prev) => [
       ...prev,
-      ...data,
-    }));
+      {
+        id: Date.now(),
+        ...bookingData,
+      },
+    ]);
   };
 
-  // Update Form Data
-  const updateFormData = (data) => {
-    setBookingData((prev) => ({
-      ...prev,
+  /**
+   * REMOVE BOOKING
+   */
+  const removeBooking = (id) => {
 
-      formData: {
-        ...prev.formData,
-        ...data,
-      },
-    }));
-  };
-
-  // Update Payment Data
-  const updatePaymentData = (data) => {
-    setBookingData((prev) => ({
-      ...prev,
-
-      paymentData: {
-        ...prev.paymentData,
-        ...data,
-      },
-    }));
-  };
-
-  // Reset Booking
-  const resetBooking = () => {
-
-    const emptyBooking = {
-      destination: null,
-      bookingType: 'flight',
-
-      formData: {
-        from: '',
-        to: '',
-        departDate: '',
-        returnDate: '',
-        travelers: 1,
-        class: 'economy',
-      },
-
-      total: 0,
-
-      paymentMethod: '',
-
-      paymentData: {
-        names: '',
-        phone: '',
-        cardNumber: '',
-        expiry: '',
-        cvv: '',
-      },
-    };
-
-    setBookingData(emptyBooking);
-
-    localStorage.removeItem(
-      'ai-tour-booking'
+    setBookings((prev) =>
+      prev.filter(
+        (booking) =>
+          booking.id !== id
+      )
     );
+  };
+
+  /**
+   * CLEAR BOOKINGS
+   */
+  const clearBookings = () => {
+
+    setBookings([]);
   };
 
   return (
     <BookingContext.Provider
       value={{
-        bookingData,
-
-        setBookingData,
-
-        updateBooking,
-
-        updateFormData,
-
-        updatePaymentData,
-
-        resetBooking,
+        bookings,
+        addBooking,
+        removeBooking,
+        clearBookings,
       }}
     >
       {children}
@@ -151,7 +99,5 @@ export const BookingProvider = ({
   );
 };
 
-// Custom Hook
-export const useBooking = () => {
-  return useContext(BookingContext);
-};
+export const useBooking = () =>
+  useContext(BookingContext);
