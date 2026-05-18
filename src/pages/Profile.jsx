@@ -4,21 +4,10 @@ import { Link } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Calendar, Award, Settings, LogOut, Edit2 } from 'lucide-react';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 const Profile = () => {
-  const user = {
-    name: 'Alex Johnson',
-    email: 'alex@example.com',
-    phone: '+1 234 567 8900',
-    location: 'New York, USA',
-    memberSince: '2024',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-    stats: {
-      trips: 12,
-      reviews: 8,
-      photos: 24
-    }
-  };
+const { user, logout } = useAuth();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -29,8 +18,12 @@ const Profile = () => {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <img
-                src={user.avatar}
-                alt={user.name}
+                src={
+  user?.avatar ||
+  'https://ui-avatars.com/api/?name=' +
+    user?.fullName
+}
+                alt={user?.fullName}
                 className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-white dark:border-gray-800"
               />
               <button className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full text-white hover:bg-blue-700 transition">
@@ -43,15 +36,15 @@ const Profile = () => {
               <div className="flex flex-wrap justify-center md:justify-start gap-4 text-gray-600 dark:text-gray-300">
                 <div className="flex items-center">
                   <Mail className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user.email}</span>
+                  <span className="text-sm">{user?.email}</span>
                 </div>
                 <div className="flex items-center">
                   <Phone className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user.phone}</span>
+                  <span className="text-sm">{user?.phone}</span>
                 </div>
                 <div className="flex items-center">
                   <MapPin className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user.location}</span>
+                  <span className="text-sm">{user?.country}</span>
                 </div>
               </div>
             </div>
@@ -69,15 +62,15 @@ const Profile = () => {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user.stats.trips}</div>
+          <div className="text-2xl font-bold text-blue-600">{user?.stats?.trips || 0}</div>
           <div className="text-sm text-gray-500">Trips</div>
         </div>
         <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user.stats.reviews}</div>
+          <div className="text-2xl font-bold text-blue-600">{user?.stats?.reviews || 0}</div>
           <div className="text-sm text-gray-500">Reviews</div>
         </div>
         <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user.stats.photos}</div>
+          <div className="text-2xl font-bold text-blue-600">{user?.stats?.photos || 0}</div>
           <div className="text-sm text-gray-500">Photos</div>
         </div>
       </div>
@@ -114,12 +107,15 @@ const Profile = () => {
               </span>
             </div>
             
-            <button className="flex items-center justify-between w-full py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 -mx-4 transition text-red-600">
-              <div className="flex items-center">
-                <LogOut className="w-5 h-5 mr-3" />
-                <span>Sign Out</span>
-              </div>
-            </button>
+           <button
+  onClick={logout}
+  className="flex items-center justify-between w-full py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 -mx-4 transition text-red-600"
+>
+  <div className="flex items-center">
+    <LogOut className="w-5 h-5 mr-3" />
+    <span>Sign Out</span>
+  </div>
+</button>
           </CardContent>
         </Card>
       </div>
