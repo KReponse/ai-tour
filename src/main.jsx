@@ -8,6 +8,7 @@ import './index.css';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { BookingProvider } from './contexts/BookingContext';
 import {  AuthProvider  } from './contexts/AuthContext';
+import ScrollToTop from './components/ScrollToTop';
 
 
  
@@ -18,18 +19,18 @@ ReactDOM.createRoot(
   <React.StrictMode>
     <BrowserRouter>
 
-      <ThemeProvider>
+  <ScrollToTop />
 
-        <AuthProvider>
+  <AuthProvider>
+    <ThemeProvider>
+      <BookingProvider>
+        <App />
+      </BookingProvider>
+    </ThemeProvider>
+  </AuthProvider>
 
-        <BookingProvider>
-          <App />
-        </BookingProvider>
+</BrowserRouter>
 
-        </AuthProvider>
-
-      </ThemeProvider>
-
-    </BrowserRouter>
+     
   </React.StrictMode>
 );
