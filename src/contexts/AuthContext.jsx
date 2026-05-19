@@ -5,8 +5,7 @@ import {
   useState,
 } from 'react';
 
-const AuthContext =
-  createContext();
+const AuthContext = createContext();
 
 export const AuthProvider = ({
   children,
@@ -21,40 +20,32 @@ export const AuthProvider = ({
   const [loading, setLoading] =
     useState(true);
 
-  /**
-   * LOAD USER FROM LOCAL STORAGE
-   */
+  // LOAD USER FROM LOCAL STORAGE
   useEffect(() => {
 
-    const savedToken =
-      localStorage.getItem(
-        'token'
-      );
-
     const savedUser =
-      localStorage.getItem(
-        'user'
-      );
+      localStorage.getItem('user');
+
+    const savedToken =
+      localStorage.getItem('token');
 
     if (
-      savedToken &&
-      savedUser
+      savedUser &&
+      savedToken
     ) {
-
-      setToken(savedToken);
 
       setUser(
         JSON.parse(savedUser)
       );
+
+      setToken(savedToken);
     }
 
     setLoading(false);
 
   }, []);
 
-  /**
-   * LOGIN FUNCTION
-   */
+  // LOGIN
   const login = (
     userData,
     userToken
@@ -65,19 +56,17 @@ export const AuthProvider = ({
     setToken(userToken);
 
     localStorage.setItem(
-      'token',
-      userToken
-    );
-
-    localStorage.setItem(
       'user',
       JSON.stringify(userData)
     );
+
+    localStorage.setItem(
+      'token',
+      userToken
+    );
   };
 
-  /**
-   * LOGOUT FUNCTION
-   */
+  // LOGOUT
   const logout = () => {
 
     setUser(null);
@@ -85,15 +74,16 @@ export const AuthProvider = ({
     setToken(null);
 
     localStorage.removeItem(
-      'token'
+      'user'
     );
 
     localStorage.removeItem(
-      'user'
+      'token'
     );
   };
 
   return (
+
     <AuthContext.Provider
       value={{
         user,
@@ -101,17 +91,14 @@ export const AuthProvider = ({
         loading,
         login,
         logout,
-        isAuthenticated:
-          !!token,
       }}
     >
+
       {children}
+
     </AuthContext.Provider>
   );
 };
 
-/**
- * CUSTOM HOOK
- */
 export const useAuth = () =>
   useContext(AuthContext);

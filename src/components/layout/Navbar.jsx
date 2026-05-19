@@ -1,4 +1,9 @@
-import { useState } from 'react';
+
+import {
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
 
 import {
   Menu,
@@ -23,6 +28,7 @@ import {
 import {
   Link,
   useNavigate,
+  useLocation,
 } from 'react-router-dom';
 
 import { useTheme } from '../../contexts/ThemeContext';
@@ -46,13 +52,80 @@ const Navbar = () => {
   const [language, setLanguage] =
     useState('EN');
 
-  const navigate = useNavigate();
+  const notificationRef =
+    useRef();
 
-  const { darkMode, setDarkMode } =
-    useTheme();
+  const userMenuRef =
+    useRef();
 
-  const { user, logout } =
-    useAuth();
+  const location =
+    useLocation();
+
+  const navigate =
+    useNavigate();
+
+  const {
+    darkMode,
+    setDarkMode,
+  } = useTheme();
+
+  const {
+    user,
+    logout,
+  } = useAuth();
+
+  // CLOSE DROPDOWNS
+  useEffect(() => {
+
+    const handleClickOutside = (
+      e
+    ) => {
+
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(
+          e.target
+        )
+      ) {
+        setNotificationOpen(
+          false
+        );
+      }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(
+          e.target
+        )
+      ) {
+        setUserMenu(false);
+      }
+    };
+
+    document.addEventListener(
+      'mousedown',
+      handleClickOutside
+    );
+
+    return () =>
+      document.removeEventListener(
+        'mousedown',
+        handleClickOutside
+      );
+
+  }, []);
+
+  // CLOSE MOBILE MENU ON PAGE CHANGE
+  useEffect(() => {
+
+    setMenuOpen(false);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+
+  }, [location]);
 
   const navLinks = [
     {
@@ -78,13 +151,15 @@ const Navbar = () => {
   ];
 
   const handleLogout = () => {
+
     logout();
 
-    navigate('/register');
+    navigate('/login');
   };
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-950/70 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+
+    <nav className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-950/80 border-b border-gray-200 dark:border-gray-800 shadow-sm">
 
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
 
@@ -103,6 +178,7 @@ const Navbar = () => {
             />
 
             <div>
+
               <h1 className="text-xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 AI Tour
               </h1>
@@ -110,23 +186,31 @@ const Navbar = () => {
               <p className="text-[10px] text-gray-500 dark:text-gray-400 -mt-1">
                 Rwanda Smart Travel
               </p>
+
             </div>
           </Link>
 
           {/* DESKTOP NAV */}
           <div className="hidden lg:flex items-center gap-8">
 
-            {navLinks.map((link, index) => (
+            {navLinks.map(
+              (link, index) => (
 
-              <Link
-                key={index}
-                to={link.path}
-                className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition font-medium"
-              >
-                {link.name}
-              </Link>
+                <Link
+                  key={index}
+                  to={link.path}
+                  className={`font-medium transition ${
+                    location.pathname ===
+                    link.path
+                      ? 'text-blue-600'
+                      : 'text-gray-700 dark:text-gray-200 hover:text-blue-600'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              )
+            )}
 
-            ))}
           </div>
 
           {/* RIGHT SIDE */}
@@ -185,10 +269,14 @@ const Navbar = () => {
                 </option>
 
               </select>
+
             </div>
 
-            {/* NOTIFICATION */}
-            <div className="relative">
+            {/* NOTIFICATIONS */}
+            <div
+              className="relative"
+              ref={notificationRef}
+            >
 
               <button
                 onClick={() =>
@@ -222,7 +310,7 @@ const Navbar = () => {
                       opacity: 0,
                       y: -10,
                     }}
-                    className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+                    className="absolute right-0 mt-3 w-[320px] max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
                   >
 
                     <div className="p-4 border-b dark:border-gray-800">
@@ -230,15 +318,17 @@ const Navbar = () => {
                       <h3 className="font-bold dark:text-white">
                         Notifications
                       </h3>
+
                     </div>
 
-                    <div className="p-4 space-y-3">
+                    <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
 
                       <div className="p-3 rounded-xl bg-gray-100 dark:bg-gray-800">
 
                         <p className="text-sm dark:text-white">
                           Welcome to AI Tour Rwanda 🎉
                         </p>
+
                       </div>
 
                       <div className="p-3 rounded-xl bg-gray-100 dark:bg-gray-800">
@@ -246,19 +336,25 @@ const Navbar = () => {
                         <p className="text-sm dark:text-white">
                           Your AI planner is ready.
                         </p>
+
                       </div>
+
                     </div>
+
                   </motion.div>
 
                 )}
 
               </AnimatePresence>
+
             </div>
 
-            {/* THEME TOGGLE */}
+            {/* THEME */}
             <button
               onClick={() =>
-                setDarkMode(!darkMode)
+                setDarkMode(
+                  !darkMode
+                )
               }
               className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
             >
@@ -274,7 +370,10 @@ const Navbar = () => {
             {/* USER */}
             {user ? (
 
-              <div className="relative">
+              <div
+                className="relative"
+                ref={userMenuRef}
+              >
 
                 <button
                   onClick={() =>
@@ -329,6 +428,7 @@ const Navbar = () => {
                         <p className="text-sm text-gray-500">
                           {user?.email}
                         </p>
+
                       </div>
 
                       <div className="p-2">
@@ -367,12 +467,15 @@ const Navbar = () => {
                           Logout
 
                         </button>
+
                       </div>
+
                     </motion.div>
 
                   )}
 
                 </AnimatePresence>
+
               </div>
 
             ) : (
@@ -392,14 +495,17 @@ const Navbar = () => {
                 >
                   Register
                 </Link>
+
               </div>
 
             )}
 
-            {/* MOBILE BUTTON */}
+            {/* MOBILE MENU BUTTON */}
             <button
               onClick={() =>
-                setMenuOpen(!menuOpen)
+                setMenuOpen(
+                  !menuOpen
+                )
               }
               className="lg:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
             >
@@ -434,27 +540,36 @@ const Navbar = () => {
               opacity: 0,
               y: -20,
             }}
-            className="lg:hidden bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 shadow-xl"
+            className="lg:hidden bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 shadow-xl max-h-[85vh] overflow-y-auto"
           >
 
             <div className="flex flex-col p-5 gap-4">
 
-              {navLinks.map((link, index) => (
+              {navLinks.map(
+                (link, index) => (
 
-                <Link
-                  key={index}
-                  to={link.path}
-                  onClick={() =>
-                    setMenuOpen(false)
-                  }
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 transition font-medium"
-                >
-                  {link.name}
-                </Link>
+                  <Link
+                    key={index}
+                    to={link.path}
+                    className="text-gray-700 dark:text-gray-200 hover:text-blue-600 transition font-medium"
+                  >
+                    {link.name}
+                  </Link>
+                )
+              )}
 
-              ))}
+              <Link
+                to="/ai-chat"
+                className="flex items-center justify-center gap-2 w-full h-12 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold"
+              >
 
-              {!user && (
+                <Bot size={18} />
+
+                AI Assistant
+
+              </Link>
+
+              {!user ? (
 
                 <div className="flex flex-col gap-3 pt-4">
 
@@ -471,17 +586,33 @@ const Navbar = () => {
                   >
                     Create Account
                   </Link>
+
                 </div>
 
+              ) : (
+
+                <button
+                  onClick={
+                    handleLogout
+                  }
+                  className="w-full h-12 rounded-2xl bg-red-500 text-white font-semibold"
+                >
+                  Logout
+                </button>
+
               )}
+
             </div>
+
           </motion.div>
 
         )}
 
       </AnimatePresence>
+
     </nav>
   );
 };
 
 export default Navbar;
+

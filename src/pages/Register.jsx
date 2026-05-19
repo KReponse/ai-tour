@@ -20,9 +20,11 @@ import {
 } from 'react-router-dom';
 
 import { registerUser } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -61,20 +63,14 @@ const Register = () => {
 
       console.log(data);
 
-      // SAVE TOKEN
-      localStorage.setItem(
-        'token',
-        data.token
-      );
+     // LOGIN USER GLOBALLY
+login(
+  data.user,
+  data.token
+);
 
-      // SAVE USER
-      localStorage.setItem(
-        'user',
-        JSON.stringify(data.user)
-      );
-
-      // REDIRECT
-      navigate('/');
+// REDIRECT
+navigate('/');
 
     } catch (error) {
       console.log(error);
