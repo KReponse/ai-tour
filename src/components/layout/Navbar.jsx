@@ -310,7 +310,7 @@ const Navbar = () => {
                       opacity: 0,
                       y: -10,
                     }}
-                    className="absolute right-0 mt-3 w-[320px] max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+                    className="absolute -right-3/4 mt-3 w-[320px] max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
                   >
 
                     <div className="p-4 border-b dark:border-gray-800">
