@@ -315,10 +315,10 @@ const Navbar = () => {
 absolute
 right-0
 sm:right-0
-left-1/2
+-left-1/4
 sm:left-auto
--translate-x-1/2
-sm:translate-x-0
+-translate-x-1/4
+sm:-translate-x-1/4
 mt-3
 w-[95vw]
 max-w-sm
