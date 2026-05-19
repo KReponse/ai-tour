@@ -387,7 +387,7 @@ const Navbar = () => {
                 </Link>
 
                 <Link
-                  to="/signup"
+                  to="/register"
                   className="px-5 h-10 flex items-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:scale-105 transition"
                 >
                   Register
