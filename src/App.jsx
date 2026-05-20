@@ -41,6 +41,14 @@ import Requests from './pages/provider/Requests';
 
 import DashboardLayout from './layouts/DashboardLayout';
 
+import Bookings from './pages/provider/Bookings';
+
+import Travelers from './pages/provider/Travelers';
+
+import Analytics from './pages/provider/Analytics';
+
+
+
 function App() {
   return (
     <>
@@ -200,27 +208,43 @@ function App() {
 
         {/* PROVIDER DASHBOARD */}
         <Route
-          path="/provider"
-          element={
-            <RoleProtectedRoute
-              allowedRoles={['provider']}
-            >
-              <DashboardLayout />
-            </RoleProtectedRoute>
-          }
-        >
+  path="/provider"
+  element={
+    <RoleProtectedRoute
+      allowedRoles={['provider']}
+    >
+      <DashboardLayout />
+    </RoleProtectedRoute>
+  }
+>
 
-          <Route
-            path="dashboard"
-            element={<ProviderDashboard />}
-          />
+  <Route
+    path="dashboard"
+    element={<ProviderDashboard />}
+  />
 
-          <Route
-            path="requests"
-            element={<Requests />}
-          />
+  <Route
+    path="requests"
+    element={<Requests />}
+  />
 
-        </Route>
+  <Route
+    path="bookings"
+    element={<Bookings />}
+  />
+
+  <Route
+    path="travelers"
+    element={<Travelers />}
+  />
+
+  <Route
+  path="analytics"
+  element={<Analytics />}
+/>
+
+</Route>
+
 
         {/* ADMIN */}
         <Route

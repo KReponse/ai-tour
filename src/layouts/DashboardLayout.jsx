@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, {
+  useState,
+} from 'react';
 
 import { Outlet } from 'react-router-dom';
 
@@ -10,8 +12,9 @@ const DashboardLayout = () => {
     useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
 
+      {/* SIDEBAR */}
       <ProviderSidebar
         collapsed={collapsed}
         onToggle={() =>
@@ -19,20 +22,26 @@ const DashboardLayout = () => {
         }
       />
 
+      {/* MAIN CONTENT */}
       <main
         className={`
           transition-all
           duration-300
-          pt-24
-          px-6
-          pb-10
-          ${collapsed ? 'ml-20' : 'ml-72'}
+          pt-20
+          p-6
+          ${
+            collapsed
+              ? 'ml-20'
+              : 'ml-72'
+          }
         `}
       >
 
+        {/* IMPORTANT */}
         <Outlet />
 
       </main>
+
     </div>
   );
 };
