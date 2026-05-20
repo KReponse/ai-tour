@@ -173,7 +173,7 @@ const Navbar = () => {
                     exit={{ opacity: 0, y: -10 }}
                     className="
                       absolute
-                      right-0
+                      right-1/4
                       mt-3
                       w-[calc(100vw-2rem)]
                       sm:w-80
