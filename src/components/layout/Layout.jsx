@@ -1,14 +1,18 @@
+// src/components/layout/Layout.jsx
+
 import React, {
   useState,
   useEffect,
 } from 'react';
+
+import { Outlet } from 'react-router-dom';
 
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import Footer from './Footer';
 
-const Layout = ({ children }) => {
+const Layout = () => {
 
   const [isMobile, setIsMobile] =
     useState(
@@ -71,15 +75,27 @@ const Layout = ({ children }) => {
 
         {/* MAIN CONTENT */}
         <main
-          className={`flex-1 transition-all duration-300 min-h-screen ${
-            !isMobile &&
-            !sidebarCollapsed
-              ? 'ml-64'
-              : 'ml-0'
-          } p-4 md:p-6 pb-20 md:pb-6`}
+          className={`
+            flex-1
+            transition-all
+            duration-300
+            min-h-screen
+            ${
+              !isMobile
+                ? sidebarCollapsed
+                  ? 'ml-20'
+                  : 'ml-64'
+                : 'ml-0'
+            }
+            p-4
+            md:p-6
+            pb-20
+            md:pb-6
+          `}
         >
 
-          {children}
+          {/* PAGE CONTENT */}
+          <Outlet />
 
           {/* FOOTER */}
           <Footer />
@@ -87,7 +103,7 @@ const Layout = ({ children }) => {
         </main>
       </div>
 
-      {/* MOBILE BOTTOM NAV */}
+      {/* MOBILE NAV */}
       {isMobile && <BottomNav />}
 
     </div>

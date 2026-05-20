@@ -1,10 +1,7 @@
-// src/App.jsx
-
-import React from 'react';
-
 import {
   Routes,
   Route,
+  Outlet,
 } from 'react-router-dom';
 
 import Layout from './components/layout/Layout';
@@ -13,7 +10,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import FloatingAIButton from './components/FloatingAIButton';
 
-// PAGES
 import Home from './pages/Home';
 import Explore from './pages/Explore';
 import AIPlanner from './pages/AIPlanner';
@@ -34,187 +30,214 @@ import ResetPassword from './pages/ResetPassword';
 import CustomRequest from './pages/CustomRequest';
 import AIChat from './pages/AIChat';
 import Register from './pages/Register';
-import RoleProtectedRoute from './components/RoleProtectedRoute';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ProviderDashboard from './pages/provider/ProviderDashboard';
 
+import RoleProtectedRoute from './components/RoleProtectedRoute';
+
+import AdminDashboard from './pages/admin/AdminDashboard';
+
+import ProviderDashboard from './pages/provider/Dashboard';
+
+import Requests from './pages/provider/Requests';
+
+import DashboardLayout from './layouts/DashboardLayout';
 
 function App() {
   return (
-    <Layout>
-
+    <>
       <Routes>
 
-        {/* PUBLIC ROUTES */}
-
+        {/* USER WEBSITE */}
         <Route
-          path="/"
-          element={<Home />}
-        />
-
-        <Route
-          path="/explore"
-          element={<Explore />}
-        />
-
-        <Route
-          path="/destination/:id"
-          element={<DestinationDetails />}
-        />
-
-        <Route
-          path="/reviews"
-          element={<Reviews />}
-        />
-
-        <Route
-  path="/register"
-  element={<Register />}
-/>
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/forgot-password"
-          element={<ForgotPassword />}
-        />
-
-        <Route
-          path="/reset-password"
-          element={<ResetPassword />}
-        />
-
-        {/* PROTECTED ROUTES */}
-
-        <Route
-          path="/ai-planner"
           element={
-            <ProtectedRoute>
-              <AIPlanner />
-            </ProtectedRoute>
+            <Layout>
+              <Outlet />
+            </Layout>
+          }
+        >
+
+          {/* PUBLIC ROUTES */}
+          <Route
+            path="/"
+            element={<Home />}
+          />
+
+          <Route
+            path="/explore"
+            element={<Explore />}
+          />
+
+          <Route
+            path="/destination/:id"
+            element={<DestinationDetails />}
+          />
+
+          <Route
+            path="/reviews"
+            element={<Reviews />}
+          />
+
+          <Route
+            path="/register"
+            element={<Register />}
+          />
+
+          <Route
+            path="/login"
+            element={<Login />}
+          />
+
+          <Route
+            path="/forgot-password"
+            element={<ForgotPassword />}
+          />
+
+          <Route
+            path="/reset-password"
+            element={<ResetPassword />}
+          />
+
+          {/* PROTECTED ROUTES */}
+          <Route
+            path="/ai-planner"
+            element={
+              <ProtectedRoute>
+                <AIPlanner />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/booking/:id"
+            element={
+              <ProtectedRoute>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/trips"
+            element={
+              <ProtectedRoute>
+                <Trips />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/trip-results"
+            element={
+              <ProtectedRoute>
+                <TripResults />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/request-trip"
+            element={
+              <ProtectedRoute>
+                <RequestTrip />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/payment"
+            element={
+              <ProtectedRoute>
+                <Payment />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/edit-profile"
+            element={
+              <ProtectedRoute>
+                <EditProfile />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/custom-request"
+            element={
+              <ProtectedRoute>
+                <CustomRequest />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/ai-chat"
+            element={
+              <ProtectedRoute>
+                <AIChat />
+              </ProtectedRoute>
+            }
+          />
+
+        </Route>
+
+        {/* PROVIDER DASHBOARD */}
+        <Route
+          path="/provider"
+          element={
+            <RoleProtectedRoute
+              allowedRoles={['provider']}
+            >
+              <DashboardLayout />
+            </RoleProtectedRoute>
+          }
+        >
+
+          <Route
+            path="dashboard"
+            element={<ProviderDashboard />}
+          />
+
+          <Route
+            path="requests"
+            element={<Requests />}
+          />
+
+        </Route>
+
+        {/* ADMIN */}
+        <Route
+          path="/admin"
+          element={
+            <RoleProtectedRoute
+              allowedRoles={['admin']}
+            >
+              <AdminDashboard />
+            </RoleProtectedRoute>
           }
         />
-
-        <Route
-          path="/booking/:id"
-          element={
-            <ProtectedRoute>
-              <Booking />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/trips"
-          element={
-            <ProtectedRoute>
-              <Trips />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/notifications"
-          element={
-            <ProtectedRoute>
-              <Notifications />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/trip-results"
-          element={
-            <ProtectedRoute>
-              <TripResults />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/request-trip"
-          element={
-            <ProtectedRoute>
-              <RequestTrip />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/payment"
-          element={
-            <ProtectedRoute>
-              <Payment />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/edit-profile"
-          element={
-            <ProtectedRoute>
-              <EditProfile />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/custom-request"
-          element={
-            <ProtectedRoute>
-              <CustomRequest />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/ai-chat"
-          element={
-            <ProtectedRoute>
-              <AIChat />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-  path="/admin"
-  element={
-    <RoleProtectedRoute
-      allowedRoles={['admin']}
-    >
-      <AdminDashboard />
-    </RoleProtectedRoute>
-  }
-/>
-<Route
-  path="/provider"
-  element={
-    <RoleProtectedRoute
-      allowedRoles={[
-        'provider',
-      ]}
-    >
-      <ProviderDashboard />
-    </RoleProtectedRoute>
-  }
-/>
 
       </Routes>
 
       <FloatingAIButton />
-
-    </Layout>
+    </>
   );
 }
 
