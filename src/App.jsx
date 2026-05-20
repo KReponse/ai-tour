@@ -34,6 +34,9 @@ import ResetPassword from './pages/ResetPassword';
 import CustomRequest from './pages/CustomRequest';
 import AIChat from './pages/AIChat';
 import Register from './pages/Register';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ProviderDashboard from './pages/provider/ProviderDashboard';
 
 
 function App() {
@@ -183,6 +186,29 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/admin"
+  element={
+    <RoleProtectedRoute
+      allowedRoles={['admin']}
+    >
+      <AdminDashboard />
+    </RoleProtectedRoute>
+  }
+/>
+<Route
+  path="/provider"
+  element={
+    <RoleProtectedRoute
+      allowedRoles={[
+        'provider',
+      ]}
+    >
+      <ProviderDashboard />
+    </RoleProtectedRoute>
+  }
+/>
 
       </Routes>
 

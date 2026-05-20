@@ -63,14 +63,28 @@ const Register = () => {
 
       console.log(data);
 
-     // LOGIN USER GLOBALLY
+    // LOGIN USER GLOBALLY
 login(
   data.user,
   data.token
 );
 
-// REDIRECT
-navigate('/');
+// ROLE-BASED REDIRECT
+if (data.user.role === 'admin') {
+
+  navigate('/admin');
+
+} else if (
+  data.user.role === 'provider'
+) {
+
+  navigate('/provider');
+
+} else {
+
+  navigate('/');
+
+}
 
     } catch (error) {
       console.log(error);
