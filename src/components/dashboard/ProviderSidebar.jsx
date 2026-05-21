@@ -20,6 +20,8 @@ import { NavLink } from 'react-router-dom';
 
 import clsx from 'clsx';
 
+import { PlusCircle } from 'lucide-react';
+
 const ProviderSidebar = ({
   collapsed,
   onToggle,
@@ -71,6 +73,11 @@ const ProviderSidebar = ({
       path: '/provider/settings',
       icon: Settings,
     },
+    {
+  name: 'Add Tour',
+  path: '/provider/add-tour',
+  icon: PlusCircle,
+},
   ];
 
   return (

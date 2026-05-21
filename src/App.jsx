@@ -47,7 +47,13 @@ import Travelers from './pages/provider/Travelers';
 
 import Analytics from './pages/provider/Analytics';
 
+import Earnings from './pages/provider/Earnings';
 
+import ProviderProfile from './pages/provider/Profile';
+
+import Settings from './pages/provider/Settings';
+
+import AddTour from './pages/provider/AddTour';
 
 function App() {
   return (
@@ -241,6 +247,31 @@ function App() {
   <Route
   path="analytics"
   element={<Analytics />}
+/>
+
+<Route
+  path="earnings"
+  element={<Earnings />}
+/>
+
+<Route
+  path="reviews"
+  element={<Reviews />}
+/>
+
+<Route
+  path="profile"
+  element={<ProviderProfile />}
+/>
+
+<Route
+  path="settings"
+  element={<Settings />}
+/>
+
+<Route
+  path="add-tour"
+  element={<AddTour />}
 />
 
 </Route>
