@@ -1,3 +1,5 @@
+// src/pages/provider/Dashboard.jsx
+
 import {
   Users,
   CalendarCheck,
@@ -7,18 +9,100 @@ import {
 } from 'lucide-react';
 
 import {
-  providerStats,
-  recentRequests,
-} from '../../data/providerData';
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  getProviderStats,
+  getRecentRequests,
+} from '../../services/providerService';
 
 const Dashboard = () => {
 
+  const [providerStats, setProviderStats] =
+    useState([]);
+
+  const [recentRequests, setRecentRequests] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  // FETCH DATA
+  useEffect(() => {
+
+    const fetchData = async () => {
+
+      try {
+
+        const stats =
+          await getProviderStats();
+
+        const requests =
+          await getRecentRequests();
+
+        setProviderStats(stats);
+
+        setRecentRequests(requests);
+
+      } catch (error) {
+
+        console.error(
+          'Dashboard Error:',
+          error
+        );
+
+      } finally {
+
+        setLoading(false);
+
+      }
+    };
+
+    fetchData();
+
+  }, []);
+
+  // ICON MAP
   const iconMap = {
     'Total Bookings': CalendarCheck,
     'Pending Requests': Clock3,
     Travelers: Users,
     Revenue: Wallet,
   };
+
+  // CARD COLORS
+  const colors = [
+    'from-blue-500 to-cyan-500',
+    'from-yellow-500 to-orange-500',
+    'from-purple-500 to-pink-500',
+    'from-green-500 to-emerald-500',
+  ];
+
+  // LOADING
+  if (loading) {
+
+    return (
+
+      <div className="flex items-center justify-center h-[70vh]">
+
+        <div
+          className="
+            w-14
+            h-14
+            border-4
+            border-blue-500
+            border-t-transparent
+            rounded-full
+            animate-spin
+          "
+        />
+
+      </div>
+
+    );
+  }
 
   return (
 
@@ -67,13 +151,6 @@ const Dashboard = () => {
           const Icon =
             iconMap[item.title];
 
-          const colors = [
-            'from-blue-500 to-cyan-500',
-            'from-yellow-500 to-orange-500',
-            'from-purple-500 to-pink-500',
-            'from-green-500 to-emerald-500',
-          ];
-
           return (
 
             <div
@@ -120,7 +197,9 @@ const Dashboard = () => {
                   `}
                 >
 
-                  <Icon className="w-7 h-7" />
+                  {Icon && (
+                    <Icon className="w-7 h-7" />
+                  )}
 
                 </div>
 
@@ -131,7 +210,7 @@ const Dashboard = () => {
                 <ArrowUpRight className="w-4 h-4" />
 
                 <span>
-                  {item.growth} this month
+                  {item.growth}
                 </span>
 
               </div>
@@ -158,6 +237,7 @@ const Dashboard = () => {
         "
       >
 
+        {/* TOP */}
         <div className="flex items-center justify-between mb-6">
 
           <h2 className="text-2xl font-black text-gray-900 dark:text-white">
@@ -170,6 +250,7 @@ const Dashboard = () => {
 
         </div>
 
+        {/* REQUEST LIST */}
         <div className="space-y-4">
 
           {recentRequests.map((item) => (
@@ -190,6 +271,7 @@ const Dashboard = () => {
               "
             >
 
+              {/* LEFT */}
               <div>
 
                 <h3 className="font-bold text-gray-900 dark:text-white">
@@ -202,6 +284,7 @@ const Dashboard = () => {
 
               </div>
 
+              {/* RIGHT */}
               <div className="flex items-center gap-3">
 
                 <button

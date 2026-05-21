@@ -1,49 +1,23 @@
-import React, {
-  useState,
-} from 'react';
+import React from 'react';
 
-import {
-  recentRequests,
-} from '../../data/providerData';
+import { providerRequests } from '../../data/providerData';
 
 const Requests = () => {
 
-  const [requests, setRequests] =
-    useState(recentRequests);
-
-  const handleStatus = (
-    id,
-    status
-  ) => {
-
-    const updated =
-      requests.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status,
-            }
-          : item
-      );
-
-    setRequests(updated);
-
-  };
-
   const statusStyles = {
-    pending:
-      'bg-yellow-100 text-yellow-700',
+    Pending:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
 
-    accepted:
-      'bg-green-100 text-green-700',
+    Accepted:
+      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 
-    rejected:
-      'bg-red-100 text-red-700',
+    Rejected:
+      'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   };
 
   return (
 
-    <div className="space-y-8">
+    <div className="space-y-6">
 
       {/* HEADER */}
       <div>
@@ -53,33 +27,33 @@ const Requests = () => {
         </h1>
 
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Manage traveler booking requests
+          Manage incoming traveler requests
         </p>
 
       </div>
 
       {/* REQUESTS */}
-      <div className="grid gap-6">
+      <div className="grid gap-5">
 
-        {requests.map((item) => (
+        {providerRequests.map((request) => (
 
           <div
-            key={item.id}
+            key={request.id}
             className="
               bg-white
               dark:bg-gray-900
+              rounded-3xl
+              p-6
               border
               border-gray-200
               dark:border-gray-800
-              rounded-3xl
-              p-6
               shadow-sm
               hover:shadow-xl
               transition-all
             "
           >
 
-            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-8">
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
 
               {/* LEFT */}
               <div className="space-y-5 flex-1">
@@ -103,17 +77,17 @@ const Requests = () => {
                       text-xl
                     "
                   >
-                    {item.traveler.charAt(0)}
+                    {request.traveler.charAt(0)}
                   </div>
 
                   <div>
 
-                    <h2 className="font-black text-lg dark:text-white">
-                      {item.traveler}
+                    <h2 className="font-bold text-lg dark:text-white">
+                      {request.traveler}
                     </h2>
 
-                    <p className="text-sm text-gray-500">
-                      {item.location}
+                    <p className="text-gray-500 text-sm">
+                      {request.location}
                     </p>
 
                   </div>
@@ -130,7 +104,7 @@ const Requests = () => {
                     </p>
 
                     <h3 className="font-semibold dark:text-white">
-                      {item.destination}
+                      {request.destination}
                     </h3>
 
                   </div>
@@ -142,7 +116,7 @@ const Requests = () => {
                     </p>
 
                     <h3 className="font-semibold dark:text-white">
-                      {item.travelers} People
+                      {request.travelers}
                     </h3>
 
                   </div>
@@ -154,7 +128,7 @@ const Requests = () => {
                     </p>
 
                     <h3 className="font-semibold text-green-600">
-                      {item.budget}
+                      {request.budget}
                     </h3>
 
                   </div>
@@ -166,7 +140,7 @@ const Requests = () => {
                     </p>
 
                     <h3 className="font-semibold dark:text-white">
-                      {item.date}
+                      {request.date}
                     </h3>
 
                   </div>
@@ -182,70 +156,50 @@ const Requests = () => {
                 <div
                   className={`
                     px-4
-                    h-10
+                    py-2
                     rounded-full
-                    flex
-                    items-center
                     text-sm
-                    font-bold
-                    capitalize
-                    ${statusStyles[item.status]}
+                    font-semibold
+                    ${statusStyles[request.status]}
                   `}
                 >
-                  {item.status}
+                  {request.status}
                 </div>
 
                 {/* ACTIONS */}
-                {item.status ===
-                  'pending' && (
+                <div className="flex gap-3">
 
-                  <div className="flex gap-3">
+                  <button
+                    className="
+                      px-5
+                      h-11
+                      rounded-2xl
+                      bg-green-600
+                      hover:bg-green-700
+                      text-white
+                      font-semibold
+                      transition
+                    "
+                  >
+                    Accept
+                  </button>
 
-                    <button
-                      onClick={() =>
-                        handleStatus(
-                          item.id,
-                          'accepted'
-                        )
-                      }
-                      className="
-                        px-6
-                        h-12
-                        rounded-2xl
-                        bg-green-600
-                        hover:bg-green-700
-                        text-white
-                        font-semibold
-                        transition
-                      "
-                    >
-                      Accept
-                    </button>
+                  <button
+                    className="
+                      px-5
+                      h-11
+                      rounded-2xl
+                      bg-red-500
+                      hover:bg-red-600
+                      text-white
+                      font-semibold
+                      transition
+                    "
+                  >
+                    Reject
+                  </button>
 
-                    <button
-                      onClick={() =>
-                        handleStatus(
-                          item.id,
-                          'rejected'
-                        )
-                      }
-                      className="
-                        px-6
-                        h-12
-                        rounded-2xl
-                        bg-red-500
-                        hover:bg-red-600
-                        text-white
-                        font-semibold
-                        transition
-                      "
-                    >
-                      Reject
-                    </button>
-
-                  </div>
-
-                )}
+                </div>
 
               </div>
 

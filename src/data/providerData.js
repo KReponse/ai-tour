@@ -55,3 +55,37 @@ export const recentRequests = [
     location: 'Rubavu, Rwanda',
   },
 ];
+export const providerRequests = [
+  {
+    id: 1,
+    traveler: 'Reponse Dev',
+    location: 'Kigali, Rwanda',
+    destination: 'Volcanoes National Park',
+    travelers: '2 People',
+    budget: '$1,200',
+    date: '12 Oct 2026',
+    status: 'Pending',
+  },
+
+  {
+    id: 2,
+    traveler: 'John Doe',
+    location: 'Nairobi, Kenya',
+    destination: 'Akagera National Park',
+    travelers: '4 People',
+    budget: '$2,400',
+    date: '18 Nov 2026',
+    status: 'Accepted',
+  },
+
+  {
+    id: 3,
+    traveler: 'Sarah Smith',
+    location: 'Kampala, Uganda',
+    destination: 'Lake Kivu',
+    travelers: '3 People',
+    budget: '$980',
+    date: '5 Dec 2026',
+    status: 'Rejected',
+  },
+];
