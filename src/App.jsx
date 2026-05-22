@@ -1,13 +1,8 @@
-import {
-  Routes,
-  Route,
-  Outlet,
-} from 'react-router-dom';
+import { Routes, Route, Outlet } from 'react-router-dom';
 
 import Layout from './components/layout/Layout';
-
 import ProtectedRoute from './components/ProtectedRoute';
-
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import FloatingAIButton from './components/FloatingAIButton';
 
 import Home from './pages/Home';
@@ -31,36 +26,26 @@ import CustomRequest from './pages/CustomRequest';
 import AIChat from './pages/AIChat';
 import Register from './pages/Register';
 
-import RoleProtectedRoute from './components/RoleProtectedRoute';
-
 import AdminDashboard from './pages/admin/AdminDashboard';
 
 import ProviderDashboard from './pages/provider/Dashboard';
-
 import Requests from './pages/provider/Requests';
+import Bookings from './pages/provider/Bookings';
+import Travelers from './pages/provider/Travelers';
+import Analytics from './pages/provider/Analytics';
+import Earnings from './pages/provider/Earnings';
+import ProviderProfile from './pages/provider/Profile';
+import ProviderSettings from './pages/provider/Settings';
+import AddTour from './pages/provider/AddTour';
 
 import DashboardLayout from './layouts/DashboardLayout';
-
-import Bookings from './pages/provider/Bookings';
-
-import Travelers from './pages/provider/Travelers';
-
-import Analytics from './pages/provider/Analytics';
-
-import Earnings from './pages/provider/Earnings';
-
-import ProviderProfile from './pages/provider/Profile';
-
-import Settings from './pages/provider/Settings';
-
-import AddTour from './pages/provider/AddTour';
 
 function App() {
   return (
     <>
       <Routes>
 
-        {/* USER WEBSITE */}
+        {/* ================= USER SITE ================= */}
         <Route
           element={
             <Layout>
@@ -70,220 +55,103 @@ function App() {
         >
 
           {/* PUBLIC ROUTES */}
-          <Route
-            path="/"
-            element={<Home />}
-          />
-
-          <Route
-            path="/explore"
-            element={<Explore />}
-          />
-
-          <Route
-            path="/destination/:id"
-            element={<DestinationDetails />}
-          />
-
-          <Route
-            path="/reviews"
-            element={<Reviews />}
-          />
-
-          <Route
-            path="/register"
-            element={<Register />}
-          />
-
-          <Route
-            path="/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/forgot-password"
-            element={<ForgotPassword />}
-          />
-
-          <Route
-            path="/reset-password"
-            element={<ResetPassword />}
-          />
+          <Route path="/" element={<Home />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/destination/:id" element={<DestinationDetails />} />
+          <Route path="/reviews" element={<Reviews />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* PROTECTED ROUTES */}
           <Route
             path="/ai-planner"
-            element={
-              <ProtectedRoute>
-                <AIPlanner />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><AIPlanner /></ProtectedRoute>}
           />
 
           <Route
             path="/booking/:id"
-            element={
-              <ProtectedRoute>
-                <Booking />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><Booking /></ProtectedRoute>}
           />
 
           <Route
             path="/trips"
-            element={
-              <ProtectedRoute>
-                <Trips />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><Trips /></ProtectedRoute>}
           />
 
           <Route
             path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><Profile /></ProtectedRoute>}
           />
 
           <Route
             path="/notifications"
-            element={
-              <ProtectedRoute>
-                <Notifications />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><Notifications /></ProtectedRoute>}
           />
 
           <Route
             path="/trip-results"
-            element={
-              <ProtectedRoute>
-                <TripResults />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><TripResults /></ProtectedRoute>}
           />
 
           <Route
             path="/request-trip"
-            element={
-              <ProtectedRoute>
-                <RequestTrip />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><RequestTrip /></ProtectedRoute>}
           />
 
           <Route
             path="/payment"
-            element={
-              <ProtectedRoute>
-                <Payment />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><Payment /></ProtectedRoute>}
           />
 
           <Route
             path="/edit-profile"
-            element={
-              <ProtectedRoute>
-                <EditProfile />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><EditProfile /></ProtectedRoute>}
           />
 
           <Route
             path="/custom-request"
-            element={
-              <ProtectedRoute>
-                <CustomRequest />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><CustomRequest /></ProtectedRoute>}
           />
 
           <Route
             path="/ai-chat"
-            element={
-              <ProtectedRoute>
-                <AIChat />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute><AIChat /></ProtectedRoute>}
           />
 
         </Route>
 
-        {/* PROVIDER DASHBOARD */}
+        {/* ================= PROVIDER DASHBOARD ================= */}
         <Route
-  path="/provider"
-  element={
-    <RoleProtectedRoute
-      allowedRoles={['provider']}
-    >
-      <DashboardLayout />
-    </RoleProtectedRoute>
-  }
->
+          path="/provider"
+          element={
+            <RoleProtectedRoute allowedRoles={['provider']}>
+              <DashboardLayout />
+            </RoleProtectedRoute>
+          }
+        >
 
-  <Route
-    path="dashboard"
-    element={<ProviderDashboard />}
-  />
+          <Route path="dashboard" element={<ProviderDashboard />} />
+          <Route path="requests" element={<Requests />} />
+          <Route path="bookings" element={<Bookings />} />
+          <Route path="travelers" element={<Travelers />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="earnings" element={<Earnings />} />
+          <Route path="reviews" element={<Reviews />} />
+          <Route path="profile" element={<ProviderProfile />} />
 
-  <Route
-    path="requests"
-    element={<Requests />}
-  />
+          {/* ✅ FIXED HERE */}
+          <Route path="settings" element={<ProviderSettings />} />
 
-  <Route
-    path="bookings"
-    element={<Bookings />}
-  />
+          <Route path="add-tour" element={<AddTour />} />
+        </Route>
 
-  <Route
-    path="travelers"
-    element={<Travelers />}
-  />
-
-  <Route
-  path="analytics"
-  element={<Analytics />}
-/>
-
-<Route
-  path="earnings"
-  element={<Earnings />}
-/>
-
-<Route
-  path="reviews"
-  element={<Reviews />}
-/>
-
-<Route
-  path="profile"
-  element={<ProviderProfile />}
-/>
-
-<Route
-  path="settings"
-  element={<Settings />}
-/>
-
-<Route
-  path="add-tour"
-  element={<AddTour />}
-/>
-
-</Route>
-
-
-        {/* ADMIN */}
+        {/* ================= ADMIN ================= */}
         <Route
           path="/admin"
           element={
-            <RoleProtectedRoute
-              allowedRoles={['admin']}
-            >
+            <RoleProtectedRoute allowedRoles={['admin']}>
               <AdminDashboard />
             </RoleProtectedRoute>
           }
