@@ -39,6 +39,8 @@ import ProviderSettings from './pages/provider/Settings';
 import AddTour from './pages/provider/AddTour';
 
 import DashboardLayout from './layouts/DashboardLayout';
+import MyTours from './pages/provider/MyTours';
+import EditTour from './pages/provider/EditTour';
 
 function App() {
   return (
@@ -123,29 +125,43 @@ function App() {
         </Route>
 
         {/* ================= PROVIDER DASHBOARD ================= */}
-        <Route
-          path="/provider"
-          element={
-            <RoleProtectedRoute allowedRoles={['provider']}>
-              <DashboardLayout />
-            </RoleProtectedRoute>
-          }
-        >
+<Route
+  path="/provider"
+  element={
+    <RoleProtectedRoute allowedRoles={['provider']}>
+      <DashboardLayout />
+    </RoleProtectedRoute>
+  }
+>
 
-          <Route path="dashboard" element={<ProviderDashboard />} />
-          <Route path="requests" element={<Requests />} />
-          <Route path="bookings" element={<Bookings />} />
-          <Route path="travelers" element={<Travelers />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="earnings" element={<Earnings />} />
-          <Route path="reviews" element={<Reviews />} />
-          <Route path="profile" element={<ProviderProfile />} />
+  <Route path="dashboard" element={<ProviderDashboard />} />
 
-          {/* ✅ FIXED HERE */}
-          <Route path="settings" element={<ProviderSettings />} />
+  <Route path="requests" element={<Requests />} />
 
-          <Route path="add-tour" element={<AddTour />} />
-        </Route>
+  <Route path="bookings" element={<Bookings />} />
+
+  <Route path="travelers" element={<Travelers />} />
+
+  <Route path="analytics" element={<Analytics />} />
+
+  <Route path="earnings" element={<Earnings />} />
+
+  <Route path="reviews" element={<Reviews />} />
+
+  <Route path="profile" element={<ProviderProfile />} />
+
+  <Route path="settings" element={<ProviderSettings />} />
+
+  <Route path="add-tour" element={<AddTour />} />
+
+  <Route path="tours" element={<MyTours />} />
+
+  <Route
+    path="tours/edit/:id"
+    element={<EditTour />}
+  />
+
+</Route>
 
         {/* ================= ADMIN ================= */}
         <Route
