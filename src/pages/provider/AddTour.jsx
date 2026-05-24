@@ -15,7 +15,17 @@ import {
   FileText,
   UploadCloud,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
+
+import {
+  uploadImage,
+  uploadVideo,
+} from '../../services/cloudinaryService';
+import {
+  createTour,
+} from '../../services/tourService';
+
 
 const AddTour = () => {
 
@@ -33,8 +43,17 @@ const AddTour = () => {
   const [images, setImages] =
     useState([]);
 
+  const [imagePreviews, setImagePreviews] =
+    useState([]);
+
   const [video, setVideo] =
     useState(null);
+
+  const [videoPreview, setVideoPreview] =
+    useState('');
+
+  const [uploading, setUploading] =
+    useState(false);
 
   const handleChange = (e) => {
 
@@ -46,37 +65,180 @@ const AddTour = () => {
 
   };
 
-  const handleImageUpload = (e) => {
+  // IMAGE UPLOAD
+  const handleImageUpload = async (e) => {
 
     const files =
       Array.from(e.target.files);
 
-    setImages(files);
+    if (!files.length) return;
+
+    try {
+
+      setUploading(true);
+
+      const uploadedImages =
+        await Promise.all(
+          files.map((file) =>
+            uploadImage(file)
+          )
+        );
+
+      setImages(uploadedImages);
+
+      const previews =
+        uploadedImages.map(
+          (url) => url
+        );
+
+      setImagePreviews(previews);
+
+    } catch (error) {
+
+      console.error(error);
+
+      alert(
+        'Image upload failed'
+      );
+
+    } finally {
+
+      setUploading(false);
+
+    }
 
   };
 
-  const handleVideoUpload = (e) => {
+  // VIDEO UPLOAD
+  const handleVideoUpload = async (e) => {
 
     const file =
       e.target.files[0];
 
-    setVideo(file);
+    if (!file) return;
+
+    try {
+
+      setUploading(true);
+
+      const uploadedVideo =
+        await uploadVideo(file);
+
+      setVideo(uploadedVideo);
+
+      setVideoPreview(
+        uploadedVideo
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      alert(
+        'Video upload failed'
+      );
+
+    } finally {
+
+      setUploading(false);
+
+    }
 
   };
 
-  const handleSubmit = (e) => {
+  // SUBMIT
+const handleSubmit =
+  async (e) => {
 
     e.preventDefault();
 
-    console.log({
-      ...formData,
-      images,
-      video,
-    });
+    try {
+
+      setUploading(true);
+
+      /* ================= UPLOAD IMAGES ================= */
+
+      const uploadedImages =
+        await Promise.all(
+
+          images.map((image) =>
+            uploadImage(image)
+          )
+
+        );
+
+      /* ================= UPLOAD VIDEO ================= */
+
+      let uploadedVideo = '';
+
+      if (video) {
+
+        uploadedVideo =
+          await uploadVideo(video);
+
+      }
+
+      /* ================= CREATE TOUR OBJECT ================= */
+
+      const tourData = {
+
+        ...formData,
+
+        images:
+          uploadedImages,
+
+        video:
+          uploadedVideo,
+
+        status:
+          'Published',
+
+      };
+
+      /* ================= SAVE TO DATABASE ================= */
+
+      await createTour(
+        tourData
+      );
+
+      alert(
+        'Tour Published Successfully!'
+      );
+
+      /* ================= RESET FORM ================= */
+
+      setFormData({
+        title: '',
+        location: '',
+        price: '',
+        duration: '',
+        travelers: '',
+        category: '',
+        description: '',
+      });
+
+      setImages([]);
+
+      setVideo('');
+
+    } catch (error) {
+
+      console.error(error);
+
+      alert(
+        'Failed to publish tour'
+      );
+
+    } finally {
+
+      setUploading(false);
+
+    }
 
   };
 
   return (
+
     <div className="space-y-8">
 
       {/* PAGE HEADER */}
@@ -123,6 +285,7 @@ const AddTour = () => {
         </div>
 
         <button
+          type="button"
           className="
             h-12
             px-6
@@ -468,7 +631,7 @@ const AddTour = () => {
 
         </div>
 
-        {/* MEDIA SECTION */}
+        {/* MEDIA */}
         <div className="space-y-6">
 
           <div>
@@ -485,7 +648,7 @@ const AddTour = () => {
 
           <div className="grid lg:grid-cols-2 gap-6">
 
-            {/* IMAGES */}
+            {/* IMAGE UPLOAD */}
             <div
               className="
                 border-2
@@ -513,7 +676,6 @@ const AddTour = () => {
                   items-center
                   justify-center
                   text-white
-                  shadow-lg
                 "
               >
 
@@ -555,29 +717,31 @@ const AddTour = () => {
                   type="file"
                   multiple
                   hidden
+                  accept="image/*"
                   onChange={handleImageUpload}
                 />
 
               </label>
 
-              {images.length > 0 && (
+              {/* IMAGE PREVIEWS */}
+              {imagePreviews.length > 0 && (
 
-                <div className="mt-5 space-y-2 text-left">
+                <div className="grid grid-cols-2 gap-4 mt-6">
 
-                  {images.map(
+                  {imagePreviews.map(
                     (img, index) => (
 
-                      <div
+                      <img
                         key={index}
+                        src={img}
+                        alt="tour"
                         className="
-                          text-sm
-                          text-gray-600
-                          dark:text-gray-300
-                          truncate
+                          w-full
+                          h-32
+                          object-cover
+                          rounded-2xl
                         "
-                      >
-                        • {img.name}
-                      </div>
+                      />
 
                     )
                   )}
@@ -588,7 +752,7 @@ const AddTour = () => {
 
             </div>
 
-            {/* VIDEO */}
+            {/* VIDEO UPLOAD */}
             <div
               className="
                 border-2
@@ -616,7 +780,6 @@ const AddTour = () => {
                   items-center
                   justify-center
                   text-white
-                  shadow-lg
                 "
               >
 
@@ -625,7 +788,7 @@ const AddTour = () => {
               </div>
 
               <h3 className="font-black text-xl mt-5 dark:text-white">
-                Upload Short Video
+                Upload Video
               </h3>
 
               <p className="text-sm text-gray-500 mt-2">
@@ -663,11 +826,24 @@ const AddTour = () => {
 
               </label>
 
-              {video && (
+              {/* VIDEO PREVIEW */}
+              {videoPreview && (
 
-                <div className="mt-5 text-sm text-gray-600 dark:text-gray-300 truncate">
-                  • {video.name}
-                </div>
+                <video
+                  controls
+                  className="
+                    mt-6
+                    w-full
+                    rounded-2xl
+                  "
+                >
+
+                  <source
+                    src={videoPreview}
+                    type="video/mp4"
+                  />
+
+                </video>
 
               )}
 
@@ -678,10 +854,11 @@ const AddTour = () => {
         </div>
 
         {/* SUBMIT */}
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end">
 
           <button
             type="submit"
+            disabled={uploading}
             className="
               px-10
               h-14
@@ -694,9 +871,23 @@ const AddTour = () => {
               shadow-xl
               hover:scale-105
               transition-all
+              disabled:opacity-70
+              flex
+              items-center
+              gap-3
             "
           >
-            Publish Tour
+
+            {uploading && (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            )}
+
+          {
+  uploading
+    ? 'Publishing...'
+    : 'Publish Tour'
+}
+
           </button>
 
         </div>
@@ -704,7 +895,9 @@ const AddTour = () => {
       </form>
 
     </div>
+
   );
+
 };
 
 export default AddTour;

@@ -1,4 +1,7 @@
-import React from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   MapPin,
@@ -12,53 +15,149 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 
-
-const tours = [
-  {
-    id: 1,
-    title: 'Volcano Gorilla Trek',
-    location: 'Musanze, Rwanda',
-    price: '$1200',
-    duration: '3 Days',
-    travelers: '10 People',
-    image:
-      'https://images.unsplash.com/photo-1516426122078-c23e76319801?q=80&w=1200&auto=format&fit=crop',
-    status: 'Published',
-  },
-
-  {
-    id: 2,
-    title: 'Akagera Wildlife Safari',
-    location: 'Akagera, Rwanda',
-    price: '$850',
-    duration: '2 Days',
-    travelers: '6 People',
-    image:
-      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop',
-    status: 'Draft',
-  },
-];
+import {
+  getTours,
+  deleteTour,
+} from '../../services/tourService';
 
 const MyTours = () => {
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
- const handleEdit = (id) => {
-  navigate(`/provider/tours/edit/${id}`);
-};
+  const [tours, setTours] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  /* ================= FETCH TOURS ================= */
+
+  useEffect(() => {
+
+    fetchTours();
+
+  }, []);
+
+  const fetchTours =
+    async () => {
+
+      try {
+
+        const data =
+          await getTours();
+
+        setTours(data.tours);
+
+      } catch (error) {
+
+        console.error(error);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+  /* ================= EDIT ================= */
+
+  const handleEdit = (id) => {
+
+    navigate(
+      `/provider/tours/edit/${id}`
+    );
+
+  };
+
+  /* ================= DELETE ================= */
+
+  const handleDelete =
+    async (id) => {
+
+      const confirmDelete =
+        window.confirm(
+          'Delete this tour?'
+        );
+
+      if (!confirmDelete)
+        return;
+
+      try {
+
+        await deleteTour(id);
+
+        fetchTours();
+
+      } catch (error) {
+
+        console.error(error);
+
+      }
+
+    };
+
+  /* ================= LOADING ================= */
+
+  if (loading) {
+
+    return (
+
+      <div
+        className="
+          h-screen
+          flex
+          items-center
+          justify-center
+          text-xl
+          font-bold
+          dark:text-white
+        "
+      >
+        Loading tours...
+      </div>
+
+    );
+
+  }
+
   return (
+
     <div className="space-y-8">
 
       {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+      <div
+        className="
+          flex
+          flex-col
+          lg:flex-row
+          lg:items-center
+          lg:justify-between
+          gap-5
+        "
+      >
 
         <div>
 
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+          <h1
+            className="
+              text-3xl
+              font-black
+              text-gray-900
+              dark:text-white
+            "
+          >
             My Tours
           </h1>
 
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p
+            className="
+              text-gray-500
+              dark:text-gray-400
+              mt-1
+            "
+          >
             Manage all your published travel experiences
           </p>
 
@@ -66,7 +165,9 @@ const MyTours = () => {
 
         <button
           onClick={() =>
-            navigate('/provider/add-tour')
+            navigate(
+              '/provider/add-tour'
+            )
           }
           className="
             inline-flex
@@ -94,13 +195,59 @@ const MyTours = () => {
 
       </div>
 
+      {/* EMPTY STATE */}
+      {tours.length === 0 && (
+
+        <div
+          className="
+            bg-white
+            dark:bg-gray-900
+            border
+            border-gray-200
+            dark:border-gray-800
+            rounded-3xl
+            p-12
+            text-center
+          "
+        >
+
+          <h2
+            className="
+              text-2xl
+              font-black
+              dark:text-white
+            "
+          >
+            No Tours Yet
+          </h2>
+
+          <p
+            className="
+              text-gray-500
+              mt-2
+            "
+          >
+            Create your first tour experience
+          </p>
+
+        </div>
+
+      )}
+
       {/* TOURS GRID */}
-      <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div
+        className="
+          grid
+          lg:grid-cols-2
+          xl:grid-cols-3
+          gap-6
+        "
+      >
 
         {tours.map((tour) => (
 
           <div
-            key={tour.id}
+            key={tour._id}
             className="
               bg-white
               dark:bg-gray-900
@@ -116,10 +263,18 @@ const MyTours = () => {
           >
 
             {/* IMAGE */}
-            <div className="relative h-56 overflow-hidden">
+            <div
+              className="
+                relative
+                h-56
+                overflow-hidden
+              "
+            >
 
               <img
-                src={tour.image}
+                src={
+                  tour.images?.[0]
+                }
                 alt={tour.title}
                 className="
                   w-full
@@ -158,11 +313,27 @@ const MyTours = () => {
 
               <div>
 
-                <h2 className="text-xl font-black text-gray-900 dark:text-white">
+                <h2
+                  className="
+                    text-xl
+                    font-black
+                    text-gray-900
+                    dark:text-white
+                  "
+                >
                   {tour.title}
                 </h2>
 
-                <div className="flex items-center gap-2 mt-2 text-gray-500 text-sm">
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                    mt-2
+                    text-gray-500
+                    text-sm
+                  "
+                >
 
                   <MapPin className="w-4 h-4" />
 
@@ -173,7 +344,13 @@ const MyTours = () => {
               </div>
 
               {/* DETAILS */}
-              <div className="grid grid-cols-2 gap-4">
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  gap-4
+                "
+              >
 
                 <div
                   className="
@@ -184,12 +361,23 @@ const MyTours = () => {
                   "
                 >
 
-                  <p className="text-xs text-gray-500">
+                  <p
+                    className="
+                      text-xs
+                      text-gray-500
+                    "
+                  >
                     Price
                   </p>
 
-                  <h3 className="font-bold text-green-600 mt-1">
-                    {tour.price}
+                  <h3
+                    className="
+                      font-bold
+                      text-green-600
+                      mt-1
+                    "
+                  >
+                    ${tour.price}
                   </h3>
 
                 </div>
@@ -203,7 +391,15 @@ const MyTours = () => {
                   "
                 >
 
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-2
+                      text-xs
+                      text-gray-500
+                    "
+                  >
 
                     <Clock3 className="w-4 h-4" />
 
@@ -211,7 +407,13 @@ const MyTours = () => {
 
                   </div>
 
-                  <h3 className="font-bold dark:text-white mt-1">
+                  <h3
+                    className="
+                      font-bold
+                      dark:text-white
+                      mt-1
+                    "
+                  >
                     {tour.duration}
                   </h3>
 
@@ -230,10 +432,21 @@ const MyTours = () => {
                   "
                 >
 
-                  <Users className="w-5 h-5 text-blue-600" />
+                  <Users
+                    className="
+                      w-5
+                      h-5
+                      text-blue-600
+                    "
+                  />
 
-                  <span className="font-semibold dark:text-white">
-                    {tour.travelers}
+                  <span
+                    className="
+                      font-semibold
+                      dark:text-white
+                    "
+                  >
+                    {tour.travelers} People
                   </span>
 
                 </div>
@@ -241,8 +454,16 @@ const MyTours = () => {
               </div>
 
               {/* ACTIONS */}
-              <div className="flex items-center gap-3 pt-2">
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  pt-2
+                "
+              >
 
+                {/* VIEW */}
                 <button
                   className="
                     flex-1
@@ -266,10 +487,12 @@ const MyTours = () => {
 
                 </button>
 
-                {/* EDIT BUTTON */}
+                {/* EDIT */}
                 <button
                   onClick={() =>
-                    handleEdit(tour.id)
+                    handleEdit(
+                      tour._id
+                    )
                   }
                   className="
                     w-12
@@ -286,12 +509,23 @@ const MyTours = () => {
                   "
                 >
 
-                  <Pencil className="w-5 h-5 dark:text-white" />
+                  <Pencil
+                    className="
+                      w-5
+                      h-5
+                      dark:text-white
+                    "
+                  />
 
                 </button>
 
-                {/* DELETE BUTTON */}
+                {/* DELETE */}
                 <button
+                  onClick={() =>
+                    handleDelete(
+                      tour._id
+                    )
+                  }
                   className="
                     w-12
                     h-12
@@ -307,7 +541,13 @@ const MyTours = () => {
                   "
                 >
 
-                  <Trash2 className="w-5 h-5 text-red-500" />
+                  <Trash2
+                    className="
+                      w-5
+                      h-5
+                      text-red-500
+                    "
+                  />
 
                 </button>
 
@@ -322,7 +562,9 @@ const MyTours = () => {
       </div>
 
     </div>
+
   );
+
 };
 
 export default MyTours;

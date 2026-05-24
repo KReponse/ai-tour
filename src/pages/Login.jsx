@@ -32,12 +32,13 @@ const Login = () => {
   const [loading, setLoading] =
     useState(false);
 
-  const [formData, setFormData] =
-    useState({
-      email: '',
-      password: '',
-    });
-
+   const [formData, setFormData] =
+  useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+  
   const handleChange = (e) => {
     setFormData({
       ...formData,
