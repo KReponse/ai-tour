@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 import {
@@ -19,7 +18,6 @@ import { loginUser } from '../services/authService';
 
 import { useAuth } from '../contexts/AuthContext';
 
-
 const Login = () => {
 
   const navigate = useNavigate();
@@ -32,42 +30,69 @@ const Login = () => {
   const [loading, setLoading] =
     useState(false);
 
-   const [formData, setFormData] =
-  useState({
-    name: '',
-    email: '',
-    password: '',
-  });
-  
+  const [formData, setFormData] =
+    useState({
+      email: '',
+      password: '',
+    });
+
   const handleChange = (e) => {
+
     setFormData({
       ...formData,
       [e.target.name]:
         e.target.value,
     });
+
   };
 
   const handleSubmit = async (e) => {
+
     e.preventDefault();
 
     try {
+
       setLoading(true);
 
       const data =
-        await loginUser(formData);
+        await loginUser(
+          formData
+        );
 
       console.log(data);
 
-      // LOGIN USER
+      /* SAVE USER + TOKEN */
       login(
         data.user,
         data.token
       );
 
-      // REDIRECT
-      navigate('/');
+      /* ROLE BASED REDIRECT */
+
+      if (
+        data.user.role ===
+        'provider'
+      ) {
+
+        navigate(
+          '/provider/dashboard'
+        );
+
+      } else if (
+        data.user.role ===
+        'admin'
+      ) {
+
+        navigate('/admin');
+
+      } else {
+
+        navigate('/');
+
+      }
 
     } catch (error) {
+
       console.log(error);
 
       alert(
@@ -77,11 +102,15 @@ const Login = () => {
       );
 
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
   return (
+
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-black px-4 py-10">
 
       <div className="w-full max-w-md">
@@ -92,6 +121,7 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-2xl mb-5">
 
             <Plane className="w-10 h-10 text-white" />
+
           </div>
 
           <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2">
@@ -101,6 +131,7 @@ const Login = () => {
           <p className="text-gray-600 dark:text-gray-400">
             Welcome back traveler ✈️
           </p>
+
         </div>
 
         {/* CARD */}
@@ -113,6 +144,7 @@ const Login = () => {
             <h2 className="text-2xl font-bold dark:text-white">
               Login
             </h2>
+
           </div>
 
           {/* FORM */}
@@ -141,7 +173,9 @@ const Login = () => {
                   required
                   className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
+
               </div>
+
             </div>
 
             {/* PASSWORD */}
@@ -178,13 +212,17 @@ const Login = () => {
                   }
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
                 >
+
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
                   ) : (
                     <Eye className="w-5 h-5" />
                   )}
+
                 </button>
+
               </div>
+
             </div>
 
             {/* FORGOT */}
@@ -196,6 +234,7 @@ const Login = () => {
               >
                 Forgot Password?
               </button>
+
             </div>
 
             {/* BUTTON */}
@@ -204,10 +243,13 @@ const Login = () => {
               disabled={loading}
               className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-bold text-lg shadow-xl hover:scale-[1.02] transition-all duration-300 disabled:opacity-70"
             >
+
               {loading
                 ? 'Signing In...'
                 : 'Login'}
+
             </button>
+
           </form>
 
           {/* REGISTER */}
@@ -223,12 +265,17 @@ const Login = () => {
             >
               Create Account
             </Link>
+
           </div>
+
         </div>
+
       </div>
+
     </div>
+
   );
+
 };
 
 export default Login;
-

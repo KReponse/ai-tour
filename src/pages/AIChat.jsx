@@ -47,132 +47,37 @@ const languages = [
 
 // System prompts for each language
 const systemPrompts = {
-  en: `
-You are AI Tour, a smart and professional Rwanda travel assistant.
-Help travelers discover Rwanda beautifully and confidently.
-
-Always respond in a friendly, premium, and helpful tourism tone.
-Keep answers clear, inspiring, and practical.
-
-Focus on:
-- Rwanda destinations
-- National parks
-- Gorilla trekking
-- Safari experiences
-- Hotels & lodges
-- Local culture
-- Food experiences
-- Transportation
-- Trip planning
-- Budget recommendations
-- Safety tips
-- Weather and best travel seasons
-
-Make travelers feel excited about visiting Rwanda.
-Use emojis naturally and professionally.
-`,
-
-  fr: `
-Vous êtes AI Tour, un assistant intelligent et professionnel spécialisé dans le tourisme au Rwanda.
-
-Aidez les voyageurs à découvrir le Rwanda avec confiance et enthousiasme.
-
-Répondez toujours avec un ton chaleureux, professionnel et inspirant.
-
-Concentrez-vous sur :
-- les destinations du Rwanda
-- les parcs nationaux
-- les gorilles de montagne
-- les safaris
-- les hôtels et lodges
-- la culture rwandaise
-- la gastronomie locale
-- les transports
-- l’organisation des voyages
-- les conseils de budget
-- la sécurité
-- les saisons touristiques
-
-Donnez envie aux voyageurs de visiter le Rwanda.
-Utilisez les emojis avec élégance.
-`,
-
-  rw: `
-Uri AI Tour, umufasha w’ubwenge kabuhariwe mu bukerarugendo bw’u Rwanda.
-
-Fasha abagenzi n’abakerarugendo gutegura ingendo zabo neza kandi bishimye.
-
-Subiza mu Kinyarwanda cyiza, gisobanutse kandi gikoreshwa mu bukerarugendo nyabwo.
-
-Jya wibanda kuri:
-- ahantu nyaburanga ho gusura mu Rwanda
-- pariki z’igihugu
-- gusura ingagi zo mu birunga
-- safari n’inyamaswa
-- amahoteli na lodges
-- umuco nyarwanda
-- amafunguro nyarwanda
-- gutegura urugendo
-- inama ku ngengo y’imari
-- umutekano w’abakerarugendo
-- ibihe byiza byo gusura u Rwanda
-
-Tuma umukoresha yumva ashishikajwe no gusura u Rwanda.
-Koresha emoji mu buryo bwiza kandi bw’umwuga.
-`,
-
-  sw: `
-Wewe ni AI Tour, msaidizi mahiri wa utalii nchini Rwanda.
-
-Wasaidie wasafiri kupanga safari zao kwa urahisi na furaha.
-
-Jibu kwa lugha ya kitaalamu, rafiki, na ya kuvutia.
-
-Zingatia:
-- vivutio vya Rwanda
-- hifadhi za taifa
-- gorilla trekking
-- safari za wanyamapori
-- hoteli na lodges
-- utamaduni wa Rwanda
-- chakula cha kienyeji
-- mipango ya safari
-- bajeti za usafiri
-- usalama wa watalii
-- misimu bora ya kutembelea Rwanda
-
-Wafanye watalii watamani kutembelea Rwanda.
-Tumia emojis kwa ustadi.
-`,
+  en: `You are AI Tour, a smart and professional Rwanda travel assistant...`,
+  fr: `Vous êtes AI Tour, un assistant intelligent et professionnel...`,
+  rw: `Uri AI Tour, umufasha w'ubwenge kabuhariwe mu bukerarugendo...`,
+  sw: `Wewe ni AI Tour, msaidizi mahiri wa utalii nchini Rwanda...`,
 };
+
 // Suggested questions by language
 const suggestedQuestionsByLang = {
   en: [
     { text: "Top tourist attractions in Rwanda", icon: MapPin },
-    { text: "How much is gorilla trekking in Rwanda?", icon: DollarSign },
+    { text: "How much is gorilla trekking?", icon: DollarSign },
     { text: "Luxury Rwanda safari itinerary", icon: Calendar },
     { text: "Best time to visit Volcanoes National Park", icon: Sparkles },
   ],
-
   fr: [
-    { text: "Les meilleures attractions touristiques du Rwanda", icon: MapPin },
-    { text: "Quel est le prix du trekking des gorilles ?", icon: DollarSign },
-    { text: "Itinéraire safari de luxe au Rwanda", icon: Calendar },
-    { text: "Meilleure saison pour visiter le Parc des Volcans", icon: Sparkles },
+    { text: "Meilleures attractions touristiques", icon: MapPin },
+    { text: "Prix du trekking des gorilles", icon: DollarSign },
+    { text: "Itinéraire safari de luxe", icon: Calendar },
+    { text: "Meilleure saison pour visiter", icon: Sparkles },
   ],
-
   rw: [
-    { text: "Ahantu nyaburanga heza ho gusura mu Rwanda", icon: MapPin },
-    { text: "Gusura ingagi mu Rwanda bisaba amafaranga angahe?", icon: DollarSign },
-    { text: "Urugendo rwiza rwa safari mu Rwanda", icon: Calendar },
-    { text: "Igihe cyiza cyo gusura Pariki y’Ibirunga", icon: Sparkles },
+    { text: "Ahantu nyaburanga heza", icon: MapPin },
+    { text: "Ibiciro byo gusura ingagi", icon: DollarSign },
+    { text: "Urugendo rwiza rwa safari", icon: Calendar },
+    { text: "Igihe cyiza cyo gusura", icon: Sparkles },
   ],
-
   sw: [
-    { text: "Vivutio bora vya utalii nchini Rwanda", icon: MapPin },
-    { text: "Gorilla trekking Rwanda inagharimu kiasi gani?", icon: DollarSign },
-    { text: "Ratiba ya safari ya kifahari Rwanda", icon: Calendar },
-    { text: "Msimu bora wa kutembelea Volcanoes National Park", icon: Sparkles },
+    { text: "Vivutio bora vya utalii", icon: MapPin },
+    { text: "Gharama za gorilla trekking", icon: DollarSign },
+    { text: "Ratiba ya safari ya kifahari", icon: Calendar },
+    { text: "Msimu bora wa kutembelea", icon: Sparkles },
   ],
 };
 
@@ -199,10 +104,23 @@ const AIChat = () => {
   
   // Audio output
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechUtterance, setSpeechUtterance] = useState(null);
   
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Get placeholders based on language
+  const getPlaceholder = () => {
+    const placeholders = {
+      en: "Ask about Rwanda safaris, hotels, gorilla trekking...",
+      fr: "Posez des questions sur les safaris, hôtels, gorilles...",
+      rw: "Baza ibyerekeye safari, hoteli, ingagi...",
+      sw: "Uliza kuhusu safari, hoteli, gorilla trekking..."
+    };
+    return placeholders[language] || placeholders.en;
+  };
 
   // Initialize speech recognition
   useEffect(() => {
@@ -219,7 +137,8 @@ const AIChat = () => {
         setIsListening(false);
       };
       
-      recognitionInstance.onerror = () => {
+      recognitionInstance.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };
       
@@ -238,7 +157,7 @@ const AIChat = () => {
     const speechLangs = {
       en: 'en-US',
       fr: 'fr-FR',
-      rw: 'en-US', // Fallback for Kinyarwanda
+      rw: 'en-US',
       sw: 'sw-TZ',
     };
     return speechLangs[langCode] || 'en-US';
@@ -265,14 +184,11 @@ const AIChat = () => {
 
   const setWelcomeMessage = () => {
     const welcomeMessages = {
-  en: "👋 Welcome to AI Tour! I’m your smart Rwanda travel assistant. I can help you plan unforgettable experiences across Rwanda — from gorilla trekking and safaris to luxury stays, culture, and adventure. Ask me anything ✨",
-
-  fr: "👋 Bienvenue sur AI Tour ! Je suis votre assistant intelligent pour découvrir le Rwanda. Je peux vous aider à organiser des expériences inoubliables : safaris, gorilles, culture, hébergements et aventures. Posez-moi vos questions ✨",
-
-  rw: "👋 Murakaza neza kuri AI Tour! Ndi umufasha wawe w’ubukerarugendo mu Rwanda. Ndagufasha gutegura urugendo rwiza harimo gusura ingagi, safari, amahoteli meza, umuco nyarwanda n’ibindi bikorwa bitangaje. Mbaza icyo ushaka kumenya ✨",
-
-  sw: "👋 Karibu AI Tour! Mimi ni msaidizi wako wa utalii nchini Rwanda. Nitakusaidia kupanga safari nzuri za gorilla trekking, safari za wanyamapori, hoteli, utamaduni na vivutio vya Rwanda. Uliza chochote ✨",
-};
+      en: "👋 Welcome to AI Tour! I'm your smart Rwanda travel assistant. I can help you plan unforgettable experiences across Rwanda — from gorilla trekking and safaris to luxury stays, culture, and adventure. Ask me anything ✨",
+      fr: "👋 Bienvenue sur AI Tour ! Je suis votre assistant intelligent pour découvrir le Rwanda. Je peux vous aider à organiser des expériences inoubliables ✨",
+      rw: "👋 Murakaza neza kuri AI Tour! Ndi umufasha wawe w'ubukerarugendo mu Rwanda. Mbaza icyo ushaka kumenya ✨",
+      sw: "👋 Karibu AI Tour! Mimi ni msaidizi wako wa utalii nchini Rwanda. Uliza chochote ✨",
+    };
     
     setChat([{
       id: Date.now(),
@@ -292,7 +208,15 @@ const AIChat = () => {
   // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat, loading]);
+  }, [chat, loading, typing]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 180) + 'px';
+    }
+  }, [message]);
 
   // Voice input handler
   const startVoiceInput = () => {
@@ -315,75 +239,65 @@ const AIChat = () => {
     }
   };
 
-  // Text-to-speech
-     const speakText = (text) => {
-  if ('speechSynthesis' in window) {
+  // Text-to-speech with error handling
+  const speakText = (text) => {
+    if (!('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported');
+      return;
+    }
 
-    // Stop previous speech
-    window.speechSynthesis.cancel();
+    // Stop any ongoing speech
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Clean up old utterance
+    if (speechUtterance) {
+      speechUtterance.onend = null;
+      speechUtterance.onerror = null;
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
-
-    // Better language settings
+    
     const speechLangs = {
       en: 'en-US',
       fr: 'fr-FR',
       rw: 'en-US',
       sw: 'sw-TZ',
     };
-
+    
     utterance.lang = speechLangs[language] || 'en-US';
-
-    // Premium voice tuning
     utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
-
-    // Load available voices
-    const voices = window.speechSynthesis.getVoices();
-
-    // Best AI voices
-    let selectedVoice = null;
-
-    if (language === 'fr') {
-      selectedVoice =
-        voices.find(v => v.name.includes('Google français')) ||
-        voices.find(v => v.lang === 'fr-FR');
-    }
-
-    if (language === 'en') {
-      selectedVoice =
-        voices.find(v => v.name.includes('Google US English')) ||
-        voices.find(v => v.lang === 'en-US');
-    }
-
-    if (language === 'sw') {
-      selectedVoice =
-        voices.find(v => v.lang.includes('sw')) ||
-        voices.find(v => v.lang === 'en-US');
-    }
-
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
-
-    utterance.onstart = () => setIsSpeaking(true);
-
-    utterance.onend = () => setIsSpeaking(false);
-
-    utterance.onerror = (e) => {
-      console.error(e);
-      setIsSpeaking(false);
+    
+    utterance.onstart = () => {
+      setIsSpeaking(true);
     };
-
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setSpeechUtterance(null);
+    };
+    
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      setIsSpeaking(false);
+      setSpeechUtterance(null);
+    };
+    
+    setSpeechUtterance(utterance);
     window.speechSynthesis.speak(utterance);
-  }
-}; 
+  };
 
   const stopSpeaking = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      if (speechUtterance) {
+        speechUtterance.onend = null;
+        setSpeechUtterance(null);
+      }
     }
   };
 
@@ -423,121 +337,122 @@ const AIChat = () => {
 
   // Send message with image context
   const sendMessage = async () => {
-  if ((!message.trim() && uploadedImages.length === 0) || loading) return;
+    if ((!message.trim() && uploadedImages.length === 0) || loading) return;
 
-  const userMessage = {
-    id: Date.now(),
-    role: 'user',
-    text: message || '📷 Shared image',
-    images: uploadedImages.map((img) => img.url),
-    timestamp: new Date().toISOString(),
-  };
-
-  setChat((prev) => [...prev, userMessage]);
-
-  const currentMessage = message;
-  const currentImages = [...uploadedImages];
-
-  setMessage('');
-  setUploadedImages([]);
-  setLoading(true);
-  setTyping(true);
-
-  try {
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1200)
-    );
-
-    const parts = [];
-
-    // SYSTEM PROMPT
-    parts.push({
-      text: `
-${systemPrompts[language]}
-
-User message:
-${currentMessage}
-
-Respond professionally.
-`,
-    });
-
-    // ADD IMAGES
-    currentImages.forEach((img) => {
-  const base64Data = img.url.split(',')[1];
-
-  parts.push({
-    inline_data: {
-      mime_type: img.type || 'image/jpeg',
-      data: base64Data,
-    },
-  });
-});
-
-    const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts,
-            },
-          ],
-
-          generationConfig: {
-            temperature: 0.8,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1000,
-          },
-        }),
-      }
-    );
-
-    const data = await response.json();
-    if (data.error) {
-  throw new Error(data.error.message);
-}
-
-    console.log(data);
-
-    let aiText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "I couldn't generate a response.";
-
-    const aiMessage = {
-      id: Date.now() + 1,
-      role: 'ai',
-      text: aiText,
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      text: message || '📷 Shared image',
+      images: uploadedImages.map((img) => img.url),
       timestamp: new Date().toISOString(),
     };
 
-    setChat((prev) => [...prev, aiMessage]);
+    setChat((prev) => [...prev, userMessage]);
 
-  } catch (error) {
-    console.error(error);
+    const currentMessage = message;
+    const currentImages = [...uploadedImages];
 
-    setChat((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    setMessage('');
+    setUploadedImages([]);
+    setLoading(true);
+    setTyping(true);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    try {
+      // Simulate typing delay for better UX
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const parts = [];
+
+      // Add system prompt with user message
+      parts.push({
+        text: `${systemPrompts[language]}\n\nUser message: ${currentMessage}\n\nRespond professionally and helpfully.`
+      });
+
+      // Add images if any
+      currentImages.forEach((img) => {
+        const base64Data = img.url.split(',')[1];
+        if (base64Data) {
+          parts.push({
+            inline_data: {
+              mime_type: img.type || 'image/jpeg',
+              data: base64Data,
+            },
+          });
+        }
+      });
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts,
+              },
+            ],
+            generationConfig: {
+              temperature: 0.8,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 1000,
+            },
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || 
+                   "I couldn't generate a response. Please try again.";
+
+      const aiMessage = {
+        id: Date.now() + 1,
         role: 'ai',
-        text: `⚠️ ${error.message}`,
+        text: aiText,
         timestamp: new Date().toISOString(),
-      },
-    ]);
-  }
+      };
 
-  setLoading(false);
-  setTyping(false);
-};
+      setChat((prev) => [...prev, aiMessage]);
+
+    } catch (error) {
+      console.error('API Error:', error);
+      
+      let errorMessage = "⚠️ Sorry, I encountered an error. Please check your API key and try again.";
+      
+      if (error.message.includes('API key')) {
+        errorMessage = "⚠️ Invalid or missing API key. Please check your VITE_GEMINI_API_KEY environment variable.";
+      } else if (error.message.includes('network')) {
+        errorMessage = "⚠️ Network error. Please check your internet connection.";
+      }
+      
+      setChat((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          role: 'ai',
+          text: errorMessage,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+      setTyping(false);
+    }
+  };
 
   // Format message text
   const formatMessageText = (text) => {
@@ -561,14 +476,11 @@ Respond professionally.
   // Clear chat
   const clearChat = () => {
     const clearMessages = {
-  en: "✨ Conversation cleared. I’m ready to help you plan your next Rwanda adventure!",
-
-  fr: "✨ Conversation supprimée. Je suis prêt à vous aider à organiser votre prochaine aventure au Rwanda !",
-
-  rw: "✨ Ibiganiro bisibwe neza. Ndi tayari kugufasha gutegura urugendo rwawe rutaha mu Rwanda!",
-
-  sw: "✨ Mazungumzo yamefutwa. Niko tayari kukusaidia kupanga safari yako ijayo nchini Rwanda!",
-};
+      en: "✨ Conversation cleared. I'm ready to help you plan your next Rwanda adventure!",
+      fr: "✨ Conversation supprimée. Je suis prêt à vous aider !",
+      rw: "✨ Ibiganiro bisibwe neza. Ndi tayari kugufasha!",
+      sw: "✨ Mazungumzo yamefutwa. Niko tayari kukusaidia!",
+    };
     setChat([{
       id: Date.now(),
       role: 'ai',
@@ -590,7 +502,7 @@ Respond professionally.
   const currentSuggestions = suggestedQuestionsByLang[language] || suggestedQuestionsByLang.en;
 
   return (
-    <div className=" max-h-full min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -614,20 +526,11 @@ Respond professionally.
       )}
 
       {/* MAIN WRAPPER */}
-<div className="w-full min-h-screen px-2 sm:px-4 md:px-6 py-2 md:py-6">
-  
-  {/* Chat Card */}
-  <div className="
-    w-full
-    h-[100dvh] md:h-auto
-    flex flex-col
-    bg-white dark:bg-gray-800
-    rounded-none md:rounded-3xl
-    shadow-2xl
-    overflow-hidden
-    border-0 md:border
-    border-gray-100 dark:border-gray-700
-  ">
+      <div className="w-full min-h-screen px-2 sm:px-4 md:px-6 py-2 md:py-6">
+        
+        {/* Chat Card */}
+        <div className="w-full h-[100dvh] md:h-auto flex flex-col bg-white dark:bg-gray-800 rounded-none md:rounded-3xl shadow-2xl overflow-hidden border-0 md:border border-gray-100 dark:border-gray-700">
+          
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white p-4 md:p-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -718,9 +621,9 @@ Respond professionally.
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 mb-6">
                   {language === 'en' && 'This will delete all your conversation history. This action cannot be undone.'}
-                  {language === 'fr' && 'Cela supprimera tout votre historique de conversation. Cette action est irréversible.'}
-                  {language === 'rw' && 'Ibi bizisiba ibyo mwaganiriye byose. Ntibishobora gusubirwaho.'}
-                  {language === 'sw' && 'Hii itafuta historia yako yote ya mazungumzo. Kitendo hiki hakiwezi kutenduliwa.'}
+                  {language === 'fr' && 'Cette action est irréversible.'}
+                  {language === 'rw' && 'Ntibishobora gusubirwaho.'}
+                  {language === 'sw' && 'Kitendo hiki hakiwezi kutenduliwa.'}
                 </p>
                 <div className="flex gap-3">
                   <button
@@ -747,14 +650,7 @@ Respond professionally.
           )}
 
           {/* Messages Area */}
-          <div className="
-  flex-1
-  overflow-y-auto
-  p-3 md:p-6
-  space-y-4
-  scroll-smooth
-  overscroll-contain
-">
+          <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 scroll-smooth overscroll-contain">
             {chat.map((msg) => (
               <div
                 key={msg.id}
@@ -837,15 +733,13 @@ Respond professionally.
                         )}
                       </button>
                       {msg.role === 'ai' && (
-                        <>
-                          <button
-                            onClick={() => speakText(msg.text)}
-                            className="p-1.5 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
-                            title="Read aloud"
-                          >
-                            <Volume2 className="w-3 h-3" />
-                          </button>
-                        </>
+                        <button
+                          onClick={() => speakText(msg.text)}
+                          className="p-1.5 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
+                          title="Read aloud"
+                        >
+                          <Volume2 className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -920,7 +814,9 @@ Respond professionally.
                       className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all duration-200 flex items-center gap-1"
                     >
                       <Icon className="w-3 h-3" />
-                      {q.text.length > 35 ? q.text.substring(0, 35) + '...' : q.text}
+                      <span className="truncate max-w-[150px] md:max-w-none">
+                        {q.text.length > 35 ? q.text.substring(0, 35) + '...' : q.text}
+                      </span>
                     </button>
                   );
                 })}
@@ -934,7 +830,7 @@ Respond professionally.
               {/* Image Upload Button */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300 flex items-center justify-center"
+                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300 flex items-center justify-center flex-shrink-0"
                 title="Upload image"
               >
                 <Image className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -952,55 +848,46 @@ Respond professionally.
               {/* Text Input */}
               <div className="flex-1 relative">
                 <textarea
-  ref={inputRef}
-  value={message}
-  onChange={(e) => {
-    setMessage(e.target.value);
-
-    e.target.style.height = 'auto';
-    e.target.style.height =
-      Math.min(e.target.scrollHeight, 180) + 'px';
-  }}
-  onKeyPress={handleKeyPress}
-  placeholder={
-    language === 'en'
-      ? "Ask about Rwanda safaris, hotels, gorilla trekking..."
-      : language === 'fr'
-      ? "Posez des questions sur les safaris, hôtels..."
-      : language === 'rw'
-      ? "Baza ibyerekeye safari, hoteli cyangwa ingendo..."
-      : "Uliza kuhusu safari, hoteli au utalii..."
-  }
-  className="
-    w-full
-    min-h-[52px]
-    max-h-[180px]
-    px-3 md:px-4
-    py-3
-    pr-10
-    rounded-xl
-    border border-gray-200 dark:border-gray-700
-    bg-gray-50 dark:bg-gray-900
-    text-sm md:text-base
-    text-gray-800 dark:text-white
-    placeholder:text-xs
-    md:placeholder:text-sm
-    placeholder:leading-tight
-    focus:outline-none
-    focus:ring-2
-    focus:ring-emerald-500
-    resize-none
-    overflow-y-auto
-  "
-  rows="1"
-/>
+                  ref={textareaRef}
+                  value={message}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+                  }}
+                  onKeyPress={handleKeyPress}
+                  placeholder={getPlaceholder()}
+                  className="
+                    w-full
+                    min-h-[52px]
+                    max-h-[180px]
+                    px-3 md:px-4
+                    py-3
+                    rounded-xl
+                    border border-gray-200 dark:border-gray-700
+                    bg-gray-50 dark:bg-gray-900
+                    text-sm md:text-base
+                    text-gray-800 dark:text-white
+                    placeholder:text-gray-400
+                    dark:placeholder:text-gray-500
+                    placeholder:text-xs
+                    sm:placeholder:text-sm
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-emerald-500
+                    resize-none
+                    overflow-y-auto
+                    leading-tight
+                  "
+                  rows="1"
+                />
               </div>
               
               {/* Voice Input Button */}
               {voiceSupported && (
                 <button
                   onClick={isListening ? stopVoiceInput : startVoiceInput}
-                  className={`w-12 h-12 rounded-xl transition-all duration-300 flex items-center justify-center ${
+                  className={`w-12 h-12 rounded-xl transition-all duration-300 flex items-center justify-center flex-shrink-0 ${
                     isListening
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300'
@@ -1015,7 +902,7 @@ Respond professionally.
               <button
                 onClick={sendMessage}
                 disabled={(!message.trim() && uploadedImages.length === 0) || loading}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
                   (message.trim() || uploadedImages.length > 0) && !loading
                     ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white hover:scale-105 shadow-lg'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
@@ -1034,11 +921,10 @@ Respond professionally.
               <div className="mt-2 text-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 text-xs">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                 {language === 'en' && 'Listening... Speak about your trip'}
-{language === 'en' && 'Listening... Speak about your trip'}
-{language === 'fr' && 'Je vous écoute... Parlez de votre voyage'}
-{language === 'rw' && 'Ndakumva... Vuga iby’urugendo rwawe'}
-{language === 'sw' && 'Ninasikiliza... Ongea kuhusu safari yako'}
+                  {language === 'en' && 'Listening... Speak about your trip'}
+                  {language === 'fr' && 'Je vous écoute... Parlez de votre voyage'}
+                  {language === 'rw' && 'Ndakumva... Vuga iby\'urugendo rwawe'}
+                  {language === 'sw' && 'Ninasikiliza... Ongea kuhusu safari yako'}
                 </div>
               </div>
             )}
@@ -1049,9 +935,9 @@ Respond professionally.
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-xs">
                   <Volume2 className="w-3 h-3 animate-pulse" />
                   {language === 'en' && 'AI Tour is speaking...'}
-{language === 'fr' && 'AI Tour parle...'}
-{language === 'rw' && 'AI Tour iri kuvuga...'}
-{language === 'sw' && 'AI Tour inazungumza...'}
+                  {language === 'fr' && 'AI Tour parle...'}
+                  {language === 'rw' && 'AI Tour iri kuvuga...'}
+                  {language === 'sw' && 'AI Tour inazungumza...'}
                   <button onClick={stopSpeaking} className="ml-2 hover:text-emerald-800">
                     <X className="w-3 h-3" />
                   </button>
@@ -1064,4 +950,5 @@ Respond professionally.
     </div>
   );
 };
+
 export default AIChat;

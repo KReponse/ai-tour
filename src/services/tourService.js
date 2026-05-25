@@ -3,6 +3,38 @@ import axios from 'axios';
 const API =
   'http://localhost:5000/api/tours';
 
+/* ================= GET TOKEN ================= */
+
+const getToken =
+  () => {
+
+    return localStorage.getItem(
+      'token'
+    );
+
+  };
+
+/* ================= CREATE TOUR ================= */
+
+export const createTour =
+  async (tourData) => {
+
+    const response =
+      await axios.post(
+        API,
+        tourData,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${getToken()}`,
+          },
+        }
+      );
+
+    return response.data;
+
+  };
+
 /* ================= GET TOURS ================= */
 
 export const getTours =
@@ -15,50 +47,6 @@ export const getTours =
 
   };
 
-/* ================= CREATE TOUR ================= */
-
-export const createTour =
-  async (tourData) => {
-
-    const response =
-      await axios.post(
-        API,
-        tourData
-      );
-
-    return response.data;
-
-  };
-
-/* ================= GET SINGLE TOUR ================= */
-
-export const getTourById =
-  async (id) => {
-
-    const response =
-      await axios.get(
-        `${API}/${id}`
-      );
-
-    return response.data;
-
-  };
-
-/* ================= UPDATE TOUR ================= */
-
-export const updateTour =
-  async (id, tourData) => {
-
-    const response =
-      await axios.put(
-        `${API}/${id}`,
-        tourData
-      );
-
-    return response.data;
-
-  };
-
 /* ================= DELETE TOUR ================= */
 
 export const deleteTour =
@@ -66,7 +54,13 @@ export const deleteTour =
 
     const response =
       await axios.delete(
-        `${API}/${id}`
+        `${API}/${id}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${getToken()}`,
+          },
+        }
       );
 
     return response.data;
