@@ -1,8 +1,8 @@
 import { Routes, Route, Outlet } from 'react-router-dom';
 
 import Layout from './components/layout/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
-import RoleProtectedRoute from './components/RoleProtectedRoute';
+
+
 import FloatingAIButton from './components/FloatingAIButton';
 
 import Home from './pages/Home';
@@ -41,6 +41,9 @@ import AddTour from './pages/provider/AddTour';
 import DashboardLayout from './layouts/DashboardLayout';
 import MyTours from './pages/provider/MyTours';
 import EditTour from './pages/provider/EditTour';
+import ProtectedRoute from './routes/ProtectedRoute';
+
+
 
 function App() {
   return (
@@ -124,37 +127,81 @@ function App() {
 
         </Route>
 
-        {/* ================= PROVIDER DASHBOARD ================= */}
+     {/* ================= PROVIDER DASHBOARD ================= */}
+
 <Route
   path="/provider"
   element={
-    <RoleProtectedRoute allowedRoles={['provider']}>
+    <ProtectedRoute
+      allowedRoles={[
+        'provider',
+      ]}
+    >
       <DashboardLayout />
-    </RoleProtectedRoute>
+    </ProtectedRoute>
   }
 >
 
-  <Route path="dashboard" element={<ProviderDashboard />} />
+  <Route
+    path="dashboard"
+    element={
+      <ProviderDashboard />
+    }
+  />
 
-  <Route path="requests" element={<Requests />} />
+  <Route
+    path="requests"
+    element={<Requests />}
+  />
 
-  <Route path="bookings" element={<Bookings />} />
+  <Route
+    path="bookings"
+    element={<Bookings />}
+  />
 
-  <Route path="travelers" element={<Travelers />} />
+  <Route
+    path="travelers"
+    element={<Travelers />}
+  />
 
-  <Route path="analytics" element={<Analytics />} />
+  <Route
+    path="analytics"
+    element={<Analytics />}
+  />
 
-  <Route path="earnings" element={<Earnings />} />
+  <Route
+    path="earnings"
+    element={<Earnings />}
+  />
 
-  <Route path="reviews" element={<Reviews />} />
+  <Route
+    path="reviews"
+    element={<Reviews />}
+  />
 
-  <Route path="profile" element={<ProviderProfile />} />
+  <Route
+    path="profile"
+    element={
+      <ProviderProfile />
+    }
+  />
 
-  <Route path="settings" element={<ProviderSettings />} />
+  <Route
+    path="settings"
+    element={
+      <ProviderSettings />
+    }
+  />
 
-  <Route path="add-tour" element={<AddTour />} />
+  <Route
+    path="add-tour"
+    element={<AddTour />}
+  />
 
-  <Route path="tours" element={<MyTours />} />
+  <Route
+    path="tours"
+    element={<MyTours />}
+  />
 
   <Route
     path="tours/edit/:id"
@@ -162,16 +209,19 @@ function App() {
   />
 
 </Route>
-
         {/* ================= ADMIN ================= */}
-        <Route
-          path="/admin"
-          element={
-            <RoleProtectedRoute allowedRoles={['admin']}>
-              <AdminDashboard />
-            </RoleProtectedRoute>
-          }
-        />
+       <Route
+  path="/admin"
+  element={
+    <ProtectedRoute
+      allowedRoles={[
+        'admin',
+      ]}
+    >
+      <AdminDashboard />
+    </ProtectedRoute>
+  }
+/>
 
       </Routes>
 
