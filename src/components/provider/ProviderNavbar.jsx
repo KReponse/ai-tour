@@ -1,5 +1,3 @@
-// src/components/provider/ProviderNavbar.jsx
-
 import React, {
   useState,
   useEffect,
@@ -19,9 +17,23 @@ import {
   LogOut,
 } from 'lucide-react';
 
+import {
+  useNavigate,
+} from 'react-router-dom';
+
+import { useAuth } from '../../contexts/AuthContext';
+
 const ProviderNavbar = ({
   onMenuClick,
 }) => {
+
+  const navigate =
+    useNavigate();
+
+  const {
+    user,
+    logout,
+  } = useAuth();
 
   const [darkMode, setDarkMode] =
     useState(false);
@@ -31,27 +43,46 @@ const ProviderNavbar = ({
     setProfileOpen,
   ] = useState(false);
 
-  const profileRef = useRef();
+  const profileRef =
+    useRef();
+
+  /* ================= LOGOUT ================= */
+
+  const handleLogout = () => {
+
+    logout();
+
+    navigate('/login');
+
+  };
 
   /* ================= DARK MODE ================= */
+
   useEffect(() => {
 
     if (darkMode) {
+
       document.documentElement.classList.add(
         'dark'
       );
+
     } else {
+
       document.documentElement.classList.remove(
         'dark'
       );
+
     }
 
   }, [darkMode]);
 
   /* ================= CLOSE DROPDOWN ================= */
+
   useEffect(() => {
 
-    const handleClickOutside = (e) => {
+    const handleClickOutside = (
+      e
+    ) => {
 
       if (
         profileRef.current &&
@@ -59,7 +90,9 @@ const ProviderNavbar = ({
           e.target
         )
       ) {
+
         setProfileOpen(false);
+
       }
 
     };
@@ -69,11 +102,14 @@ const ProviderNavbar = ({
       handleClickOutside
     );
 
-    return () =>
+    return () => {
+
       document.removeEventListener(
         'mousedown',
         handleClickOutside
       );
+
+    };
 
   }, []);
 
@@ -109,9 +145,11 @@ const ProviderNavbar = ({
       >
 
         {/* ================= LEFT ================= */}
+
         <div className="flex items-center gap-4">
 
           {/* MOBILE MENU */}
+
           <button
             onClick={onMenuClick}
             className="
@@ -133,6 +171,7 @@ const ProviderNavbar = ({
           </button>
 
           {/* LOGO */}
+
           <div>
 
             <h1
@@ -165,6 +204,7 @@ const ProviderNavbar = ({
         </div>
 
         {/* ================= SEARCH ================= */}
+
         <div
           className="
             hidden
@@ -215,12 +255,16 @@ const ProviderNavbar = ({
         </div>
 
         {/* ================= RIGHT ================= */}
+
         <div className="flex items-center gap-3">
 
           {/* DARK MODE */}
+
           <button
             onClick={() =>
-              setDarkMode(!darkMode)
+              setDarkMode(
+                !darkMode
+              )
             }
             className="
               w-11
@@ -237,14 +281,19 @@ const ProviderNavbar = ({
           >
 
             {darkMode ? (
+
               <Sun className="w-5 h-5 text-yellow-500" />
+
             ) : (
+
               <Moon className="w-5 h-5 dark:text-white" />
+
             )}
 
           </button>
 
           {/* MESSAGES */}
+
           <button
             className="
               relative
@@ -285,6 +334,7 @@ const ProviderNavbar = ({
           </button>
 
           {/* NOTIFICATIONS */}
+
           <button
             className="
               relative
@@ -325,6 +375,7 @@ const ProviderNavbar = ({
           </button>
 
           {/* PROFILE */}
+
           <div
             className="relative"
             ref={profileRef}
@@ -364,7 +415,6 @@ const ProviderNavbar = ({
                   "
                 />
 
-                {/* ONLINE */}
                 <span
                   className="
                     absolute
@@ -384,11 +434,13 @@ const ProviderNavbar = ({
               <div className="hidden md:block text-left">
 
                 <h3 className="text-sm font-bold dark:text-white">
-                  Reponse Dev
+                  {user?.name ||
+                    'Provider'}
                 </h3>
 
                 <p className="text-xs text-gray-500">
-                  Provider
+                  {user?.role ||
+                    'User'}
                 </p>
 
               </div>
@@ -398,6 +450,7 @@ const ProviderNavbar = ({
             </button>
 
             {/* DROPDOWN */}
+
             {profileOpen && (
 
               <div
@@ -420,11 +473,12 @@ const ProviderNavbar = ({
                 <div className="p-5 border-b border-gray-200 dark:border-gray-800">
 
                   <h3 className="font-black dark:text-white">
-                    Reponse Dev
+                    {user?.name ||
+                      'Provider'}
                   </h3>
 
                   <p className="text-sm text-gray-500">
-                    reponsedev@gmail.com
+                    {user?.email}
                   </p>
 
                 </div>
@@ -478,6 +532,7 @@ const ProviderNavbar = ({
                   </button>
 
                   <button
+                    onClick={handleLogout}
                     className="
                       w-full
                       h-12

@@ -3,21 +3,10 @@ import axios from 'axios';
 const API =
   'http://localhost:5000/api/tours';
 
-/* ================= GET TOKEN ================= */
-
-const getToken =
-  () => {
-
-    return localStorage.getItem(
-      'token'
-    );
-
-  };
-
 /* ================= CREATE TOUR ================= */
 
 export const createTour =
-  async (tourData) => {
+  async (tourData, token) => {
 
     const response =
       await axios.post(
@@ -26,14 +15,15 @@ export const createTour =
         {
           headers: {
             Authorization:
-              `Bearer ${getToken()}`,
+              `Bearer ${token}`,
+            'Content-Type':
+              'multipart/form-data',
           },
         }
       );
 
     return response.data;
-
-  };
+};
 
 /* ================= GET TOURS ================= */
 
@@ -44,13 +34,12 @@ export const getTours =
       await axios.get(API);
 
     return response.data;
-
-  };
+};
 
 /* ================= DELETE TOUR ================= */
 
 export const deleteTour =
-  async (id) => {
+  async (id, token) => {
 
     const response =
       await axios.delete(
@@ -58,11 +47,10 @@ export const deleteTour =
         {
           headers: {
             Authorization:
-              `Bearer ${getToken()}`,
+              `Bearer ${token}`,
           },
         }
       );
 
     return response.data;
-
-  };
+};
