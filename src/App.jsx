@@ -18,6 +18,7 @@ import TripResults from './pages/TripResults';
 import RequestTrip from './pages/RequestTrip';
 import Payment from './pages/Payment';
 import EditProfile from './pages/EditProfile';
+import TourDetails from'./pages/TourDetails';
 
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -124,6 +125,10 @@ function App() {
             path="/ai-chat"
             element={<ProtectedRoute><AIChat /></ProtectedRoute>}
           />
+          <Route
+  path="/tour/:id"
+  element={<TourDetails />}
+/>
 
         </Route>
 

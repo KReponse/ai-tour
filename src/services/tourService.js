@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+
 const API = 'http://localhost:5000/api/tours';
 
 /* ================= GET ALL TOURS ================= */
@@ -87,3 +88,14 @@ export const searchTours = async (query) => {
   const response = await axios.get(`${API}/search?q=${query}`);
   return response.data;
 };
+export const getSingleTour =
+  async (id) => {
+
+    const response =
+      await axios.get(
+        `${API}/${id}`
+      );
+
+    return response.data;
+
+  };
