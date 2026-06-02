@@ -34,3 +34,52 @@ export const createBooking =
     return response.data;
 
   };
+
+/* ================= MY BOOKINGS ================= */
+
+export const getMyBookings =
+  async (token) => {
+
+    const response =
+      await axios.get(
+
+        `${API}/my-bookings`,
+
+        {
+
+          headers: {
+
+            Authorization:
+              `Bearer ${token}`,
+
+          },
+
+        }
+
+      );
+
+    return response.data;
+
+  };
+  export const cancelBooking =
+async (id, token) => {
+
+  const res =
+    await axios.put(
+
+      `${API}/cancel/${id}`,
+
+      {},
+
+      {
+        headers:{
+          Authorization:
+            `Bearer ${token}`
+        }
+      }
+
+    );
+
+  return res.data;
+
+};

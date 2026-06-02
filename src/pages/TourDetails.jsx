@@ -23,7 +23,17 @@ import {
   createBooking,
 } from '../services/bookingService';
 
+import {
+  createCheckout,
+} from '../services/paymentService';
+
+import { useAuth }
+from '../contexts/AuthContext';
+
 const TourDetails = () => {
+
+  const { user } =
+  useAuth();
 
   const { id } =
     useParams();
@@ -83,69 +93,78 @@ const TourDetails = () => {
       }
 
     };
+/* ================= HANDLE BOOKING + PAYMENT ================= */
 
-  /* ================= HANDLE BOOKING ================= */
+const handleBooking = async (e) => {
 
-  const handleBooking =
-    async (e) => {
+  e.preventDefault();
 
-      e.preventDefault();
+  try {
 
-      try {
+    setBookingLoading(true);
 
-        setBookingLoading(true);
+  const data =
+  await createCheckout({
 
-        const token =
-          localStorage.getItem(
-            'token'
-          );
+    userId:
+      user._id,
 
-        await createBooking(
+    tourId:
+      tour._id,
 
-          {
+    title:
+      tour.title,
 
-            ...bookingData,
+    price:
+      tour.price,
 
-            tour:
-              tour._id,
+    fullName:
+      bookingData.fullName,
 
-          },
+    email:
+      bookingData.email,
 
-          token
+    phone:
+      bookingData.phone,
 
-        );
+    travelers:
+      bookingData.travelers,
 
-        alert(
-          'Booking created successfully'
-        );
+    travelDate:
+      bookingData.travelDate,
 
-        setShowBooking(false);
+  });
 
-        setBookingData({
+    if (data.url) {
 
-          fullName: '',
-          email: '',
-          phone: '',
-          travelers: 1,
-          travelDate: '',
+      window.location.href = data.url;
 
-        });
+    }
 
-      } catch (error) {
+  } catch (error) {
 
-        console.error(error);
+  console.log(
+    error.response?.data
+  );
 
-        alert(
-          'Booking failed'
-        );
+  console.log(
+    error.message
+  );
 
-      } finally {
+  alert(
+    error.response?.data?.message ||
+    'Payment initialization failed'
+  );
 
-        setBookingLoading(false);
+} finally {
 
-      }
+    setBookingLoading(false);
 
-    };
+  }
+
+};
+ 
+    
 
   /* ================= LOADING ================= */
 
@@ -793,29 +812,30 @@ const TourDetails = () => {
                   Cancel
 
                 </button>
+                  
+                  <button
+  type="submit"
+  disabled={bookingLoading}
+  className="
+    flex-1
+    h-14
+    rounded-2xl
+    bg-blue-600
+    text-white
+    font-bold
+  "
+>
 
-                <button
-                  type="submit"
-                  disabled={
-                    bookingLoading
-                  }
-                  className="
-                    flex-1
-                    h-14
-                    rounded-2xl
-                    bg-blue-600
-                    text-white
-                    font-bold
-                  "
-                >
+  {
+    bookingLoading
+      ? 'Redirecting...'
+      : 'Proceed to Payment'
+  }
 
-                  {
-                    bookingLoading
-                      ? 'Booking...'
-                      : 'Confirm Booking'
-                  }
+</button>
+                
 
-                </button>
+                
 
               </div>
 

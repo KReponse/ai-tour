@@ -19,6 +19,8 @@ import RequestTrip from './pages/RequestTrip';
 import Payment from './pages/Payment';
 import EditProfile from './pages/EditProfile';
 import TourDetails from'./pages/TourDetails';
+import PaymentSuccess  from './pages/PaymentSuccess';
+import PaymentCancel  from './pages/PaymentCancel';
 
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -43,6 +45,15 @@ import DashboardLayout from './layouts/DashboardLayout';
 import MyTours from './pages/provider/MyTours';
 import EditTour from './pages/provider/EditTour';
 import ProtectedRoute from './routes/ProtectedRoute';
+import MyBookings from './pages/MyBookings';
+import Dashboard from './pages/Dashboard';
+
+
+ 
+ 
+
+  
+
 
 
 
@@ -130,6 +141,33 @@ function App() {
   element={<TourDetails />}
 />
 
+<Route
+path="/my-bookings"
+  element={
+    <ProtectedRoute>
+      <MyBookings />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/dashboard"
+  element={
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/payment-success"
+  element={<PaymentSuccess />}
+/>
+
+<Route
+  path="/payment-cancel"
+  element={<PaymentCancel />}
+/>
         </Route>
 
      {/* ================= PROVIDER DASHBOARD ================= */}
@@ -212,6 +250,7 @@ function App() {
     path="tours/edit/:id"
     element={<EditTour />}
   />
+  
 
 </Route>
         {/* ================= ADMIN ================= */}
