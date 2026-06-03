@@ -61,25 +61,68 @@ export const getMyBookings =
     return response.data;
 
   };
+  
   export const cancelBooking =
-async (id, token) => {
+  async (id, token) => {
 
-  const res =
-    await axios.put(
+    const res =
+      await axios.put(
 
-      `${API}/cancel/${id}`,
+        `http://localhost:5000/api/bookings/${id}/cancel`,
 
-      {},
+        {},
 
-      {
-        headers:{
-          Authorization:
-            `Bearer ${token}`
+        {
+
+          headers: {
+
+            Authorization:
+              `Bearer ${token}`,
+
+          },
+
         }
-      }
 
-    );
+      );
+      
+
+    return res.data;
+
+  };
+export const getProviderBookings = async (token) => {
+  const res = await axios.get(
+    'http://localhost:5000/api/bookings/provider',
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   return res.data;
+};  
 
-};
+export const getProviderAnalytics =
+  async (token) => {
+
+    const res =
+      await axios.get(
+
+        'http://localhost:5000/api/bookings/provider/analytics',
+
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+
+      );
+
+    return res.data;
+
+  };
+
+
+
+   

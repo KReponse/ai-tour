@@ -9,7 +9,10 @@ import {
 } from 'lucide-react';
 
 import {
+
   getMyBookings,
+  cancelBooking,
+
 } from '../services/bookingService';
 
 const MyBookings = () => {
@@ -37,7 +40,20 @@ const handleCancel =
 
     try {
 
+      const token =
+        localStorage.getItem(
+          'token'
+        );
+
+      await cancelBooking(
+
+        bookingId,
+        token
+
+      );
+
       setBookings(
+
         bookings.map(
           (booking) =>
 
@@ -45,13 +61,17 @@ const handleCancel =
             bookingId
 
               ? {
+
                   ...booking,
+
                   status:
                     'cancelled',
+
                 }
 
               : booking
         )
+
       );
 
       alert(
