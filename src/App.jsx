@@ -48,6 +48,12 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import MyBookings from './pages/MyBookings';
 import Dashboard from './pages/Dashboard';
 
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminTours from './pages/admin/AdminTours';
+import AdminProviders from './pages/admin/AdminProviders';
+
+
+
 
  
  
@@ -254,15 +260,52 @@ path="/my-bookings"
 
 </Route>
         {/* ================= ADMIN ================= */}
-       <Route
+     <Route
   path="/admin"
+  element={
+    <ProtectedRoute
+      allowedRoles={['admin']}
+    >
+      <AdminDashboard />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/admin/users"
   element={
     <ProtectedRoute
       allowedRoles={[
         'admin',
       ]}
     >
-      <AdminDashboard />
+      <AdminUsers />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/admin/tours"
+  element={
+    <ProtectedRoute
+      allowedRoles={[
+        'admin',
+      ]}
+    >
+      <AdminTours />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/admin/providers"
+  element={
+    <ProtectedRoute
+      allowedRoles={[
+        'admin',
+      ]}
+    >
+      <AdminProviders />
     </ProtectedRoute>
   }
 />

@@ -1,61 +1,142 @@
-import React from 'react';
+import React,
+{
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   Wallet,
-  ArrowDownLeft,
-  ArrowUpRight,
   CreditCard,
+  Loader2,
+  Users,
 } from 'lucide-react';
 
 import {
-  earningsData,
-} from '../../data/providerData';
+  getProviderEarnings,
+} from '../../services/bookingService';
 
 const Earnings = () => {
+
+  const [earnings,
+    setEarnings] =
+    useState(null);
+
+  const [loading,
+    setLoading] =
+    useState(true);
+
+  useEffect(() => {
+
+    fetchEarnings();
+
+  }, []);
+
+  const fetchEarnings =
+    async () => {
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            'token'
+          );
+
+        const data =
+          await getProviderEarnings(
+            token
+          );
+
+        setEarnings(
+          data
+        );
+
+      } catch (error) {
+
+        console.log(error);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+  if (loading) {
+
+    return (
+
+      <div className="
+        flex
+        justify-center
+        items-center
+        py-20
+      ">
+
+        <Loader2
+          className="
+            w-8
+            h-8
+            animate-spin
+            text-blue-600
+          "
+        />
+
+      </div>
+
+    );
+
+  }
 
   return (
 
     <div className="space-y-8">
 
       {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
+      <div className="
+        flex
+        flex-col
+        lg:flex-row
+        lg:items-center
+        lg:justify-between
+        gap-4
+      ">
 
         <div>
 
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+          <h1 className="
+            text-3xl
+            font-black
+            text-gray-900
+            dark:text-white
+          ">
             Earnings
           </h1>
 
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Track your revenue and payouts
+          <p className="
+            text-gray-500
+            dark:text-gray-400
+            mt-1
+          ">
+            Track your revenue and payments
           </p>
 
         </div>
 
-        <button
-          className="
-            h-12
-            px-6
-            rounded-2xl
-            bg-gradient-to-r
-            from-green-500
-            to-emerald-600
-            text-white
-            font-semibold
-            shadow-lg
-            hover:scale-105
-            transition-all
-          "
-        >
-          Withdraw Funds
-        </button>
-
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* TOTAL */}
+      <div className="
+        grid
+        grid-cols-1
+        md:grid-cols-3
+        gap-6
+      ">
+
+        {/* TOTAL EARNINGS */}
+
         <div
           className="
             bg-white
@@ -69,16 +150,31 @@ const Earnings = () => {
           "
         >
 
-          <div className="flex items-center justify-between">
+          <div className="
+            flex
+            items-center
+            justify-between
+          ">
 
             <div>
 
-              <p className="text-sm text-gray-500">
+              <p className="
+                text-sm
+                text-gray-500
+              ">
                 Total Earnings
               </p>
 
-              <h2 className="text-4xl font-black text-green-600 mt-2">
-                $24,500
+              <h2 className="
+                text-4xl
+                font-black
+                text-green-600
+                mt-2
+              ">
+                $
+                {
+                  earnings?.totalEarnings || 0
+                }
               </h2>
 
             </div>
@@ -98,7 +194,12 @@ const Earnings = () => {
               "
             >
 
-              <Wallet className="w-7 h-7" />
+              <Wallet
+                className="
+                  w-7
+                  h-7
+                "
+              />
 
             </div>
 
@@ -106,7 +207,8 @@ const Earnings = () => {
 
         </div>
 
-        {/* THIS MONTH */}
+        {/* BOOKINGS */}
+
         <div
           className="
             bg-white
@@ -120,16 +222,30 @@ const Earnings = () => {
           "
         >
 
-          <div className="flex items-center justify-between">
+          <div className="
+            flex
+            items-center
+            justify-between
+          ">
 
             <div>
 
-              <p className="text-sm text-gray-500">
-                This Month
+              <p className="
+                text-sm
+                text-gray-500
+              ">
+                Paid Bookings
               </p>
 
-              <h2 className="text-4xl font-black text-blue-600 mt-2">
-                $4,200
+              <h2 className="
+                text-4xl
+                font-black
+                text-blue-600
+                mt-2
+              ">
+                {
+                  earnings?.paidBookings || 0
+                }
               </h2>
 
             </div>
@@ -149,7 +265,12 @@ const Earnings = () => {
               "
             >
 
-              <ArrowUpRight className="w-7 h-7" />
+              <Users
+                className="
+                  w-7
+                  h-7
+                "
+              />
 
             </div>
 
@@ -157,7 +278,8 @@ const Earnings = () => {
 
         </div>
 
-        {/* PENDING */}
+        {/* TRANSACTIONS */}
+
         <div
           className="
             bg-white
@@ -171,16 +293,30 @@ const Earnings = () => {
           "
         >
 
-          <div className="flex items-center justify-between">
+          <div className="
+            flex
+            items-center
+            justify-between
+          ">
 
             <div>
 
-              <p className="text-sm text-gray-500">
-                Pending Payouts
+              <p className="
+                text-sm
+                text-gray-500
+              ">
+                Transactions
               </p>
 
-              <h2 className="text-4xl font-black text-orange-500 mt-2">
-                $1,350
+              <h2 className="
+                text-4xl
+                font-black
+                text-purple-600
+                mt-2
+              ">
+                {
+                  earnings?.bookings?.length || 0
+                }
               </h2>
 
             </div>
@@ -191,8 +327,8 @@ const Earnings = () => {
                 h-14
                 rounded-2xl
                 bg-gradient-to-r
-                from-orange-500
-                to-yellow-500
+                from-purple-500
+                to-pink-500
                 text-white
                 flex
                 items-center
@@ -200,7 +336,12 @@ const Earnings = () => {
               "
             >
 
-              <ArrowDownLeft className="w-7 h-7" />
+              <CreditCard
+                className="
+                  w-7
+                  h-7
+                "
+              />
 
             </div>
 
@@ -210,7 +351,8 @@ const Earnings = () => {
 
       </div>
 
-      {/* TRANSACTIONS */}
+      {/* RECENT TRANSACTIONS */}
+
       <div
         className="
           bg-white
@@ -224,107 +366,119 @@ const Earnings = () => {
         "
       >
 
-        <div className="flex items-center justify-between mb-6">
-
-          <div>
-
-            <h2 className="text-2xl font-black dark:text-white">
-              Recent Transactions
-            </h2>
-
-            <p className="text-gray-500 mt-1">
-              Latest payment activities
-            </p>
-
-          </div>
-
-        </div>
+        <h2 className="
+          text-2xl
+          font-black
+          mb-6
+          dark:text-white
+        ">
+          Recent Transactions
+        </h2>
 
         <div className="space-y-4">
 
-          {earningsData.map((item) => (
-
-            <div
-              key={item.id}
-              className="
-                flex
-                flex-col
-                lg:flex-row
-                lg:items-center
-                lg:justify-between
-                gap-4
-                p-5
-                rounded-2xl
-                bg-gray-50
-                dark:bg-gray-800
-              "
-            >
-
-              <div className="flex items-center gap-4">
+          {
+            earnings?.bookings?.map(
+              (booking) => (
 
                 <div
+                  key={booking._id}
                   className="
-                    w-14
-                    h-14
-                    rounded-2xl
-                    bg-gradient-to-r
-                    from-blue-600
-                    to-purple-600
-                    text-white
                     flex
-                    items-center
-                    justify-center
+                    flex-col
+                    lg:flex-row
+                    lg:items-center
+                    lg:justify-between
+                    gap-4
+                    p-5
+                    rounded-2xl
+                    bg-gray-50
+                    dark:bg-gray-800
                   "
                 >
 
-                  <CreditCard className="w-6 h-6" />
+                  <div className="
+                    flex
+                    items-center
+                    gap-4
+                  ">
+
+                    <div
+                      className="
+                        w-14
+                        h-14
+                        rounded-2xl
+                        bg-gradient-to-r
+                        from-blue-600
+                        to-purple-600
+                        text-white
+                        flex
+                        items-center
+                        justify-center
+                      "
+                    >
+
+                      <CreditCard
+                        className="
+                          w-6
+                          h-6
+                        "
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <h3 className="
+                        font-bold
+                        dark:text-white
+                      ">
+                        {
+                          booking.fullName
+                        }
+                      </h3>
+
+                      <p className="
+                        text-sm
+                        text-gray-500
+                      ">
+                        {
+                          new Date(
+                            booking.createdAt
+                          ).toLocaleDateString()
+                        }
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <span
+                      className="
+                        px-4
+                        py-2
+                        rounded-full
+                        bg-green-100
+                        text-green-700
+                        dark:bg-green-900/30
+                        dark:text-green-400
+                        font-semibold
+                      "
+                    >
+
+                      Paid
+
+                    </span>
+
+                  </div>
 
                 </div>
 
-                <div>
-
-                  <h3 className="font-bold text-gray-900 dark:text-white">
-                    {item.title}
-                  </h3>
-
-                  <p className="text-sm text-gray-500">
-                    {item.date}
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="flex items-center gap-4">
-
-                <h3 className="font-black text-lg text-green-600">
-                  {item.amount}
-                </h3>
-
-                <span
-                  className={`
-                    px-4
-                    py-2
-                    rounded-full
-                    text-sm
-                    font-semibold
-                    ${
-                      item.status === 'Paid'
-                        ? 'bg-green-100 text-green-600'
-                        : item.status === 'Pending'
-                        ? 'bg-yellow-100 text-yellow-600'
-                        : 'bg-blue-100 text-blue-600'
-                    }
-                  `}
-                >
-                  {item.status}
-                </span>
-
-              </div>
-
-            </div>
-
-          ))}
+              )
+            )
+          }
 
         </div>
 
@@ -333,6 +487,7 @@ const Earnings = () => {
     </div>
 
   );
+
 };
 
 export default Earnings;

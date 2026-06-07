@@ -1,227 +1,320 @@
-import React from 'react';
+import React,
+{
+  useEffect,
+  useState,
+} from 'react';
 
 import {
+  Users,
+  Loader2,
   Mail,
   Phone,
-  MapPin,
+  Calendar,
 } from 'lucide-react';
 
 import {
-  providerTravelers,
-} from '../../data/providerData';
+  getProviderTravelers,
+} from '../../services/bookingService';
 
 const Travelers = () => {
 
-  const statusStyles = {
-    Active:
-      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  const [travelers,
+    setTravelers] =
+    useState([]);
 
-    Pending:
-      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  const [loading,
+    setLoading] =
+    useState(true);
 
-    VIP:
-      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  };
+  useEffect(() => {
+
+    fetchTravelers();
+
+  }, []);
+
+  const fetchTravelers =
+    async () => {
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            'token'
+          );
+
+        const data =
+          await getProviderTravelers(
+            token
+          );
+
+        setTravelers(
+          data.travelers || []
+        );
+
+      } catch (error) {
+
+        console.log(error);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+  if (loading) {
+
+    return (
+
+      <div className="
+        flex
+        justify-center
+        items-center
+        py-20
+      ">
+        <Loader2
+          className="
+            w-8 h-8
+            animate-spin
+            text-blue-600
+          "
+        />
+      </div>
+
+    );
+
+  }
 
   return (
 
     <div className="space-y-6">
 
-      {/* HEADER */}
       <div>
 
-        <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+        <h1 className="
+          text-3xl
+          font-black
+          text-gray-900
+          dark:text-white
+        ">
           Travelers
         </h1>
 
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Manage your travelers and customers
+        <p className="
+          text-gray-500
+          dark:text-gray-400
+          mt-1
+        ">
+          All travelers who booked tours
         </p>
 
       </div>
 
-      {/* CARDS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="
+        bg-white
+        dark:bg-gray-900
+        rounded-3xl
+        border
+        border-gray-200
+        dark:border-gray-800
+        overflow-hidden
+      ">
 
-        {providerTravelers.map((traveler) => (
+        <div className="overflow-x-auto">
 
-          <div
-            key={traveler.id}
-            className="
-              bg-white
-              dark:bg-gray-900
-              rounded-3xl
-              border
-              border-gray-200
-              dark:border-gray-800
-              p-6
-              shadow-sm
-              hover:shadow-xl
-              transition-all
-            "
-          >
+          <table className="w-full">
 
-            <div className="flex items-start justify-between">
+            <thead>
 
-              {/* LEFT */}
-              <div className="flex items-center gap-4">
+              <tr className="
+                border-b
+                border-gray-200
+                dark:border-gray-800
+              ">
 
-                <div
-                  className="
-                    w-16
-                    h-16
-                    rounded-2xl
-                    bg-gradient-to-r
-                    from-blue-600
-                    to-purple-600
-                    text-white
-                    flex
-                    items-center
-                    justify-center
-                    text-2xl
-                    font-black
-                  "
-                >
-                  {traveler.avatar}
-                </div>
+                <th className="p-4 text-left">
+                  Traveler
+                </th>
 
-                <div>
+                <th className="p-4 text-left">
+                  Tour
+                </th>
 
-                  <h2 className="text-xl font-bold dark:text-white">
-                    {traveler.name}
-                  </h2>
+                <th className="p-4 text-left">
+                  Travel Date
+                </th>
 
-                  <div className="flex items-center gap-2 text-gray-500 mt-1">
+                <th className="p-4 text-left">
+                  Payment
+                </th>
 
-                    <MapPin className="w-4 h-4" />
+                <th className="p-4 text-left">
+                  Status
+                </th>
 
-                    <span className="text-sm">
-                      {traveler.country}
-                    </span>
+              </tr>
 
-                  </div>
+            </thead>
 
-                </div>
+            <tbody>
 
-              </div>
+              {travelers.map(
+                (traveler) => (
 
-              {/* STATUS */}
-              <div
-                className={`
-                  px-3
-                  py-1
-                  rounded-full
-                  text-sm
-                  font-semibold
-                  ${statusStyles[traveler.status]}
-                `}
-              >
-                {traveler.status}
-              </div>
+                  <tr
+                    key={
+                      traveler._id
+                    }
+                    className="
+                      border-b
+                      border-gray-100
+                      dark:border-gray-800
+                    "
+                  >
 
-            </div>
+                    <td className="p-4">
 
-            {/* STATS */}
-            <div className="mt-6 grid grid-cols-2 gap-4">
+                      <div>
 
-              <div
-                className="
-                  rounded-2xl
-                  bg-gray-50
-                  dark:bg-gray-800
-                  p-4
-                "
-              >
+                        <h3 className="
+                          font-bold
+                          dark:text-white
+                        ">
+                          {
+                            traveler.fullName
+                          }
+                        </h3>
 
-                <p className="text-sm text-gray-500">
-                  Total Trips
-                </p>
+                        <div className="
+                          text-sm
+                          text-gray-500
+                          mt-1
+                        ">
 
-                <h3 className="text-2xl font-black dark:text-white mt-1">
-                  {traveler.trips}
-                </h3>
+                          <div className="
+                            flex
+                            items-center
+                            gap-2
+                          ">
 
-              </div>
+                            <Mail size={14} />
 
-              <div
-                className="
-                  rounded-2xl
-                  bg-gray-50
-                  dark:bg-gray-800
-                  p-4
-                "
-              >
+                            {
+                              traveler.email
+                            }
 
-                <p className="text-sm text-gray-500">
-                  Customer Type
-                </p>
+                          </div>
 
-                <h3 className="text-lg font-bold dark:text-white mt-1">
-                  Premium
-                </h3>
+                          <div className="
+                            flex
+                            items-center
+                            gap-2
+                            mt-1
+                          ">
 
-              </div>
+                            <Phone size={14} />
 
-            </div>
+                            {
+                              traveler.phone
+                            }
 
-            {/* ACTIONS */}
-            <div className="mt-6 flex flex-wrap gap-3">
+                          </div>
 
-              <button
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  px-5
-                  h-11
-                  rounded-2xl
-                  bg-blue-600
-                  hover:bg-blue-700
-                  text-white
-                  font-semibold
-                  transition
-                "
-              >
+                        </div>
 
-                <Mail className="w-4 h-4" />
+                      </div>
 
-                Message
+                    </td>
 
-              </button>
+                    <td className="p-4">
 
-              <button
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  px-5
-                  h-11
-                  rounded-2xl
-                  bg-green-600
-                  hover:bg-green-700
-                  text-white
-                  font-semibold
-                  transition
-                "
-              >
+                      {
+                        traveler.tour
+                          ?.title
+                      }
 
-                <Phone className="w-4 h-4" />
+                    </td>
 
-                Call
+                    <td className="p-4">
 
-              </button>
+                      <div className="
+                        flex
+                        items-center
+                        gap-2
+                      ">
 
-            </div>
+                        <Calendar
+                          size={16}
+                        />
 
-          </div>
+                        {
+                          new Date(
+                            traveler.travelDate
+                          ).toLocaleDateString()
+                        }
 
-        ))}
+                      </div>
+
+                    </td>
+
+                    <td className="p-4">
+
+                      <span className="
+                        px-3
+                        py-1
+                        rounded-full
+                        bg-green-100
+                        text-green-700
+                        text-sm
+                        font-semibold
+                      ">
+
+                        {
+                          traveler.paymentStatus
+                        }
+
+                      </span>
+
+                    </td>
+
+                    <td className="p-4">
+
+                      <span className="
+                        px-3
+                        py-1
+                        rounded-full
+                        bg-blue-100
+                        text-blue-700
+                        text-sm
+                        font-semibold
+                      ">
+
+                        {
+                          traveler.status
+                        }
+
+                      </span>
+
+                    </td>
+
+                  </tr>
+
+                )
+              )}
+
+            </tbody>
+
+          </table>
+
+        </div>
 
       </div>
 
     </div>
 
   );
+
 };
 
 export default Travelers;

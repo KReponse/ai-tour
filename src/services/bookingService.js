@@ -123,6 +123,46 @@ export const getProviderAnalytics =
 
   };
 
+  export const getProviderEarnings =
+  async (token) => {
+
+    const res =
+      await axios.get(
+
+        'http://localhost:5000/api/bookings/provider/earnings',
+
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+
+      );
+
+    return res.data;
+
+  };
+  
+  export const getProviderTravelers =
+  async (token) => {
+
+    const res =
+      await axios.get(
+
+        'http://localhost:5000/api/bookings/provider/travelers',
+
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+      );
+
+    return res.data;
+
+  };
 
 
    
