@@ -134,3 +134,26 @@ export const deleteTour =
 
   };
 
+  export const getAllRequests =
+  async (token) => {
+
+    const response =
+      await axios.get(
+
+        `${API_URL}/admin/requests`,
+
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+
+      );
+
+    return response.data;
+
+  };
+
+
+
