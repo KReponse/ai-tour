@@ -1,82 +1,112 @@
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+
 import {
   LayoutDashboard,
-  Map,
   Users,
-  UserCircle,
-  BarChart3,
-  Settings,
-  LogOut
+  Map,
+  Calendar,
+  Bell,
+  ShieldCheck,
 } from "lucide-react";
 
-import { NavLink } from "react-router-dom";
+const AdminSidebar = () => {
 
-const menu = [
-  {
-    name: "Dashboard",
-    path: "/admin/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    name: "Tours",
-    path: "/admin/tours",
-    icon: Map,
-  },
-  {
-    name: "Providers",
-    path: "/admin/providers",
-    icon: UserCircle,
-  },
-  {
-    name: "Travelers",
-    path: "/admin/travelers",
-    icon: Users,
-  },
-  {
-    name: "Analytics",
-    path: "/admin/analytics",
-    icon: BarChart3,
-  },
-  {
-    name: "Settings",
-    path: "/admin/settings",
-    icon: Settings,
-  },
-];
+  const location = useLocation();
 
-export default function AdminSidebar() {
+  const menuItems = [
+    {
+      name: "Dashboard",
+      path: "/admin/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      name: "Users",
+      path: "/admin/users",
+      icon: Users,
+    },
+    {
+      name: "Tours",
+      path: "/admin/tours",
+      icon: Map,
+    },
+    {
+      name: "Requests",
+      path: "/admin/requests",
+      icon: Calendar,
+    },
+    {
+  name: "Provider Requests",
+  path: "/admin/provider-requests",
+  icon: ShieldCheck
+},
+    {
+      name: "Notifications",
+      path: "/admin/notifications",
+      icon: Bell,
+    },
+  ];
+
   return (
-    <aside className="w-72 bg-slate-900 text-white h-screen fixed left-0 top-0">
-      <div className="p-6 border-b border-slate-700">
-        <h1 className="font-bold text-2xl">
-          AI Tour Rwanda
-        </h1>
-      </div>
+    <aside
+      className="
+      w-64
+      min-h-screen
+      bg-white
+      dark:bg-gray-900
+      border-r
+      border-gray-200
+      dark:border-gray-800
+      p-5
+    "
+    >
+      <h2
+        className="
+        text-2xl
+        font-black
+        mb-8
+        text-blue-600
+      "
+      >
+        AI Tour Admin
+      </h2>
 
-      <nav className="p-4 space-y-2">
-        {menu.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 p-3 rounded-xl transition ${
-                isActive
-                  ? "bg-blue-600"
-                  : "hover:bg-slate-800"
-              }`
-            }
-          >
-            <item.icon size={20} />
-            {item.name}
-          </NavLink>
-        ))}
+      <nav className="space-y-2">
+        {menuItems.map((item) => {
+
+          const Icon = item.icon;
+
+          const active =
+            location.pathname === item.path;
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`
+                flex
+                items-center
+                gap-3
+                px-4
+                py-3
+                rounded-xl
+                transition-all
+
+                ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                }
+              `}
+            >
+              <Icon size={20} />
+              <span>{item.name}</span>
+            </Link>
+          );
+        })}
       </nav>
-
-      <div className="absolute bottom-6 w-full px-4">
-        <button className="w-full flex items-center gap-3 p-3 rounded-xl bg-red-500 hover:bg-red-600">
-          <LogOut size={20} />
-          Logout
-        </button>
-      </div>
     </aside>
   );
-}
+};
+
+export default AdminSidebar;

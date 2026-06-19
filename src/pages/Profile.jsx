@@ -1,124 +1,199 @@
-// src/pages/Profile.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Calendar, Award, Settings, LogOut, Edit2 } from 'lucide-react';
-import Card, { CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Settings,
+  LogOut,
+  Edit2,
+  Loader2,
+  Star,
+  Calendar,
+  RefreshCw,
+} from "lucide-react";
+
+import Card, { CardContent } from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import { useAuth } from "../contexts/AuthContext";
+
+const API = "http://localhost:5000/api";
 
 const Profile = () => {
-const { user, logout } = useAuth();
+  const { logout } = useAuth();
+
+  const [user, setUser] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const token = localStorage.getItem("token");
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+
+      const [u, b, r] = await Promise.all([
+        axios.get(`${API}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API}/bookings/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API}/reviews/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      setUser(u.data.user);
+      setBookings(b.data.bookings || []);
+      setReviews(r.data.reviews || []);
+      setError(null);
+
+    } catch (err) {
+      console.log(err);
+      setError("Failed to load profile data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const avgRating =
+    reviews.length > 0
+      ? (
+          reviews.reduce((a, b) => a + (b.rating || 0), 0) /
+          reviews.length
+        ).toFixed(1)
+      : 0;
+
+  // LOADING
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[300px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  // ERROR STATE
+  if (error) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-red-500 mb-3">{error}</p>
+
+        <Button onClick={fetchProfile}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      {/* Profile Header */}
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 opacity-10"></div>
-        <CardContent className="relative p-6 md:p-8">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative">
-              <img
-                src={
-  user?.avatar ||
-  'https://ui-avatars.com/api/?name=' +
-    user?.fullName
-}
-                alt={user?.fullName}
-                className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-white dark:border-gray-800"
-              />
-              <button className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full text-white hover:bg-blue-700 transition">
-                <Edit2 className="w-4 h-4" />
-              </button>
+    <div className="max-w-5xl mx-auto space-y-6">
+
+      {/* HEADER */}
+      <Card>
+        <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+
+          <div className="flex items-center gap-4">
+
+            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex items-center justify-center text-2xl font-bold">
+              {user?.name?.charAt(0) || "U"}
             </div>
-            
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{user.name}</h1>
-              <div className="flex flex-wrap justify-center md:justify-start gap-4 text-gray-600 dark:text-gray-300">
-                <div className="flex items-center">
-                  <Mail className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user?.email}</span>
-                </div>
-                <div className="flex items-center">
-                  <Phone className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user?.phone}</span>
-                </div>
-                <div className="flex items-center">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{user?.country}</span>
-                </div>
-              </div>
+
+            <div>
+              <h1 className="text-2xl font-bold">{user?.name}</h1>
+
+              <p className="text-gray-500 flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                {user?.email}
+              </p>
+
+              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                {user?.role}
+              </span>
             </div>
-            
+
+          </div>
+
+          <div className="flex gap-3">
             <Link to="/edit-profile">
-              <Button variant="outline">
+              <Button>
                 <Edit2 className="w-4 h-4 mr-2" />
-                Edit Profile
+                Edit
               </Button>
             </Link>
+
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
+
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user?.stats?.trips || 0}</div>
-          <div className="text-sm text-gray-500">Trips</div>
-        </div>
-        <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user?.stats?.reviews || 0}</div>
-          <div className="text-sm text-gray-500">Reviews</div>
-        </div>
-        <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">{user?.stats?.photos || 0}</div>
-          <div className="text-sm text-gray-500">Photos</div>
-        </div>
-      </div>
+      {/* STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-      {/* Settings Sections */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Account Settings</h2>
-        
         <Card>
-          <CardContent className="divide-y divide-gray-200 dark:divide-gray-700">
-            <Link to="/edit-profile" className="flex items-center justify-between py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 -mx-4 transition">
-              <div className="flex items-center">
-                <User className="w-5 h-5 mr-3 text-gray-500" />
-                <span>Personal Information</span>
-              </div>
-              <Edit2 className="w-4 h-4 text-gray-400" />
-            </Link>
-            
-            <Link to="/settings" className="flex items-center justify-between py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 -mx-4 transition">
-              <div className="flex items-center">
-                <Settings className="w-5 h-5 mr-3 text-gray-500" />
-                <span>Preferences</span>
-              </div>
-              <Settings className="w-4 h-4 text-gray-400" />
-            </Link>
-            
-            <div className="flex items-center justify-between py-4">
-              <div className="flex items-center">
-                <Award className="w-5 h-5 mr-3 text-gray-500" />
-                <span>Membership</span>
-              </div>
-              <span className="px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm rounded-full">
-                Premium Member
-              </span>
+          <CardContent className="p-5 flex justify-between">
+            <div>
+              <p className="text-gray-500">Bookings</p>
+              <h2 className="text-2xl font-bold">{bookings.length}</h2>
             </div>
-            
-           <button
-  onClick={logout}
-  className="flex items-center justify-between w-full py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 -mx-4 transition text-red-600"
->
-  <div className="flex items-center">
-    <LogOut className="w-5 h-5 mr-3" />
-    <span>Sign Out</span>
-  </div>
-</button>
+            <Calendar className="text-blue-600" />
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="p-5 flex justify-between">
+            <div>
+              <p className="text-gray-500">Reviews</p>
+              <h2 className="text-2xl font-bold">{reviews.length}</h2>
+            </div>
+            <Star className="text-yellow-500" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 flex justify-between">
+            <div>
+              <p className="text-gray-500">Avg Rating</p>
+              <h2 className="text-2xl font-bold">{avgRating}</h2>
+            </div>
+            <Star className="text-yellow-500" />
+          </CardContent>
+        </Card>
+
       </div>
+
+      {/* INFO */}
+      <Card>
+        <CardContent className="p-5 space-y-3">
+
+          <h2 className="font-semibold text-lg">Profile Info</h2>
+
+          <div className="flex items-center gap-3 text-gray-600">
+            <Phone className="w-4 h-4" />
+            {user?.phone || "No phone"}
+          </div>
+
+          <div className="flex items-center gap-3 text-gray-600">
+            <MapPin className="w-4 h-4" />
+            {user?.country || "No country"}
+          </div>
+
+        </CardContent>
+      </Card>
+
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { BookingProvider } from './contexts/BookingContext';
 import {  AuthProvider  } from './contexts/AuthContext';
 import ScrollToTop from './components/ScrollToTop';
-
+import { Toaster } from "react-hot-toast";
 
  
 
@@ -21,13 +21,37 @@ ReactDOM.createRoot(
 
   <ScrollToTop />
 
-  <AuthProvider>
-    <ThemeProvider>
-      <BookingProvider>
-        <App />
-      </BookingProvider>
-    </ThemeProvider>
-  </AuthProvider>
+ <AuthProvider>
+  <ThemeProvider>
+    <BookingProvider>
+
+      <App />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#374151",
+            color: "#fff",
+            borderRadius: "16px",
+          },
+          success: {
+            style: {
+              background: "#0D9488",
+            },
+          },
+          error: {
+            style: {
+              background: "#DC2626",
+            },
+          },
+        }}
+      />
+
+    </BookingProvider>
+  </ThemeProvider>
+</AuthProvider>
 
 </BrowserRouter>
 

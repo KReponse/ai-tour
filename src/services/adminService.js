@@ -1,159 +1,73 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API =
-  'http://localhost:5000/api/admin';
+const API = "http://localhost:5000/api/admin";
 
-export const getDashboardStats =
-  async (
-    token
-  ) => {
+/**
+ * Helper: get token safely
+ */
+const getToken = () => localStorage.getItem("token");
 
-    const res =
-      await axios.get(
+const authHeader = () => ({
+  headers: {
+    Authorization: `Bearer ${getToken()}`,
+  },
+});
 
-        `${API}/dashboard`,
+export const getDashboardStats = async () => {
+  const response = await axios.get(`${API}/dashboard`, authHeader());
+  return response.data;
+};
 
-        {
-          headers: {
+export const getAllTours = async () => {
+  const response = await axios.get(`${API}/tours`, authHeader());
+  return response.data;
+};
 
-            Authorization:
-              `Bearer ${token}`,
+export const deleteTour = async (id) => {
+  const response = await axios.delete(
+    `${API}/tours/${id}`,
+    authHeader()
+  );
+  return response.data;
+};
 
-          },
-        }
-      );
+export const getAllRequests = async () => {
+  const response = await axios.get(
+    `${API}/requests`,
+    authHeader()
+  );
 
-    return res.data;
+  return response.data;
+};
+export const updateProviderRequest =
+async(id,status)=>{
 
-  };
+const response =
+await API.put(
 
-  export const getAllUsers =
-  async (
-    token
-  ) => {
+`/admin/provider-requests/${id}`,
 
-    const res =
-      await axios.get(
+{
+status
+}
 
-        `${API}/users`,
+);
 
-        {
-          headers: {
+return response.data;
 
-            Authorization:
-              `Bearer ${token}`,
+};
+export const getProviderRequests =
+async()=>{
 
-          },
-        }
-      );
+const response =
+await axios.get(
 
-    return res.data;
+`${API}/provider-requests`,
 
-  };
+authHeader()
 
-export const updateUserRole =
-  async (
-    id,
-    role,
-    token
-  ) => {
+);
 
-    const res =
-      await axios.put(
+return response.data;
 
-        `${API}/users/${id}`,
-
-        { role },
-
-        {
-          headers: {
-
-            Authorization:
-              `Bearer ${token}`,
-
-          },
-        }
-      );
-
-    return res.data;
-
-  };
-
-  export const getAllTours =
-  async (
-    token
-  ) => {
-
-    const res =
-      await axios.get(
-
-        `${API}/tours`,
-
-        {
-
-          headers: {
-
-            Authorization:
-              `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
-
-    return res.data;
-
-  };
-
-export const deleteTour =
-  async (
-    id,
-    token
-  ) => {
-
-    const res =
-      await axios.delete(
-
-        `${API}/tours/${id}`,
-
-        {
-
-          headers: {
-
-            Authorization:
-              `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
-
-    return res.data;
-
-  };
-
-  export const getAllRequests =
-  async (token) => {
-
-    const response =
-      await axios.get(
-
-        `${API_URL}/admin/requests`,
-
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
-
-      );
-
-    return response.data;
-
-  };
-
-
-
+};

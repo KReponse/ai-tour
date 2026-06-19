@@ -1,104 +1,111 @@
-import axios from 'axios';
+import axios from "axios";
 
+/* =========================
+BASE API INSTANCE
+========================= */
 const API = axios.create({
-  baseURL:
-    'http://localhost:5000/api/auth',
+  baseURL: "http://localhost:5000/api/auth",
 });
 
-/* ================= REGISTER ================= */
+/* =========================
+AUTO ATTACH TOKEN
+========================= */
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
 
-export const registerUser =
-  async (userData) => {
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
-    const response =
-      await API.post(
-        '/register',
-        userData
-      );
+  return config;
+});
 
-    /* SAVE TOKEN */
-    localStorage.setItem(
-      'token',
-      response.data.token
-    );
-
-    localStorage.setItem(
-      'user',
-      JSON.stringify(
-        response.data.user
-      )
-    );
-
-    return response.data;
-
+/* =========================
+ERROR HANDLER
+========================= */
+const handleError = (error) => {
+  throw {
+    message:
+      error.response?.data?.message ||
+      "Something went wrong",
+    status: error.response?.status,
   };
+};
 
-/* ================= LOGIN ================= */
+/* =========================
+REGISTER
+========================= */
+export const registerUser = async (userData) => {
+  try {
+    const { data } = await API.post("/register", userData);
+    return data;
+  } catch (error) {
+    handleError(error);
+  }
+};
 
-export const loginUser =
-  async (userData) => {
+/* =========================
+LOGIN
+========================= */
+export const loginUser = async (userData) => {
+  try {
+    const { data } = await API.post("/login", userData);
+    return data;
+  } catch (error) {
+    handleError(error);
+  }
+};
 
-    const response =
-      await API.post(
-        '/login',
-        userData
-      );
+/* =========================
+FORGOT PASSWORD
+========================= */
+export const forgotPassword = async (email) => {
+  try {
+    const { data } = await API.post("/forgot-password", {
+      email,
+    });
 
-    /* SAVE TOKEN */
-    localStorage.setItem(
-      'token',
-      response.data.token
+    return data;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+/* =========================
+RESET PASSWORD
+========================= */
+export const resetPassword = async (token, password) => {
+  try {
+    const { data } = await API.post(
+      `/reset-password/${token}`,
+      { password }
     );
 
-    localStorage.setItem(
-      'user',
-      JSON.stringify(
-        response.data.user
-      )
-    );
+    return data;
+  } catch (error) {
+    handleError(error);
+  }
+};
 
-    return response.data;
+/* =========================
+GET CURRENT USER
+========================= */
+export const getCurrentUser = () => {
+  const user = localStorage.getItem("user");
+  return user ? JSON.parse(user) : null;
+};
 
-  };
+/* =========================
+GET TOKEN
+========================= */
+export const getToken = () => {
+  return localStorage.getItem("token");
+};
 
-/* ================= LOGOUT ================= */
-
-export const logoutUser =
-  () => {
-
-    localStorage.removeItem(
-      'token'
-    );
-
-    localStorage.removeItem(
-      'user'
-    );
-
-  };
-
-/* ================= GET USER ================= */
-
-export const getCurrentUser =
-  () => {
-
-    const user =
-      localStorage.getItem(
-        'user'
-      );
-
-    return user
-      ? JSON.parse(user)
-      : null;
-
-  };
-
-/* ================= GET TOKEN ================= */
-
-export const getToken =
-  () => {
-
-    return localStorage.getItem(
-      'token'
-    );
-
-  };
+/* =========================
+LOGOUT
+========================= */
+export const logoutUser = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+};

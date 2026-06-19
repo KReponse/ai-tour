@@ -62,3 +62,32 @@ export const getProviderTravelers =
 
     return response.data;
   };
+  // CREATE PROVIDER REQUEST
+
+export const createProviderRequest =
+async (data) => {
+
+  const response =
+    await API.post(
+      "/provider/request",
+      data
+    );
+
+  return response.data;
+
+};
+
+
+// GET MY PROVIDER REQUEST
+
+export const getMyProviderRequest =
+async () => {
+
+  const response =
+    await API.get(
+      "/provider/request/me"
+    );
+
+  return response.data;
+
+};

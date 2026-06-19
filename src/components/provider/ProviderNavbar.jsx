@@ -2,7 +2,7 @@ import React, {
   useState,
   useEffect,
   useRef,
-} from 'react';
+} from "react";
 
 import {
   Bell,
@@ -15,561 +15,1383 @@ import {
   Settings,
   User,
   LogOut,
-} from 'lucide-react';
+  PlusCircle,
+} from "lucide-react";
+
 
 import {
   useNavigate,
-} from 'react-router-dom';
+} from "react-router-dom";
 
-import { useAuth } from '../../contexts/AuthContext';
+
+import {
+  useAuth,
+} from "../../contexts/AuthContext";
+
 
 const ProviderNavbar = ({
   onMenuClick,
+  unreadCount = 0,
+  messageCount = 0,
 }) => {
 
-  const navigate =
-    useNavigate();
 
-  const {
-    user,
-    logout,
-  } = useAuth();
+const navigate =
+useNavigate();
 
-  const [darkMode, setDarkMode] =
-    useState(false);
 
-  const [
-    profileOpen,
-    setProfileOpen,
-  ] = useState(false);
+const {
+ user,
+ logout,
+} = useAuth();
 
-  const profileRef =
-    useRef();
 
-  /* ================= LOGOUT ================= */
 
-  const handleLogout = () => {
+const [
+darkMode,
+setDarkMode
+]=useState(
+ localStorage.getItem("theme")
+ ===
+ "dark"
+);
 
-    logout();
 
-    navigate('/login');
 
-  };
+const [
+profileOpen,
+setProfileOpen
+]=useState(false);
 
-  /* ================= DARK MODE ================= */
 
-  useEffect(() => {
 
-    if (darkMode) {
+const profileRef =
+useRef();
 
-      document.documentElement.classList.add(
-        'dark'
-      );
 
-    } else {
 
-      document.documentElement.classList.remove(
-        'dark'
-      );
+/* ================= DARK MODE ================= */
 
-    }
 
-  }, [darkMode]);
+useEffect(()=>{
 
-  /* ================= CLOSE DROPDOWN ================= */
 
-  useEffect(() => {
+if(darkMode){
 
-    const handleClickOutside = (
-      e
-    ) => {
+document.documentElement.classList.add(
+"dark"
+);
 
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(
-          e.target
-        )
-      ) {
+localStorage.setItem(
+"theme",
+"dark"
+);
 
-        setProfileOpen(false);
 
-      }
+}else{
 
-    };
-
-    document.addEventListener(
-      'mousedown',
-      handleClickOutside
-    );
 
-    return () => {
+document.documentElement.classList.remove(
+"dark"
+);
 
-      document.removeEventListener(
-        'mousedown',
-        handleClickOutside
-      );
 
-    };
+localStorage.setItem(
+"theme",
+"light"
+);
 
-  }, []);
-
-  return (
-
-    <header
-      className="
-        fixed
-        top-0
-        left-0
-        right-0
-        h-16
-        z-50
-        bg-white/70
-        dark:bg-gray-950/70
-        backdrop-blur-2xl
-        border-b
-        border-gray-200
-        dark:border-gray-800
-        shadow-sm
-      "
-    >
-
-      <div
-        className="
-          h-full
-          px-4
-          lg:px-8
-          flex
-          items-center
-          justify-between
-        "
-      >
-
-        {/* ================= LEFT ================= */}
-
-        <div className="flex items-center gap-4">
-
-          {/* MOBILE MENU */}
-
-          <button
-            onClick={onMenuClick}
-            className="
-              lg:hidden
-              w-11
-              h-11
-              rounded-2xl
-              bg-gray-100
-              dark:bg-gray-800
-              flex
-              items-center
-              justify-center
-              transition
-            "
-          >
-
-            <Menu className="w-5 h-5 dark:text-white" />
-
-          </button>
-
-          {/* LOGO */}
-
-          <div>
-
-            <h1
-              className="
-                text-xl
-                font-black
-                bg-gradient-to-r
-                from-blue-600
-                to-purple-600
-                bg-clip-text
-                text-transparent
-              "
-            >
-              AI Tour Rwanda
-            </h1>
-
-            <p
-              className="
-                hidden
-                md:block
-                text-xs
-                text-gray-500
-              "
-            >
-              Provider Dashboard
-            </p>
-
-          </div>
-
-        </div>
-
-        {/* ================= SEARCH ================= */}
-
-        <div
-          className="
-            hidden
-            lg:flex
-            flex-1
-            max-w-2xl
-            mx-10
-          "
-        >
-
-          <div className="relative w-full">
-
-            <Search
-              className="
-                absolute
-                left-4
-                top-1/2
-                -translate-y-1/2
-                w-5
-                h-5
-                text-gray-400
-              "
-            />
-
-            <input
-              type="text"
-              placeholder="Search tours, bookings, travelers..."
-              className="
-                w-full
-                h-12
-                pl-12
-                pr-5
-                rounded-2xl
-                bg-gray-100
-                dark:bg-gray-800
-                border
-                border-transparent
-                focus:border-blue-500
-                dark:focus:border-purple-500
-                outline-none
-                dark:text-white
-                transition-all
-              "
-            />
-
-          </div>
-
-        </div>
-
-        {/* ================= RIGHT ================= */}
-
-        <div className="flex items-center gap-3">
-
-          {/* DARK MODE */}
-
-          <button
-            onClick={() =>
-              setDarkMode(
-                !darkMode
-              )
-            }
-            className="
-              w-11
-              h-11
-              rounded-2xl
-              bg-gray-100
-              dark:bg-gray-800
-              flex
-              items-center
-              justify-center
-              transition
-              hover:scale-105
-            "
-          >
-
-            {darkMode ? (
-
-              <Sun className="w-5 h-5 text-yellow-500" />
-
-            ) : (
-
-              <Moon className="w-5 h-5 dark:text-white" />
-
-            )}
-
-          </button>
-
-          {/* MESSAGES */}
-
-          <button
-            className="
-              relative
-              w-11
-              h-11
-              rounded-2xl
-              bg-gray-100
-              dark:bg-gray-800
-              flex
-              items-center
-              justify-center
-              hover:scale-105
-              transition
-            "
-          >
-
-            <MessageCircle className="w-5 h-5 dark:text-white" />
-
-            <span
-              className="
-                absolute
-                -top-1
-                -right-1
-                w-5
-                h-5
-                rounded-full
-                bg-blue-600
-                text-white
-                text-xs
-                flex
-                items-center
-                justify-center
-              "
-            >
-              2
-            </span>
-
-          </button>
-
-          {/* NOTIFICATIONS */}
-
-          <button
-            className="
-              relative
-              w-11
-              h-11
-              rounded-2xl
-              bg-gray-100
-              dark:bg-gray-800
-              flex
-              items-center
-              justify-center
-              hover:scale-105
-              transition
-            "
-          >
-
-            <Bell className="w-5 h-5 dark:text-white" />
-
-            <span
-              className="
-                absolute
-                -top-1
-                -right-1
-                w-5
-                h-5
-                rounded-full
-                bg-red-500
-                text-white
-                text-xs
-                flex
-                items-center
-                justify-center
-              "
-            >
-              5
-            </span>
-
-          </button>
-
-          {/* PROFILE */}
-
-          <div
-            className="relative"
-            ref={profileRef}
-          >
-
-            <button
-              onClick={() =>
-                setProfileOpen(
-                  !profileOpen
-                )
-              }
-              className="
-                flex
-                items-center
-                gap-3
-                px-3
-                h-12
-                rounded-2xl
-                bg-gray-100
-                dark:bg-gray-800
-                hover:bg-gray-200
-                dark:hover:bg-gray-700
-                transition
-              "
-            >
-
-              <div className="relative">
-
-                <img
-                  src="https://i.pravatar.cc/150?img=12"
-                  alt="profile"
-                  className="
-                    w-9
-                    h-9
-                    rounded-xl
-                    object-cover
-                  "
-                />
-
-                <span
-                  className="
-                    absolute
-                    bottom-0
-                    right-0
-                    w-3
-                    h-3
-                    rounded-full
-                    bg-green-500
-                    border-2
-                    border-white
-                  "
-                />
-
-              </div>
-
-              <div className="hidden md:block text-left">
-
-                <h3 className="text-sm font-bold dark:text-white">
-                  {user?.name ||
-                    'Provider'}
-                </h3>
-
-                <p className="text-xs text-gray-500">
-                  {user?.role ||
-                    'User'}
-                </p>
-
-              </div>
-
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-
-            </button>
-
-            {/* DROPDOWN */}
-
-            {profileOpen && (
-
-              <div
-                className="
-                  absolute
-                  right-0
-                  mt-3
-                  w-64
-                  rounded-3xl
-                  bg-white
-                  dark:bg-gray-900
-                  border
-                  border-gray-200
-                  dark:border-gray-800
-                  shadow-2xl
-                  overflow-hidden
-                "
-              >
-
-                <div className="p-5 border-b border-gray-200 dark:border-gray-800">
-
-                  <h3 className="font-black dark:text-white">
-                    {user?.name ||
-                      'Provider'}
-                  </h3>
-
-                  <p className="text-sm text-gray-500">
-                    {user?.email}
-                  </p>
-
-                </div>
-
-                <div className="p-2">
-
-                  <button
-                    className="
-                      w-full
-                      h-12
-                      px-4
-                      rounded-2xl
-                      flex
-                      items-center
-                      gap-3
-                      hover:bg-gray-100
-                      dark:hover:bg-gray-800
-                      transition
-                    "
-                  >
-
-                    <User className="w-5 h-5" />
-
-                    <span className="dark:text-white">
-                      Profile
-                    </span>
-
-                  </button>
-
-                  <button
-                    className="
-                      w-full
-                      h-12
-                      px-4
-                      rounded-2xl
-                      flex
-                      items-center
-                      gap-3
-                      hover:bg-gray-100
-                      dark:hover:bg-gray-800
-                      transition
-                    "
-                  >
-
-                    <Settings className="w-5 h-5" />
-
-                    <span className="dark:text-white">
-                      Settings
-                    </span>
-
-                  </button>
-
-                  <button
-                    onClick={handleLogout}
-                    className="
-                      w-full
-                      h-12
-                      px-4
-                      rounded-2xl
-                      flex
-                      items-center
-                      gap-3
-                      text-red-500
-                      hover:bg-red-50
-                      dark:hover:bg-red-900/20
-                      transition
-                    "
-                  >
-
-                    <LogOut className="w-5 h-5" />
-
-                    Logout
-
-                  </button>
-
-                </div>
-
-              </div>
-
-            )}
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </header>
-
-  );
+
+}
+
+
+},[
+darkMode
+]);
+
+
+
+
+
+/* ================= CLOSE DROPDOWN ================= */
+
+
+useEffect(()=>{
+
+
+const closeDropdown =
+(e)=>{
+
+
+if(
+profileRef.current &&
+!profileRef.current.contains(
+e.target
+)
+){
+
+setProfileOpen(false);
+
+}
+
 
 };
+
+
+
+document.addEventListener(
+"mousedown",
+closeDropdown
+);
+
+
+
+return()=>{
+
+document.removeEventListener(
+"mousedown",
+closeDropdown
+);
+
+};
+
+
+},[]);
+
+
+
+
+
+/* ================= LOGOUT ================= */
+
+
+const handleLogout = ()=>{
+
+
+logout();
+
+
+navigate(
+"/login"
+);
+
+
+};
+
+
+
+
+return (
+
+
+<header
+
+className="
+fixed
+top-0
+left-0
+right-0
+
+h-16
+
+z-50
+
+
+bg-white/80
+
+dark:bg-gray-950/80
+
+
+backdrop-blur-xl
+
+
+border-b
+
+border-gray-200
+
+dark:border-gray-800
+
+
+shadow-sm
+
+"
+
+
+>
+
+
+<div
+
+className="
+h-full
+
+px-4
+lg:px-8
+
+
+flex
+
+items-center
+
+justify-between
+
+"
+
+>
+
+
+
+{/* ================= LEFT ================= */}
+
+
+<div
+
+className="
+flex
+
+items-center
+
+gap-4
+
+"
+
+>
+
+
+<button
+
+onClick={onMenuClick}
+
+className="
+lg:hidden
+
+w-11
+h-11
+
+rounded-2xl
+
+bg-gray-100
+
+dark:bg-gray-800
+
+
+flex
+
+items-center
+
+justify-center
+
+
+hover:scale-105
+
+transition
+
+"
+
+>
+
+
+<Menu
+
+className="
+w-5
+h-5
+
+dark:text-white
+
+"
+
+/>
+
+
+</button>
+
+
+
+
+
+{/* LOGO */}
+
+
+<div
+
+className="
+flex
+items-center
+gap-3
+
+"
+
+>
+
+
+<div
+
+className="
+w-10
+h-10
+
+rounded-2xl
+
+bg-gradient-to-r
+
+from-blue-600
+
+to-purple-600
+
+
+flex
+
+items-center
+
+justify-center
+
+
+text-white
+
+font-black
+
+"
+
+>
+
+AI
+
+</div>
+
+
+
+<div>
+
+
+<h1
+
+className="
+text-xl
+
+font-black
+
+bg-gradient-to-r
+
+from-blue-600
+
+to-purple-600
+
+
+bg-clip-text
+
+text-transparent
+
+"
+
+>
+
+AI Tour
+
+</h1>
+
+
+<p
+
+className="
+text-xs
+
+text-gray-500
+
+"
+
+>
+
+Provider Center
+
+</p>
+
+
+</div>
+
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+{/* ================= SEARCH ================= */}
+
+
+
+<div
+
+className="
+hidden
+
+lg:flex
+
+flex-1
+
+max-w-2xl
+
+mx-10
+
+"
+
+>
+
+
+<div
+
+className="
+relative
+
+w-full
+
+"
+
+>
+
+
+<Search
+
+className="
+absolute
+
+left-4
+
+top-1/2
+
+-translate-y-1/2
+
+
+w-5
+h-5
+
+
+text-gray-400
+
+"
+
+/>
+
+
+
+<input
+
+
+placeholder="
+Search tours, bookings, travelers...
+"
+
+
+className="
+
+w-full
+
+h-12
+
+
+pl-12
+
+rounded-2xl
+
+
+bg-gray-100
+
+dark:bg-gray-800
+
+
+outline-none
+
+
+focus:ring-2
+
+focus:ring-blue-500
+
+
+dark:text-white
+
+
+transition
+
+"
+
+/>
+
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+{/* ================= RIGHT ================= */}
+
+
+
+<div
+
+className="
+flex
+
+items-center
+
+gap-3
+
+"
+
+>
+
+
+
+
+
+{/* DARK MODE */}
+
+
+<button
+
+onClick={()=>
+setDarkMode(
+!darkMode
+)
+}
+
+
+className="
+w-11
+
+h-11
+
+
+rounded-2xl
+
+
+bg-gray-100
+
+dark:bg-gray-800
+
+
+flex
+
+items-center
+
+justify-center
+
+
+hover:scale-105
+
+transition
+
+"
+
+>
+
+
+{
+darkMode ?
+
+<Sun
+className="
+w-5
+h-5
+text-yellow-500
+"
+/>
+
+:
+
+<Moon
+
+className="
+w-5
+h-5
+dark:text-white
+"
+
+/>
+
+}
+
+
+
+</button>
+
+
+
+
+
+
+
+{/* MESSAGE */}
+
+
+
+<button
+
+
+onClick={()=>
+navigate(
+"/provider/messages"
+)
+}
+
+
+className="
+relative
+
+w-11
+
+h-11
+
+
+rounded-2xl
+
+
+bg-gray-100
+
+dark:bg-gray-800
+
+
+flex
+
+items-center
+
+justify-center
+
+"
+
+>
+
+
+<MessageCircle
+
+className="
+w-5
+h-5
+
+dark:text-white
+
+"
+
+/>
+
+
+
+{
+messageCount >0 &&
+
+<span
+
+className="
+absolute
+
+-top-1
+
+-right-1
+
+
+w-5
+h-5
+
+
+rounded-full
+
+
+bg-blue-600
+
+
+text-white
+
+
+text-xs
+
+
+flex
+
+items-center
+
+justify-center
+
+"
+
+>
+
+{messageCount}
+
+</span>
+
+}
+
+
+</button>
+
+
+
+
+
+
+
+{/* NOTIFICATIONS */}
+
+
+
+<button
+
+
+onClick={()=>
+navigate(
+"/provider/notifications"
+)
+}
+
+
+className="
+relative
+
+w-11
+
+h-11
+
+
+rounded-2xl
+
+
+bg-gray-100
+
+dark:bg-gray-800
+
+
+flex
+
+items-center
+
+justify-center
+
+"
+
+>
+
+
+<Bell
+
+className="
+w-5
+h-5
+
+dark:text-white
+
+"
+
+/>
+
+
+
+{
+unreadCount >0 &&
+
+<span
+
+className="
+absolute
+
+-top-1
+
+-right-1
+
+
+w-5
+h-5
+
+
+rounded-full
+
+
+bg-red-500
+
+
+text-white
+
+
+text-xs
+
+
+font-bold
+
+
+flex
+
+items-center
+
+justify-center
+
+"
+
+>
+
+{unreadCount}
+
+</span>
+
+}
+
+
+
+</button>
+
+
+
+
+
+
+
+{/* PROFILE */}
+
+
+
+<div
+
+ref={profileRef}
+
+className="
+relative
+
+"
+
+>
+
+
+<button
+
+
+onClick={()=>
+setProfileOpen(
+!profileOpen
+)
+}
+
+
+className="
+flex
+
+items-center
+
+gap-3
+
+
+px-3
+
+h-12
+
+
+rounded-2xl
+
+
+bg-gray-100
+
+
+dark:bg-gray-800
+
+
+"
+
+>
+
+
+<div
+
+className="
+relative
+
+"
+
+>
+
+
+<img
+
+
+src={
+user?.avatar ||
+"/default-avatar.png"
+}
+
+
+className="
+w-9
+
+h-9
+
+
+rounded-xl
+
+
+object-cover
+
+"
+
+alt="profile"
+
+/>
+
+
+<span
+
+className="
+absolute
+
+bottom-0
+
+right-0
+
+
+w-3
+
+h-3
+
+
+rounded-full
+
+
+bg-green-500
+
+
+border-2
+
+border-white
+
+
+dark:border-gray-900
+
+"
+
+/>
+
+
+
+</div>
+
+
+
+
+
+<div
+
+className="
+hidden
+
+md:block
+
+text-left
+
+"
+
+>
+
+
+<h3
+
+className="
+text-sm
+
+font-bold
+
+dark:text-white
+
+"
+
+>
+
+{
+user?.name ||
+"Provider"
+}
+
+</h3>
+
+
+<p
+
+className="
+text-xs
+
+text-gray-500
+
+"
+
+>
+
+Tour Provider
+
+</p>
+
+
+</div>
+
+
+
+<ChevronDown
+
+className="
+w-4
+h-4
+
+text-gray-500
+
+"
+
+/>
+
+
+</button>
+
+
+
+
+
+
+
+
+{/* DROPDOWN */}
+
+
+{
+profileOpen &&
+
+<div
+
+className="
+absolute
+
+right-0
+
+mt-3
+
+
+w-64
+
+
+rounded-3xl
+
+
+bg-white
+
+
+dark:bg-gray-900
+
+
+border
+
+
+border-gray-200
+
+
+dark:border-gray-800
+
+
+shadow-2xl
+
+
+overflow-hidden
+
+"
+
+>
+
+
+<div
+
+className="
+p-5
+
+border-b
+
+dark:border-gray-800
+
+"
+
+>
+
+
+<h3
+
+className="
+font-black
+
+dark:text-white
+
+"
+
+>
+
+{
+user?.name
+}
+
+</h3>
+
+
+<p
+
+className="
+text-sm
+
+text-gray-500
+
+"
+
+>
+
+{
+user?.email
+}
+
+</p>
+
+
+</div>
+
+
+
+
+
+<div
+
+className="
+p-2
+
+"
+
+>
+
+
+
+<button
+
+onClick={()=>
+navigate(
+"/provider/profile"
+)
+}
+
+className="
+w-full
+
+h-12
+
+
+rounded-2xl
+
+
+flex
+
+items-center
+
+gap-3
+
+
+hover:bg-gray-100
+
+
+dark:hover:bg-gray-800
+
+px-4
+
+"
+
+>
+
+<User/>
+
+Profile
+
+</button>
+
+
+
+
+
+<button
+
+onClick={()=>
+navigate(
+"/provider/add-tour"
+)
+}
+
+className="
+w-full
+
+h-12
+
+
+rounded-2xl
+
+
+flex
+
+items-center
+
+gap-3
+
+
+hover:bg-gray-100
+
+
+dark:hover:bg-gray-800
+
+px-4
+
+"
+
+>
+
+
+<PlusCircle/>
+
+Add Tour
+
+
+</button>
+
+
+
+
+
+<button
+
+onClick={()=>
+navigate(
+"/provider/settings"
+)
+}
+
+className="
+w-full
+
+h-12
+
+
+rounded-2xl
+
+
+flex
+
+items-center
+
+gap-3
+
+
+hover:bg-gray-100
+
+
+dark:hover:bg-gray-800
+
+px-4
+
+"
+
+>
+
+
+<Settings/>
+
+Settings
+
+
+</button>
+
+
+
+
+
+
+
+<button
+
+onClick={handleLogout}
+
+className="
+w-full
+
+h-12
+
+
+rounded-2xl
+
+
+flex
+
+items-center
+
+gap-3
+
+
+text-red-500
+
+
+hover:bg-red-50
+
+
+dark:hover:bg-red-900/20
+
+
+px-4
+
+"
+
+>
+
+
+<LogOut/>
+
+Logout
+
+
+</button>
+
+
+
+
+</div>
+
+
+</div>
+
+
+}
+
+
+
+
+</div>
+
+
+
+
+
+</div>
+
+
+
+</div>
+
+
+</header>
+
+
+);
+
+
+};
+
 
 export default ProviderNavbar;

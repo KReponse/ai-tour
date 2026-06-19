@@ -1,25 +1,24 @@
-import React, { useState } from 'react';
+
+import React, { useState } from "react";
 
 import {
   Link,
   useNavigate,
-} from 'react-router-dom';
+} from "react-router-dom";
 
 import {
   Mail,
   Lock,
   Eye,
   EyeOff,
-  Plane,
-  Sparkles,
-} from 'lucide-react';
+  Loader2,
+} from "lucide-react";
 
-import { loginUser } from '../services/authService';
-
-import { useAuth } from '../contexts/AuthContext';
+import { loginUser } from "../services/authService";
+import { useAuth } from "../contexts/AuthContext";
+import logo from "../assets/images/logo.png";
 
 const Login = () => {
-
   const navigate = useNavigate();
 
   const { login } = useAuth();
@@ -30,177 +29,358 @@ const Login = () => {
   const [loading, setLoading] =
     useState(false);
 
+  const [error, setError] =
+    useState("");
+
   const [formData, setFormData] =
     useState({
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     });
 
   const handleChange = (e) => {
-
     setFormData({
       ...formData,
       [e.target.name]:
         e.target.value,
     });
-
   };
 
   const handleSubmit = async (e) => {
-
     e.preventDefault();
 
     try {
-
       setLoading(true);
+      setError("");
 
       const data =
-        await loginUser(
-          formData
-        );
+        await loginUser(formData);
 
-      console.log(data);
-
-      /* SAVE USER + TOKEN */
       login(
         data.user,
         data.token
       );
 
-      /* ROLE BASED REDIRECT */
-
       if (
         data.user.role ===
-        'provider'
+        "provider"
       ) {
-
         navigate(
-          '/provider/dashboard'
+          "/provider/dashboard"
         );
-
       } else if (
         data.user.role ===
-        'admin'
+        "admin"
       ) {
-
-        navigate('/admin');
-
+        navigate("/admin");
       } else {
-
-        navigate('/');
-
+        navigate("/");
       }
-
     } catch (error) {
-
-      console.log(error);
-
-      alert(
+      setError(
         error.response?.data
           ?.message ||
-          'Login failed'
+          "Login failed"
       );
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   return (
+    <div
+      className="
+      min-h-screen
 
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-black px-4 py-10">
+      flex
+      items-center
+      justify-center
 
+      bg-gradient-to-br
+      from-primary/10
+      via-white
+      to-accent/10
+
+      dark:from-dark
+      dark:via-gray-950
+      dark:to-black
+
+      px-4
+      py-10
+    "
+    >
       <div className="w-full max-w-md">
-
         {/* LOGO */}
+
         <div className="text-center mb-8">
+          <div
+className="
+w-28
+h-28
+mx-auto
 
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-2xl mb-5">
+rounded-[32px]
 
-            <Plane className="w-10 h-10 text-white" />
+bg-white
 
-          </div>
+dark:bg-gray-900
 
-          <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2">
+flex
+items-center
+justify-center
+
+shadow-2xl
+
+mb-5
+
+p-3
+
+border
+border-gray-100
+dark:border-gray-800
+"
+>
+<img
+  src={logo}
+  alt="AI Tour Logo"
+  className="
+  w-full
+  h-full
+  object-contain
+  "
+/>
+</div>
+
+          <h1
+            className="
+            text-4xl
+            font-black
+            text-dark
+            dark:text-white
+          "
+          >
             AI Tour
           </h1>
 
-          <p className="text-gray-600 dark:text-gray-400">
-            Welcome back traveler ✈️
+          <p
+            className="
+            text-gray-500
+            mt-2
+          "
+          >
+            Discover. Plan. Travel Smarter.
           </p>
-
         </div>
 
         {/* CARD */}
-        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800 p-6 md:p-8">
 
-          <div className="flex items-center gap-2 mb-6">
+        <div
+          className="
+          bg-white/90
+          dark:bg-gray-900/90
 
-            <Sparkles className="w-5 h-5 text-blue-600" />
+          backdrop-blur-2xl
 
-            <h2 className="text-2xl font-bold dark:text-white">
-              Login
+          rounded-[32px]
+
+          shadow-2xl
+
+          border
+          border-white/20
+          dark:border-gray-800
+
+          p-8
+        "
+        >
+          <div className="mb-6">
+            <h2
+              className="
+              text-3xl
+              font-black
+              text-dark
+              dark:text-white
+            "
+            >
+              Welcome Back
             </h2>
 
+            <p className="text-gray-500 mt-1">
+              Sign in to continue
+              your journey
+            </p>
           </div>
 
+          {/* ERROR */}
+
+          {error && (
+            <div
+              className="
+              mb-5
+
+              rounded-2xl
+
+              bg-red-50
+              border
+              border-red-200
+
+              text-red-600
+
+              px-4
+              py-3
+            "
+            >
+              {error}
+            </div>
+          )}
+
           {/* FORM */}
+
           <form
             onSubmit={handleSubmit}
             className="space-y-5"
           >
-
             {/* EMAIL */}
-            <div>
 
-              <label className="block text-sm font-medium mb-2 dark:text-white">
+            <div>
+              <label
+                className="
+                block
+                text-sm
+                font-medium
+                mb-2
+
+                dark:text-white
+              "
+              >
                 Email Address
               </label>
 
               <div className="relative">
+                <Mail
+                  className="
+                  absolute
+                  left-4
+                  top-1/2
+                  -translate-y-1/2
 
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  w-5
+                  h-5
+
+                  text-gray-400
+                "
+                />
 
                 <input
                   type="email"
                   name="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={
+                    formData.email
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Enter your email"
                   required
-                  className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="
+                  w-full
+                  h-14
+
+                  pl-12
+                  pr-4
+
+                  rounded-2xl
+
+                  bg-gray-50
+                  dark:bg-gray-800
+
+                  border
+                  border-gray-200
+                  dark:border-gray-700
+
+                  dark:text-white
+
+                  focus:border-primary
+                  focus:ring-4
+                  focus:ring-primary/20
+
+                  outline-none
+                  transition
+                "
                 />
-
               </div>
-
             </div>
 
             {/* PASSWORD */}
-            <div>
 
-              <label className="block text-sm font-medium mb-2 dark:text-white">
+            <div>
+              <label
+                className="
+                block
+                text-sm
+                font-medium
+                mb-2
+
+                dark:text-white
+              "
+              >
                 Password
               </label>
 
               <div className="relative">
+                <Lock
+                  className="
+                  absolute
+                  left-4
+                  top-1/2
+                  -translate-y-1/2
 
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  w-5
+                  h-5
+
+                  text-gray-400
+                "
+                />
 
                 <input
                   type={
                     showPassword
-                      ? 'text'
-                      : 'password'
+                      ? "text"
+                      : "password"
                   }
                   name="password"
-                  value={formData.password}
-                  onChange={handleChange}
+                  value={
+                    formData.password
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Enter password"
                   required
-                  className="w-full h-14 pl-12 pr-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="
+                  w-full
+                  h-14
+
+                  pl-12
+                  pr-14
+
+                  rounded-2xl
+
+                  bg-gray-50
+                  dark:bg-gray-800
+
+                  border
+                  border-gray-200
+                  dark:border-gray-700
+
+                  dark:text-white
+
+                  focus:border-primary
+                  focus:ring-4
+                  focus:ring-primary/20
+
+                  outline-none
+                  transition
+                "
                 />
 
                 <button
@@ -210,72 +390,125 @@ const Login = () => {
                       !showPassword
                     )
                   }
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
-                >
+                  className="
+                  absolute
+                  right-4
+                  top-1/2
+                  -translate-y-1/2
 
+                  text-gray-400
+                "
+                >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
                   ) : (
                     <Eye className="w-5 h-5" />
                   )}
-
                 </button>
-
               </div>
-
             </div>
 
-            {/* FORGOT */}
-            <div className="flex justify-end">
+            {/* FORGOT PASSWORD */}
 
-              <button
-                type="button"
-                className="text-sm text-blue-600 hover:underline"
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="
+                text-primary
+                font-semibold
+
+                hover:text-accent
+
+                transition
+              "
               >
                 Forgot Password?
-              </button>
-
+              </Link>
             </div>
 
             {/* BUTTON */}
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-bold text-lg shadow-xl hover:scale-[1.02] transition-all duration-300 disabled:opacity-70"
+              className="
+              w-full
+              h-14
+
+              rounded-2xl
+
+              bg-gradient-to-r
+              from-primary
+              to-accent
+
+              text-white
+              font-bold
+
+              shadow-xl
+
+              hover:scale-[1.02]
+
+              transition-all
+
+              disabled:opacity-70
+              disabled:cursor-not-allowed
+            "
             >
+              {loading ? (
+                <div
+                  className="
+                  flex
+                  items-center
+                  justify-center
+                  gap-2
+                "
+                >
+                  <Loader2
+                    className="
+                    w-5
+                    h-5
+                    animate-spin
+                  "
+                  />
 
-              {loading
-                ? 'Signing In...'
-                : 'Login'}
-
+                  Signing In...
+                </div>
+              ) : (
+                "Login"
+              )}
             </button>
-
           </form>
 
           {/* REGISTER */}
-          <div className="mt-6 text-center">
 
-            <p className="text-gray-600 dark:text-gray-400">
-              Don’t have an account?
+          <div className="mt-8 text-center">
+            <p className="text-gray-500">
+              Don't have an account?
             </p>
 
             <Link
               to="/register"
-              className="inline-block mt-2 text-blue-600 font-semibold hover:underline"
+              className="
+              inline-block
+              mt-2
+
+              font-bold
+
+              text-primary
+
+              hover:text-accent
+
+              transition
+            "
             >
               Create Account
             </Link>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-
   );
-
 };
 
 export default Login;
+
