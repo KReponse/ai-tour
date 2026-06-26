@@ -12,13 +12,16 @@ const ProtectedRoute = ({
 }) => {
 
 
-  const user = JSON.parse(
-    localStorage.getItem("user")
-  );
+  const user =
+    JSON.parse(
+      localStorage.getItem("user")
+    );
 
 
 
+  // =========================
   // NOT LOGGED IN
+  // =========================
 
   if (!user) {
 
@@ -34,7 +37,9 @@ const ProtectedRoute = ({
 
 
 
+  // =========================
   // ROLE CHECK
+  // =========================
 
   if (
     allowedRoles &&
@@ -48,6 +53,7 @@ const ProtectedRoute = ({
         to="/"
         replace
       />
+
     );
 
   }
@@ -55,19 +61,77 @@ const ProtectedRoute = ({
 
 
 
+  // =========================
   // PROVIDER APPROVAL CHECK
+  // =========================
 
   if (
-  user.role === "provider" &&
-  user.verificationStatus !== "approved"
-) {
-  return (
-    <Navigate
-      to="/provider/pending"
-      replace
-    />
-  );
-}
+
+    allowedRoles?.includes(
+      "provider"
+    )
+
+    &&
+
+    user.role === "provider"
+
+    &&
+
+    user.verificationStatus !== "approved"
+
+  ) {
+
+
+    return (
+
+      <Navigate
+
+        to="/provider/pending"
+
+        replace
+
+      />
+
+    );
+
+  }
+
+
+
+
+
+  // =========================
+  // TRAVELER TRYING PROVIDER AREA
+  // =========================
+
+  if (
+
+    allowedRoles?.includes(
+      "provider"
+    )
+
+    &&
+
+    user.role !== "provider"
+
+  ) {
+
+
+    return (
+
+      <Navigate
+
+        to="/provider/request"
+
+        replace
+
+      />
+
+    );
+
+  }
+
+
 
 
 

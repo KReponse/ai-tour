@@ -1,57 +1,98 @@
 // src/services/aiService.js
 
-export const generateTripPlan = async (prompt) => {
- const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
+
+// ✅ Generate trip plan
+export const generateTripPlan = async (data) => {
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      `${API_URL}/ai/generate-trip`,
+      data,
       {
-        method: 'POST',
-
         headers: {
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `
-You are AI Tour Rwanda travel assistant.
-
-Create a professional Rwanda travel plan.
-
-${prompt}
-
-Include:
-- Best activities
-- Budget advice
-- Hotels
-- Foods
-- Transportation
-- Safety tips
-- Daily itinerary
-`,
-                },
-              ],
-            },
-          ],
-        }),
       }
     );
-
-    const data = await response.json();
-
-    return (
-      data?.candidates?.[0]?.content?.parts?.[0]
-        ?.text || 'No AI response'
-    );
-
+    return response.data;
   } catch (error) {
-    console.error(error);
+    console.error('❌ AI Service Error (generateTripPlan):', error);
+    throw error;
+  }
+};
 
-    return 'AI failed to generate response.';
+// ✅ AI Chat (NEW)
+export const getAIChat = async (data) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      `${API_URL}/ai/chat`,
+      {
+        message: data.message,
+        history: data.history || [],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ AI Service Error (getAIChat):', error);
+    throw error;
+  }
+};
+
+// ✅ Get AI recommendations
+export const getAIRecommendations = async (query) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/ai/recommendations`,
+      {
+        params: { query },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ AI Service Error (getAIRecommendations):', error);
+    throw error;
+  }
+};
+
+// ✅ Get AI suggestions (quick questions)
+export const getAISuggestions = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/ai/suggestions`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ AI Service Error (getAISuggestions):', error);
+    throw error;
   }
 };

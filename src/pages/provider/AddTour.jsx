@@ -1,577 +1,668 @@
-import React, { useState } from 'react';
+// src/pages/provider/AddTour.jsx
+
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  MapPin,
-  DollarSign,
-  Clock,
-  Users,
-  Image,
-  Video,
-  FileText,
-  PlusCircle,
-  X,
-  AlertCircle,
-  CheckCircle,
-  Upload,
-} from 'lucide-react';
-import { createTour } from '../../services/tourService';
-import { useAuth } from '../../contexts/AuthContext';
+  MapPin, DollarSign, Clock, Users, Video, FileText,
+  PlusCircle, X, AlertCircle, CheckCircle, Upload,
+  Sparkles, Camera, Image as ImageIcon
+} from "lucide-react";
+import { createTour } from "../../services/tourService";
+import { useAuth } from "../../contexts/AuthContext";
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
 const AddTour = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [videoPreview, setVideoPreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-
+  const [coverPreview, setCoverPreview] = useState(null);
+  const [galleryPreview, setGalleryPreview] = useState([]);
+  const [videoPreview, setVideoPreview] = useState([]);
   const [formData, setFormData] = useState({
-    title: '',
-    location: '',
-    price: '',
-    duration: '',
-    travelers: '',
-    description: '',
-    image: null,
-    video: null,
+    title: "", location: "", category: "", price: "",
+    duration: "", travelers: "", description: "",
+    highlights: "", included: "", excluded: "",
+    meetingPoint: "", cancellationPolicy: "",
+    coverImage: null, galleryImages: [], videos: []
   });
 
+  // ============= VALIDATION =============
   const validateField = (name, value) => {
     switch (name) {
-      case 'title':
-        if (!value.trim()) return 'Title is required';
-        if (value.length < 5) return 'Title must be at least 5 characters';
-        if (value.length > 100) return 'Title must be less than 100 characters';
-        return '';
-      case 'location':
-        if (!value.trim()) return 'Location is required';
-        return '';
-      case 'price':
-        if (!value) return 'Price is required';
-        if (value <= 0) return 'Price must be greater than 0';
-        if (value > 100000) return 'Price must be less than 100,000';
-        return '';
-      case 'duration':
-        if (!value.trim()) return 'Duration is required';
-        return '';
-      case 'travelers':
-        if (!value) return 'Number of travelers is required';
-        if (value < 1) return 'Must have at least 1 traveler';
-        if (value > 100) return 'Maximum 100 travelers allowed';
-        return '';
-      case 'description':
-        if (!value.trim()) return 'Description is required';
-        if (value.length < 20) return 'Description must be at least 20 characters';
-        if (value.length > 2000) return 'Description must be less than 2000 characters';
-        return '';
-      case 'image':
-        if (!value) return 'Tour image is required';
-        if (value && !value.type.startsWith('image/')) return 'File must be an image';
-        if (value && value.size > 5 * 1024 * 1024) return 'Image must be less than 5MB';
-        return '';
-      case 'video':
-        if (value && !value.type.startsWith('video/')) return 'File must be a video';
-        if (value && value.size > 100 * 1024 * 1024) return 'Video must be less than 100MB';
-        return '';
+      case "title":
+        if (!value?.trim()) return "Tour title is required";
+        if (value.length < 5) return "Title must contain at least 5 characters";
+        return "";
+      case "location":
+        if (!value?.trim()) return "Location is required";
+        return "";
+      case "category":
+        if (!value) return "Select tour category";
+        return "";
+      case "price":
+        if (!value) return "Price is required";
+        if (Number(value) <= 0) return "Price must be greater than 0";
+        return "";
+      case "duration":
+        if (!value?.trim()) return "Duration is required";
+        return "";
+      case "travelers":
+        if (!value) return "Maximum travelers required";
+        if (Number(value) < 1) return "Invalid travelers number";
+        return "";
+      case "description":
+        if (!value?.trim()) return "Description is required";
+        if (value.length < 30) return "Description must be at least 30 characters";
+        return "";
+      case "coverImage":
+        if (!value) return "Cover image is required";
+        if (!value.type?.startsWith("image/")) return "File must be an image";
+        if (value.size > 5 * 1024 * 1024) return "Image must be below 5MB";
+        return "";
+      case "galleryImages":
+        if (value.length > 15) return "Maximum 15 images allowed";
+        for (const img of value) {
+          if (img.size > 5 * 1024 * 1024) return "Each image must be below 5MB";
+        }
+        return "";
+      case "videos":
+        if (value.length > 3) return "Maximum 3 videos allowed";
+        for (const video of value) {
+          if (video.size > 100 * 1024 * 1024) return "Each video must be below 100MB";
+        }
+        return "";
       default:
-        return '';
+        return "";
     }
   };
 
-  const validateForm = () => {
+  // ============= VIDEO DURATION =============
+  const checkVideoDuration = (file) => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  // ============= HANDLE TEXT INPUT =============
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (touched[name]) {
+      setErrors({ ...errors, [name]: validateField(name, value) });
+    }
+  };
+
+  // ============= BLUR VALIDATION =============
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    setErrors({ ...errors, [name]: validateField(name, value) });
+  };
+
+  // ============= COVER IMAGE =============
+  const handleCoverImage = (e) => {
+    const file = e.target.files[0];
+    const error = validateField("coverImage", file);
+    if (error) {
+      setErrors({ ...errors, coverImage: error });
+      return;
+    }
+    setFormData({ ...formData, coverImage: file });
+    setCoverPreview(URL.createObjectURL(file));
+  };
+
+  // ============= GALLERY =============
+  const handleGallery = (e) => {
+    const files = Array.from(e.target.files);
+    const error = validateField("galleryImages", files);
+    if (error) {
+      setErrors({ ...errors, galleryImages: error });
+      return;
+    }
+    setFormData({ ...formData, galleryImages: files });
+    setGalleryPreview(files.map(f => URL.createObjectURL(f)));
+  };
+
+  // ============= VIDEOS =============
+  const handleVideos = async (e) => {
+    const files = Array.from(e.target.files);
+    const error = validateField("videos", files);
+    if (error) {
+      setErrors({ ...errors, videos: error });
+      return;
+    }
+    for (const video of files) {
+      const duration = await checkVideoDuration(video);
+      if (duration > 300) {
+        setErrors({
+          ...errors,
+          videos: "Each video must be maximum 5 minutes"
+        });
+        return;
+      }
+    }
+    setFormData({ ...formData, videos: files });
+    setVideoPreview(files.map(f => URL.createObjectURL(f)));
+  };
+
+  // ============= REMOVE FILE =============
+  const removeFile = (type, index) => {
+    if (type === "cover") {
+      setCoverPreview(null);
+      setFormData({ ...formData, coverImage: null });
+    }
+    if (type === "gallery") {
+      const newGallery = [...formData.galleryImages];
+      newGallery.splice(index, 1);
+      setFormData({ ...formData, galleryImages: newGallery });
+      setGalleryPreview(newGallery.map(f => URL.createObjectURL(f)));
+    }
+    if (type === "video") {
+      const newVideos = [...formData.videos];
+      newVideos.splice(index, 1);
+      setFormData({ ...formData, videos: newVideos });
+      setVideoPreview(newVideos.map(f => URL.createObjectURL(f)));
+    }
+  };
+
+  // ============= SUBMIT =============
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate all fields
     const newErrors = {};
     Object.keys(formData).forEach(key => {
       const error = validateField(key, formData[key]);
       if (error) newErrors[key] = error;
     });
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    
-    if (name === 'image' && files[0]) {
-      const file = files[0];
-      const error = validateField(name, file);
-      if (!error) {
-        const reader = new FileReader();
-        reader.onloadend = () => setImagePreview(reader.result);
-        reader.readAsDataURL(file);
-      } else {
-        setImagePreview(null);
-      }
-      setFormData({ ...formData, image: file });
-      setErrors({ ...errors, image: error });
-    } 
-    else if (name === 'video' && files[0]) {
-      const file = files[0];
-      const error = validateField(name, file);
-      if (!error) {
-        setVideoPreview(URL.createObjectURL(file));
-      } else if (videoPreview) {
-        URL.revokeObjectURL(videoPreview);
-        setVideoPreview(null);
-      }
-      setFormData({ ...formData, video: file });
-      setErrors({ ...errors, video: error });
-    } 
-    else {
-      setFormData({ ...formData, [name]: value });
-      if (touched[name]) {
-        const error = validateField(name, value);
-        setErrors({ ...errors, [name]: error });
-      }
-    }
-  };
-
-  const handleBlur = (e) => {
-    const { name, value } = e.target;
-    setTouched({ ...touched, [name]: true });
-    const error = validateField(name, value);
-    setErrors({ ...errors, [name]: error });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      // Scroll to first error
-      const firstError = document.querySelector('.error-message');
-      firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = document.querySelector(".text-red-500");
+      if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
     try {
       setLoading(true);
-      setUploadProgress(0);
+      setUploadProgress(10);
 
       const data = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (formData[key] !== null && formData[key] !== '') {
-          data.append(key, formData[key]);
-        }
+      data.append("title", formData.title);
+      data.append("location", formData.location);
+      data.append("category", formData.category);
+      data.append("price", formData.price);
+      data.append("duration", formData.duration);
+      data.append("travelers", formData.travelers);
+      data.append("description", formData.description);
+      data.append("highlights", formData.highlights || "");
+      data.append("included", formData.included || "");
+      data.append("excluded", formData.excluded || "");
+      data.append("meetingPoint", formData.meetingPoint || "");
+      data.append("cancellationPolicy", formData.cancellationPolicy || "");
+      data.append("coverImage", formData.coverImage);
+
+      formData.galleryImages.forEach(img => data.append("galleryImages", img));
+      formData.videos.forEach(vid => data.append("videos", vid));
+
+      await createTour(data, token, (progress) => {
+        setUploadProgress(progress);
       });
 
-      // Simulate upload progress (replace with actual progress from API if available)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      await createTour(data, token);
-      clearInterval(progressInterval);
       setUploadProgress(100);
+      alert("✅ Tour created successfully. Waiting for admin approval.");
+      
+      navigate("/provider/my-tours");
 
-      // Show success message
-      setTimeout(() => {
-        setFormData({
-          title: '',
-          location: '',
-          price: '',
-          duration: '',
-          travelers: '',
-          description: '',
-          image: null,
-          video: null,
-        });
-        setImagePreview(null);
-        if (videoPreview) URL.revokeObjectURL(videoPreview);
-        setVideoPreview(null);
-        setErrors({});
-        setTouched({});
-        setUploadProgress(0);
-        
-        // Show success toast (you can replace with your toast library)
-        alert('✅ Tour uploaded successfully! Your tour is now live.');
-      }, 500);
+      // Reset form
+      setFormData({
+        title: "", location: "", category: "", price: "",
+        duration: "", travelers: "", description: "",
+        highlights: "", included: "", excluded: "",
+        meetingPoint: "", cancellationPolicy: "",
+        coverImage: null, galleryImages: [], videos: []
+      });
+      setCoverPreview(null);
+      setGalleryPreview([]);
+      setVideoPreview([]);
+      setErrors({});
+      setTouched({});
 
     } catch (error) {
-      console.error(error);
-      setUploadProgress(0);
-      const errorMessage = error.response?.data?.message || 'Failed to upload tour';
-      setErrors({ submit: errorMessage });
-      alert(`❌ ${errorMessage}`);
+      console.error("Create Tour Error:", error);
+      setErrors({
+        submit: error.response?.data?.message || "Failed to create tour"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const removeFile = (fileType) => {
-    if (fileType === 'image') {
-      setFormData({ ...formData, image: null });
-      setImagePreview(null);
-    } else if (fileType === 'video') {
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
-      setFormData({ ...formData, video: null });
-      setVideoPreview(null);
-    }
-  };
-
+  // ============= RENDER =============
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg mb-4">
-            <PlusCircle className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 py-10 px-4">
+      <div className="max-w-5xl mx-auto">
+
+        {/* HEADER */}
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0D9488] via-[#F59E0B] to-[#374151] shadow-xl flex items-center justify-center mx-auto">
+            <PlusCircle size={40} className="text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
+          <h1 className="mt-5 text-4xl font-black text-[#374151] dark:text-white">
             Create New Tour
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-lg">
-            Share amazing Rwandan experiences with the world
+          <p className="text-gray-500 mt-2">
+            Share amazing Rwanda experiences with travelers
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Error Alert */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+
+          {/* SUBMIT ERROR */}
           {errors.submit && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-red-800 dark:text-red-200">{errors.submit}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setErrors({ ...errors, submit: '' })}
-                className="text-red-600 hover:text-red-800"
+            <div className="bg-red-100 text-red-700 p-4 rounded-xl flex gap-2 items-center">
+              <AlertCircle size={20} />
+              {errors.submit}
+            </div>
+          )}
+
+          {/* MAIN CARD */}
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-8 space-y-6">
+
+            {/* TITLE */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Tour Title *
+              </label>
+              <input
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Gorilla Trekking Adventure"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.title && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.title}
+                </p>
+              )}
+            </div>
+
+            {/* LOCATION */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Location *
+              </label>
+              <input
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Volcanoes National Park"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.location && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.location}
+                </p>
+              )}
+            </div>
+
+            {/* CATEGORY */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Category *
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
               >
-                <X className="w-5 h-5" />
-              </button>
+                <option value="">Select Category</option>
+                <option>Adventure</option>
+                <option>Wildlife</option>
+                <option>Culture</option>
+                <option>Luxury</option>
+                <option>Hiking</option>
+                <option>City Tour</option>
+              </select>
+              {errors.category && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.category}
+                </p>
+              )}
             </div>
-          )}
 
-          {/* Progress Bar */}
-          {loading && uploadProgress > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600 dark:text-gray-400">Uploading tour...</span>
-                <span className="font-semibold text-blue-600">{uploadProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
+            {/* PRICE + DURATION */}
+            <div className="grid md:grid-cols-2 gap-5">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Price USD *
+                </label>
+                <input
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder="500"
+                  className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
                 />
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-            <div className="p-6 md:p-8 space-y-6">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Tour Title *
-                </label>
-                <div className="relative">
-                  <PlusCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="e.g., Amazing Gorilla Trekking Adventure"
-                    required
-                    className={`w-full h-12 pl-12 pr-4 rounded-xl border ${
-                      errors.title && touched.title
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                    } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none`}
-                  />
-                </div>
-                {errors.title && touched.title && (
-                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.title}
+                {errors.price && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.price}
                   </p>
                 )}
               </div>
-
-              {/* Location */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Location *
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Duration *
                 </label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="e.g., Volcanoes National Park"
-                    required
-                    className={`w-full h-12 pl-12 pr-4 rounded-xl border ${
-                      errors.location && touched.location
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                    } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none`}
-                  />
-                </div>
-                {errors.location && touched.location && (
-                  <p className="mt-1 text-sm text-red-500">{errors.location}</p>
-                )}
-              </div>
-
-              {/* Price & Duration Grid */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Price (USD) *
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="number"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      placeholder="500"
-                      required
-                      className={`w-full h-12 pl-12 pr-4 rounded-xl border ${
-                        errors.price && touched.price
-                          ? 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                      } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none`}
-                    />
-                  </div>
-                  {errors.price && touched.price && (
-                    <p className="mt-1 text-sm text-red-500">{errors.price}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Duration *
-                  </label>
-                  <div className="relative">
-                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      name="duration"
-                      value={formData.duration}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      placeholder="e.g., 3 Days, 2 Nights"
-                      required
-                      className={`w-full h-12 pl-12 pr-4 rounded-xl border ${
-                        errors.duration && touched.duration
-                          ? 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                      } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none`}
-                    />
-                  </div>
-                  {errors.duration && touched.duration && (
-                    <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Travelers */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Max Travelers *
-                </label>
-                <div className="relative">
-                  <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="number"
-                    name="travelers"
-                    value={formData.travelers}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="10"
-                    required
-                    className={`w-full h-12 pl-12 pr-4 rounded-xl border ${
-                      errors.travelers && touched.travelers
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                    } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none`}
-                  />
-                </div>
-                {errors.travelers && touched.travelers && (
-                  <p className="mt-1 text-sm text-red-500">{errors.travelers}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Description *
-                </label>
-                <div className="relative">
-                  <FileText className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="Describe the experience in detail..."
-                    rows={6}
-                    required
-                    className={`w-full pl-12 pr-4 py-3 rounded-xl border ${
-                      errors.description && touched.description
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                    } dark:bg-gray-700 dark:text-white transition-all duration-200 focus:ring-2 focus:outline-none resize-none`}
-                  />
-                </div>
-                <div className="mt-1 flex justify-between text-sm">
-                  {errors.description && touched.description ? (
-                    <p className="text-red-500 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.description}
-                    </p>
-                  ) : (
-                    <span className="text-gray-500">
-                      {formData.description.length}/2000 characters
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Image Upload */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Tour Image *
-                </label>
-                <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-                  errors.image
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
-                }`}>
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img 
-                        src={imagePreview} 
-                        alt="Preview" 
-                        className="max-h-48 mx-auto rounded-lg object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeFile('image')}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
-                        Click or drag to upload image
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        PNG, JPG, JPEG up to 5MB
-                      </p>
-                      <input
-                        type="file"
-                        name="image"
-                        accept="image/*"
-                        onChange={handleChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </>
-                  )}
-                </div>
-                {errors.image && (
-                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.image}
-                  </p>
-                )}
-              </div>
-
-              {/* Video Upload */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Tour Video (Optional)
-                </label>
-                <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-                  errors.video
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
-                }`}>
-                  {videoPreview ? (
-                    <div className="relative">
-                      <video 
-                        src={videoPreview} 
-                        controls 
-                        className="max-h-48 mx-auto rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeFile('video')}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Video className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
-                        Click or drag to upload video (optional)
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        MP4, WebM up to 100MB
-                      </p>
-                      <input
-                        type="file"
-                        name="video"
-                        accept="video/*"
-                        onChange={handleChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </>
-                  )}
-                </div>
-                {errors.video && (
-                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.video}
+                <input
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder="3 Days 2 Nights"
+                  className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+                />
+                {errors.duration && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.duration}
                   </p>
                 )}
               </div>
             </div>
+
+            {/* TRAVELERS */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Maximum Travelers *
+              </label>
+              <input
+                type="number"
+                name="travelers"
+                value={formData.travelers}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="10"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.travelers && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.travelers}
+                </p>
+              )}
+            </div>
+
+            {/* DESCRIPTION */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Description *
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                rows="6"
+                placeholder="Describe your experience..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.description && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.description}
+                </p>
+              )}
+            </div>
+
+            {/* HIGHLIGHTS */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Tour Highlights
+              </label>
+              <textarea
+                name="highlights"
+                value={formData.highlights}
+                onChange={handleChange}
+                placeholder="Gorilla visit, Local food, Nature walk..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
+            {/* INCLUDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Included Services
+              </label>
+              <textarea
+                name="included"
+                value={formData.included}
+                onChange={handleChange}
+                placeholder="Transport, Guide, Meals..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
+            {/* EXCLUDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Excluded Services
+              </label>
+              <textarea
+                name="excluded"
+                value={formData.excluded}
+                onChange={handleChange}
+                placeholder="Flight tickets, Personal expenses..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
+            {/* COVER IMAGE - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Cover Image *
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <Upload className="w-5 h-5 text-[#0D9488]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload cover image
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverImage}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.coverImage && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.coverImage}
+                </p>
+              )}
+              {coverPreview && (
+                <div className="relative mt-4">
+                  <img
+                    src={coverPreview}
+                    className="h-56 w-full object-cover rounded-2xl"
+                    alt="Cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeFile("cover")}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* GALLERY - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Gallery Images (Maximum 15)
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <ImageIcon className="w-5 h-5 text-[#F59E0B]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload gallery images
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleGallery}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.galleryImages && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.galleryImages}
+                </p>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                {galleryPreview.map((img, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={img}
+                      className="h-24 w-full object-cover rounded-xl"
+                      alt={`Gallery ${index}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFile("gallery", index)}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* VIDEOS - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Videos (Maximum 3 / 5 Minutes)
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <Video className="w-5 h-5 text-[#0D9488]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload videos
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="video/*"
+                    onChange={handleVideos}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.videos && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.videos}
+                </p>
+              )}
+              <div className="space-y-4 mt-4">
+                {videoPreview.map((video, index) => (
+                  <div key={index} className="relative group">
+                    <video
+                      src={video}
+                      controls
+                      className="w-full rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFile("video", index)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* MEETING POINT */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Meeting Point
+              </label>
+              <input
+                name="meetingPoint"
+                value={formData.meetingPoint}
+                onChange={handleChange}
+                placeholder="Kigali International Airport"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
+            {/* CANCELLATION */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Cancellation Policy
+              </label>
+              <textarea
+                name="cancellationPolicy"
+                value={formData.cancellationPolicy}
+                onChange={handleChange}
+                placeholder="Free cancellation 24 hours before trip"
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
           </div>
 
-          {/* Submit Button */}
+          {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="group relative w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden"
+            className="group relative w-full h-14 rounded-2xl overflow-hidden bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-black text-lg shadow-xl shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Uploading Tour...
+                  Uploading {uploadProgress}%
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-5 h-5" />
+                  <CheckCircle className="w-6 h-6" />
                   Publish Tour
                 </>
               )}
             </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-700 via-purple-700 to-pink-700 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+            {/* Shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           </button>
 
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            By publishing, you agree to our terms and conditions
-          </p>
         </form>
       </div>
     </div>

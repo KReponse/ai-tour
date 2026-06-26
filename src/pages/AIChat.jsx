@@ -35,7 +35,18 @@ import {
   ZoomIn,
 } from 'lucide-react';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// ✅ Import AI service instead of direct Gemini
+import { getAIChat } from '../services/aiService';
+import { useAuth } from '../contexts/AuthContext';
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
 // Language configurations
 const languages = [
@@ -44,14 +55,6 @@ const languages = [
   { code: 'rw', name: 'Kinyarwanda', flag: '🇷🇼', nativeName: 'Ikinyarwanda' },
   { code: 'sw', name: 'Swahili', flag: '🇹🇿', nativeName: 'Kiswahili' },
 ];
-
-// System prompts for each language
-const systemPrompts = {
-  en: `You are AI Tour, a smart and professional Rwanda travel assistant...`,
-  fr: `Vous êtes AI Tour, un assistant intelligent et professionnel...`,
-  rw: `Uri AI Tour, umufasha w'ubwenge kabuhariwe mu bukerarugendo...`,
-  sw: `Wewe ni AI Tour, msaidizi mahiri wa utalii nchini Rwanda...`,
-};
 
 // Suggested questions by language
 const suggestedQuestionsByLang = {
@@ -82,6 +85,8 @@ const suggestedQuestionsByLang = {
 };
 
 const AIChat = () => {
+  const { user } = useAuth();
+  
   // State
   const [message, setMessage] = useState('');
   const [chat, setChat] = useState([]);
@@ -192,7 +197,7 @@ const AIChat = () => {
     
     setChat([{
       id: Date.now(),
-      role: 'ai',
+      role: 'assistant',
       text: welcomeMessages[language] || welcomeMessages.en,
       timestamp: new Date().toISOString(),
     }]);
@@ -246,12 +251,10 @@ const AIChat = () => {
       return;
     }
 
-    // Stop any ongoing speech
     if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
       window.speechSynthesis.cancel();
     }
 
-    // Clean up old utterance
     if (speechUtterance) {
       speechUtterance.onend = null;
       speechUtterance.onerror = null;
@@ -335,7 +338,9 @@ const AIChat = () => {
     setUploadedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
-  // Send message with image context
+  // ============================================================
+  // ✅ FIX: Send to Backend API, not Gemini directly
+  // ============================================================
   const sendMessage = async () => {
     if ((!message.trim() && uploadedImages.length === 0) || loading) return;
 
@@ -357,71 +362,29 @@ const AIChat = () => {
     setLoading(true);
     setTyping(true);
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
 
     try {
-      // Simulate typing delay for better UX
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      const parts = [];
-
-      // Add system prompt with user message
-      parts.push({
-        text: `${systemPrompts[language]}\n\nUser message: ${currentMessage}\n\nRespond professionally and helpfully.`
+      // ✅ Call backend API
+      const response = await getAIChat({
+        message: currentMessage,
+        language: language,
+        images: currentImages.map((img) => img.url),
+        history: chat.map((msg) => ({
+          role: msg.role,
+          content: msg.text,
+        })),
       });
 
-      // Add images if any
-      currentImages.forEach((img) => {
-        const base64Data = img.url.split(',')[1];
-        if (base64Data) {
-          parts.push({
-            inline_data: {
-              mime_type: img.type || 'image/jpeg',
-              data: base64Data,
-            },
-          });
-        }
-      });
+      setTyping(false);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts,
-              },
-            ],
-            generationConfig: {
-              temperature: 0.8,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 1000,
-            },
-          }),
-        }
-      );
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || 
-                   "I couldn't generate a response. Please try again.";
+      const aiText = response.message || response.reply || "I couldn't generate a response. Please try again.";
 
       const aiMessage = {
         id: Date.now() + 1,
-        role: 'ai',
+        role: 'assistant',
         text: aiText,
         timestamp: new Date().toISOString(),
       };
@@ -429,28 +392,28 @@ const AIChat = () => {
       setChat((prev) => [...prev, aiMessage]);
 
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('❌ AI Chat Error:', error);
+      setTyping(false);
       
-      let errorMessage = "⚠️ Sorry, I encountered an error. Please check your API key and try again.";
+      let errorMessage = "⚠️ Sorry, I encountered an error. Please try again.";
       
-      if (error.message.includes('API key')) {
-        errorMessage = "⚠️ Invalid or missing API key. Please check your VITE_GEMINI_API_KEY environment variable.";
-      } else if (error.message.includes('network')) {
-        errorMessage = "⚠️ Network error. Please check your internet connection.";
+      if (error.response?.status === 401) {
+        errorMessage = "⚠️ Please login to use the AI chat.";
+      } else if (error.response?.status === 429) {
+        errorMessage = "⚠️ Too many requests. Please wait a moment.";
       }
       
       setChat((prev) => [
         ...prev,
         {
           id: Date.now(),
-          role: 'ai',
+          role: 'assistant',
           text: errorMessage,
           timestamp: new Date().toISOString(),
         },
       ]);
     } finally {
       setLoading(false);
-      setTyping(false);
     }
   };
 
@@ -483,7 +446,7 @@ const AIChat = () => {
     };
     setChat([{
       id: Date.now(),
-      role: 'ai',
+      role: 'assistant',
       text: clearMessages[language] || clearMessages.en,
       timestamp: new Date().toISOString(),
     }]);
@@ -506,8 +469,8 @@ const AIChat = () => {
       
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200/20 dark:bg-emerald-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-200/20 dark:bg-cyan-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 left-10 w-72 h-72 bg-[#0D9488]/10 dark:bg-[#0D9488]/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#F59E0B]/10 dark:bg-[#F59E0B]/5 rounded-full blur-3xl"></div>
       </div>
 
       {/* Image Preview Modal */}
@@ -532,7 +495,7 @@ const AIChat = () => {
         <div className="w-full h-[100dvh] md:h-auto flex flex-col bg-white dark:bg-gray-800 rounded-none md:rounded-3xl shadow-2xl overflow-hidden border-0 md:border border-gray-100 dark:border-gray-700">
           
           {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white p-4 md:p-6">
+          <div className="bg-gradient-to-r from-[#0D9488] via-[#0D9488] to-[#F59E0B] text-white p-4 md:p-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -578,7 +541,7 @@ const AIChat = () => {
                               setShowLanguageMenu(false);
                             }}
                             className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2 ${
-                              language === lang.code ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : ''
+                              language === lang.code ? 'bg-[#0D9488]/10 text-[#0D9488]' : ''
                             }`}
                           >
                             <span className="text-xl">{lang.flag}</span>
@@ -663,11 +626,11 @@ const AIChat = () => {
                   {/* Avatar */}
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                     msg.role === 'user'
-                      ? 'bg-emerald-100 dark:bg-emerald-900/50'
-                      : 'bg-gradient-to-r from-emerald-600 to-cyan-600'
+                      ? 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20'
+                      : 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B]'
                   }`}>
                     {msg.role === 'user' ? (
-                      <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <User className="w-4 h-4 text-[#0D9488]" />
                     ) : (
                       <Bot className="w-4 h-4 text-white" />
                     )}
@@ -677,7 +640,7 @@ const AIChat = () => {
                   <div className="group relative">
                     <div className={`rounded-2xl p-4 ${
                       msg.role === 'user'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white'
+                        ? 'bg-gradient-to-r from-[#0D9488] to-[#0f766e] text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                     }`}>
                       <div className="text-sm font-medium mb-1 opacity-70">
@@ -732,7 +695,7 @@ const AIChat = () => {
                           <Copy className="w-3 h-3" />
                         )}
                       </button>
-                      {msg.role === 'ai' && (
+                      {msg.role === 'assistant' && (
                         <button
                           onClick={() => speakText(msg.text)}
                           className="p-1.5 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
@@ -751,7 +714,7 @@ const AIChat = () => {
             {typing && (
               <div className="flex justify-start animate-fade-in">
                 <div className="flex gap-3 max-w-[85%]">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-cyan-600 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-[#0D9488] to-[#F59E0B] flex items-center justify-center">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-4">
@@ -795,7 +758,7 @@ const AIChat = () => {
           {chat.length <= 2 && !loading && (
             <div className="px-4 pb-2">
               <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3 h-3 text-[#F59E0B]" />
                 {language === 'en' && 'Suggested questions:'}
                 {language === 'fr' && 'Questions suggérées:'}
                 {language === 'rw' && 'Ibibazo byatanzwe:'}
@@ -811,9 +774,9 @@ const AIChat = () => {
                         setMessage(q.text);
                         inputRef.current?.focus();
                       }}
-                      className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all duration-200 flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-all duration-200 flex items-center gap-1"
                     >
-                      <Icon className="w-3 h-3" />
+                      <Icon className="w-3 h-3 text-[#0D9488]" />
                       <span className="truncate max-w-[150px] md:max-w-none">
                         {q.text.length > 35 ? q.text.substring(0, 35) + '...' : q.text}
                       </span>
@@ -830,7 +793,7 @@ const AIChat = () => {
               {/* Image Upload Button */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300 flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-all duration-300 flex items-center justify-center flex-shrink-0"
                 title="Upload image"
               >
                 <Image className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -874,7 +837,7 @@ const AIChat = () => {
                     sm:placeholder:text-sm
                     focus:outline-none
                     focus:ring-2
-                    focus:ring-emerald-500
+                    focus:ring-[#0D9488]
                     resize-none
                     overflow-y-auto
                     leading-tight
@@ -904,7 +867,7 @@ const AIChat = () => {
                 disabled={(!message.trim() && uploadedImages.length === 0) || loading}
                 className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
                   (message.trim() || uploadedImages.length > 0) && !loading
-                    ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white hover:scale-105 shadow-lg'
+                    ? 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white hover:scale-105 shadow-lg shadow-[#0D9488]/30'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
                 }`}
               >
@@ -932,13 +895,13 @@ const AIChat = () => {
             {/* Audio Playing Indicator */}
             {isSpeaking && (
               <div className="mt-2 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-xs">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] text-xs">
                   <Volume2 className="w-3 h-3 animate-pulse" />
                   {language === 'en' && 'AI Tour is speaking...'}
                   {language === 'fr' && 'AI Tour parle...'}
                   {language === 'rw' && 'AI Tour iri kuvuga...'}
                   {language === 'sw' && 'AI Tour inazungumza...'}
-                  <button onClick={stopSpeaking} className="ml-2 hover:text-emerald-800">
+                  <button onClick={stopSpeaking} className="ml-2 hover:text-[#0D9488]">
                     <X className="w-3 h-3" />
                   </button>
                 </div>

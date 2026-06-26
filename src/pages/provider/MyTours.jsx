@@ -1,4 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useMemo
+} from "react";
+
 import {
   MapPin,
   Clock3,
@@ -8,123 +13,180 @@ import {
   Eye,
   Plus,
   Search,
-  Filter,
   TrendingUp,
   Star,
-  Calendar,
-  ChevronDown,
-  X,
   AlertCircle,
   CheckCircle,
-  DollarSign,
   BarChart3,
   Share2,
-  Copy,
   Download,
   Sparkles,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+  X,
+  LayoutGrid,
+  List,
+  Filter
+} from "lucide-react";
+
+import { useNavigate } from "react-router-dom";
+
 import {
-  getTours,
+  getProviderTours,
   deleteTour,
-  toggleTourStatus,
-} from '../../services/tourService';
-import { useAuth } from '../../contexts/AuthContext';
+  toggleTourStatus
+} from "../../services/tourService";
+
+import { useAuth } from "../../contexts/AuthContext";
+
+// ===============================
+// IMAGE HELPERS
+// ===============================
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=500',
+  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=500',
+  'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=500',
+];
+
+const getFallbackImage = (seed) => {
+  const index = typeof seed === 'number' ? seed : Math.floor(Math.random() * FALLBACK_IMAGES.length);
+  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+};
+
+const getImageUrl = (image) => {
+  if (!image) return null;
+  if (image.startsWith('http')) return image;
+  if (image.startsWith('/')) return image;
+  return `${API_URL}/uploads/${image}`;
+};
+
+const getTourImage = (tour) => {
+  if (tour.coverImage) return getImageUrl(tour.coverImage);
+  if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
+  if (tour.image) return getImageUrl(tour.image);
+  return null;
+};
 
 const MyTours = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
-  
+
+  // ===============================
+  // STATES
+  // ===============================
   const [tours, setTours] = useState([]);
   const [filteredTours, setFilteredTours] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedTour, setSelectedTour] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [viewMode, setViewMode] = useState("grid");
+  const [imageErrors, setImageErrors] = useState({});
 
-  // AI-Powered Analytics
+  // ===============================
+  // AI TOUR ANALYTICS
+  // ===============================
   const analytics = useMemo(() => {
     const totalTours = tours.length;
-    const totalRevenue = tours.reduce((sum, tour) => sum + (tour.price || 0), 0);
+    const totalRevenue = tours.reduce((sum, tour) => sum + Number(tour.price || 0), 0);
     const avgPrice = totalRevenue / totalTours || 0;
+    
     const topPerforming = [...tours].sort((a, b) => (b.views || 0) - (a.views || 0))[0];
-    const popularLocations = tours.reduce((acc, tour) => {
-      acc[tour.location] = (acc[tour.location] || 0) + 1;
+    
+    const locations = tours.reduce((acc, tour) => {
+      const place = tour.location || "Unknown";
+      acc[place] = (acc[place] || 0) + 1;
       return acc;
     }, {});
     
+    const approvedTours = tours.filter(tour => tour.status === "approved").length;
+    const pendingTours = tours.filter(tour => tour.status === "pending").length;
+    const rejectedTours = tours.filter(tour => tour.status === "rejected").length;
+
     return {
       totalTours,
       totalRevenue,
       avgPrice,
       topPerforming,
-      popularLocations,
-      completion: (tours.filter(t => t.status === 'active').length / totalTours) * 100 || 0,
+      locations,
+      approvedTours,
+      pendingTours,
+      rejectedTours,
+      completion: totalTours ? (approvedTours / totalTours) * 100 : 0
     };
   }, [tours]);
 
-  // Fetch tours
+  // ===============================
+  // LOAD TOURS
+  // ===============================
   useEffect(() => {
     fetchTours();
   }, []);
 
-  // Filter and sort tours
+  // ===============================
+  // FILTER SYSTEM
+  // ===============================
   useEffect(() => {
     let result = [...tours];
-    
-    // Search filter
+
     if (searchTerm) {
-      result = result.filter(tour => 
+      result = result.filter(tour =>
         tour.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tour.location?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
-    // Status filter
-    if (statusFilter !== 'all') {
+
+    if (statusFilter !== "all") {
       result = result.filter(tour => tour.status === statusFilter);
     }
-    
-    // Sorting
+
     switch (sortBy) {
-      case 'price-low':
+      case "price-low":
         result.sort((a, b) => (a.price || 0) - (b.price || 0));
         break;
-      case 'price-high':
+      case "price-high":
         result.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
-      case 'popular':
+      case "popular":
         result.sort((a, b) => (b.views || 0) - (a.views || 0));
         break;
-      case 'newest':
+      case "newest":
         result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       default:
         break;
     }
-    
+
     setFilteredTours(result);
   }, [tours, searchTerm, statusFilter, sortBy]);
 
+  // ===============================
+  // FETCH FUNCTION
+  // ===============================
   const fetchTours = async () => {
-    try {
-      setLoading(true);
-      const data = await getTours();
-      setTours(data.tours || data || []);
-    } catch (error) {
-      console.error(error);
-      showNotification('Failed to load tours', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
 
+    const data = await getProviderTours(token);
+
+    setTours(data.tours || []);
+
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // ===============================
+  // NAVIGATION
+  // ===============================
   const handleEdit = (id) => {
     navigate(`/provider/tours/edit/${id}`);
   };
@@ -133,6 +195,9 @@ const MyTours = () => {
     navigate(`/tour/${id}`);
   };
 
+  // ===============================
+  // DELETE
+  // ===============================
   const handleDeleteClick = (tour) => {
     setSelectedTour(tour);
     setShowDeleteModal(true);
@@ -140,466 +205,469 @@ const MyTours = () => {
 
   const handleDeleteConfirm = async () => {
     if (!selectedTour) return;
-    
+
     try {
       setDeleteLoading(true);
       await deleteTour(selectedTour._id, token);
       await fetchTours();
-      showNotification(`${selectedTour.title} has been deleted successfully`, 'success');
+      showNotification(`${selectedTour.title} deleted successfully`, "success");
       setShowDeleteModal(false);
       setSelectedTour(null);
     } catch (error) {
       console.error(error);
-      showNotification(error.response?.data?.message || 'Failed to delete tour', 'error');
+      showNotification(error.response?.data?.message || "Delete failed", "error");
     } finally {
       setDeleteLoading(false);
     }
   };
 
+  // ===============================
+  // STATUS TOGGLE
+  // ===============================
   const handleStatusToggle = async (tour) => {
     try {
-      const newStatus = tour.status === 'active' ? 'inactive' : 'active';
       await toggleTourStatus(tour._id, token);
       await fetchTours();
-      showNotification(`Tour ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`, 'success');
+      showNotification("Tour status updated", "success");
     } catch (error) {
       console.error(error);
-      showNotification('Failed to update tour status', 'error');
+      showNotification("Failed updating status", "error");
     }
   };
 
+  // ===============================
+  // NOTIFICATION
+  // ===============================
   const showNotification = (message, type) => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // ===============================
+  // SHARE
+  // ===============================
   const handleShare = async (tour) => {
     const url = `${window.location.origin}/tour/${tour._id}`;
     try {
       await navigator.clipboard.writeText(url);
-      showNotification('Link copied to clipboard!', 'success');
-    } catch (err) {
-      showNotification('Failed to copy link', 'error');
+      showNotification("Tour link copied", "success");
+    } catch (error) {
+      showNotification("Copy failed", "error");
     }
   };
 
+  // ===============================
+  // EXPORT
+  // ===============================
   const handleExport = () => {
     const data = JSON.stringify(tours, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
+    const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `tours-export-${new Date().toISOString()}.json`;
+    a.download = "ai-tour-export.json";
     a.click();
     URL.revokeObjectURL(url);
-    showNotification('Tours exported successfully!', 'success');
+    showNotification("Export completed", "success");
   };
 
+  // ===============================
+  // GET STATUS BADGE
+  // ===============================
+  const getStatusBadge = (status) => {
+    const styles = {
+      approved: {
+        bg: "bg-[#0D9488]/10",
+        text: "text-[#0D9488]",
+        label: "Approved"
+      },
+      pending: {
+        bg: "bg-[#F59E0B]/10",
+        text: "text-[#F59E0B]",
+        label: "Pending"
+      },
+      rejected: {
+        bg: "bg-red-100",
+        text: "text-red-600",
+        label: "Rejected"
+      }
+    };
+    return styles[status] || styles.pending;
+  };
+
+  // ===============================
+  // HANDLE IMAGE ERROR
+  // ===============================
+  const handleImageError = (tourId) => {
+    setImageErrors(prev => ({ ...prev, [tourId]: true }));
+  };
+
+  // ===============================
+  // GET IMAGE WITH FALLBACK
+  // ===============================
+  const getImageWithFallback = (tour) => {
+    if (imageErrors[tour._id]) {
+      return getFallbackImage(tour._id);
+    }
+    const image = getTourImage(tour);
+    return image || getFallbackImage(tour._id);
+  };
+
+  // ===============================
+  // LOADING SCREEN
+  // ===============================
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-gray-50 to-[#374151]/10">
         <div className="text-center">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-blue-200 dark:border-blue-900 rounded-full"></div>
-            <div className="absolute top-0 left-0 w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="relative w-20 h-20 mx-auto">
+            <div className="w-20 h-20 rounded-full border-4 border-[#0D9488]/20" />
+            <div className="absolute top-0 left-0 w-20 h-20 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
           </div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">Loading your amazing tours...</p>
+          <p className="mt-4 font-semibold text-[#374151] dark:text-white">
+            Loading your AI Tours...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Notification */}
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-[#374151]/10 dark:from-gray-950 dark:via-gray-900 dark:to-black">
+      
+      {/* NOTIFICATION */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 animate-slide-in-right ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3`}>
-          {notification.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+        <div className={`fixed top-5 right-5 z-50 px-6 py-4 rounded-2xl shadow-2xl text-white flex items-center gap-3 ${
+          notification.type === "success" ? "bg-[#0D9488]" : "bg-red-500"
+        }`}>
+          {notification.type === "success" ? <CheckCircle /> : <AlertCircle />}
           {notification.message}
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* AI Stats Banner */}
+
+        {/* AI ANALYTICS */}
         {analytics.totalTours > 0 && (
-          <div className="mb-8 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 rounded-2xl p-6 text-white shadow-2xl">
+          <div className="mb-8 rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-r from-[#0D9488] via-[#F59E0B] to-[#374151]">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
-                <Sparkles className="w-8 h-8 animate-pulse" />
+                <Sparkles className="w-9 h-9" />
                 <div>
-                  <h3 className="text-lg font-bold">AI Analytics Dashboard</h3>
-                  <p className="text-sm opacity-90">Your tour performance insights</p>
+                  <h3 className="text-xl font-black">AI Tour Analytics</h3>
+                  <p className="text-sm opacity-90">Smart insights for your tourism business</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowStats(!showStats)}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl font-semibold transition-all backdrop-blur-sm"
+                className="bg-white/20 hover:bg-white/30 px-5 py-2 rounded-xl font-bold transition"
               >
-                {showStats ? 'Hide Stats' : 'View Stats'}
+                {showStats ? "Hide Stats" : "View Stats"}
               </button>
             </div>
-            
+
             {showStats && (
-              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                  <p className="text-sm opacity-90">Total Tours</p>
-                  <p className="text-2xl font-bold">{analytics.totalTours}</p>
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white/20 rounded-xl p-4">
+                  <p>Total Tours</p>
+                  <strong className="text-3xl">{analytics.totalTours}</strong>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                  <p className="text-sm opacity-90">Total Revenue</p>
-                  <p className="text-2xl font-bold">${analytics.totalRevenue.toLocaleString()}</p>
+                <div className="bg-white/20 rounded-xl p-4">
+                  <p>Revenue</p>
+                  <strong className="text-3xl">${analytics.totalRevenue.toLocaleString()}</strong>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                  <p className="text-sm opacity-90">Avg. Price</p>
-                  <p className="text-2xl font-bold">${analytics.avgPrice.toFixed(0)}</p>
+                <div className="bg-white/20 rounded-xl p-4">
+                  <p>Avg Price</p>
+                  <strong className="text-3xl">${analytics.avgPrice.toFixed(0)}</strong>
                 </div>
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                  <p className="text-sm opacity-90">Completion Rate</p>
-                  <p className="text-2xl font-bold">{analytics.completion.toFixed(0)}%</p>
+                <div className="bg-white/20 rounded-xl p-4">
+                  <p>Approved</p>
+                  <strong className="text-3xl">{analytics.completion.toFixed(0)}%</strong>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Header */}
+        {/* HEADER */}
         <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
-            <h1 className="text-4xl lg:text-5xl font-black bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-black bg-gradient-to-r from-[#374151] to-[#0D9488] bg-clip-text text-transparent">
               My Tours
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              {analytics.totalTours} {analytics.totalTours === 1 ? 'tour' : 'tours'} • {analytics.totalRevenue > 0 && `$${analytics.totalRevenue.toLocaleString()} total value`}
+            <p className="mt-2 text-gray-500 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#0D9488]" />
+              {analytics.totalTours} Tours
             </p>
           </div>
-          
+
           <div className="flex gap-3">
             <button
+              onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+              className="h-12 px-4 rounded-xl border-2 border-[#374151]/20 hover:border-[#0D9488] font-bold flex items-center gap-2 transition"
+            >
+              {viewMode === "grid" ? <List className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
+            </button>
+
+            <button
               onClick={handleExport}
-              className="h-12 px-5 rounded-xl border-2 border-gray-300 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 font-semibold flex items-center gap-2 transition-all"
+              className="h-12 px-5 rounded-xl border-2 border-[#374151]/20 hover:border-[#F59E0B] font-bold flex items-center gap-2 transition"
             >
               <Download className="w-5 h-5" />
               Export
             </button>
+
             <button
-              onClick={() => navigate('/provider/add-tour')}
-              className="h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+              onClick={() => navigate("/provider/add-tour")}
+              className="h-12 px-6 rounded-xl bg-gradient-to-r from-[#0D9488] via-[#F59E0B] to-[#374151] text-white font-black shadow-lg hover:scale-105 transition flex items-center gap-2"
             >
-              <Plus className="w-5 h-5" />
+              <Plus />
               Add New Tour
             </button>
           </div>
         </div>
 
-        {/* Search and Filters */}
+        {/* SEARCH FILTERS */}
         {tours.length > 0 && (
           <div className="mb-8 flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-3 text-gray-400" />
               <input
-                type="text"
-                placeholder="Search by title or location..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Search tours..."
+                className="w-full h-12 pl-12 rounded-xl border focus:ring-2 focus:ring-[#0D9488] dark:bg-gray-800"
               />
             </div>
-            
-            <div className="flex gap-3">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-12 px-4 rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="h-12 px-4 rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="newest">Newest First</option>
-                <option value="popular">Most Popular</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
-              
-              <button
-                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="h-12 px-4 rounded-xl border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-              >
-                {viewMode === 'grid' ? 'List View' : 'Grid View'}
-              </button>
-            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-12 rounded-xl border px-4 dark:bg-gray-800"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="h-12 rounded-xl border px-4 dark:bg-gray-800"
+            >
+              <option value="newest">Newest</option>
+              <option value="popular">Popular</option>
+              <option value="price-low">Low Price</option>
+              <option value="price-high">High Price</option>
+            </select>
           </div>
         )}
 
-        {/* Empty State */}
-        {filteredTours.length === 0 && (
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center border-2 border-dashed border-gray-300 dark:border-gray-700">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <TrendingUp className="w-12 h-12 text-blue-500" />
+        {/* EMPTY STATE */}
+        {filteredTours.length === 0 && tours.length === 0 && (
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center shadow-xl border border-gray-200 dark:border-gray-800">
+            <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center bg-[#0D9488]/10">
+              <TrendingUp className="w-12 h-12 text-[#0D9488]" />
             </div>
-            <h2 className="text-2xl font-black dark:text-white mb-2">
-              {searchTerm || statusFilter !== 'all' ? 'No matching tours found' : 'Start Your Journey'}
+            <h2 className="text-3xl font-black mt-6 text-[#374151] dark:text-white">
+              No Tours Yet
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filters' 
-                : 'Create your first tour and share amazing experiences with travelers'}
+            <p className="text-gray-500 mt-2">
+              Create your first AI Tour experience
             </p>
-            {(searchTerm || statusFilter !== 'all') ? (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('all');
-                }}
-                className="px-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-semibold hover:bg-gray-200 transition"
-              >
-                Clear Filters
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate('/provider/add-tour')}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Create First Tour
-              </button>
-            )}
+            <button
+              onClick={() => navigate("/provider/add-tour")}
+              className="mt-6 px-8 py-3 rounded-xl bg-[#0D9488] hover:bg-[#0D9488]/90 text-white font-black flex items-center gap-2 mx-auto"
+            >
+              <Plus />
+              Create Tour
+            </button>
           </div>
         )}
 
-        {/* Tours Grid/List */}
+        {/* EMPTY FILTER RESULT */}
+        {filteredTours.length === 0 && tours.length > 0 && (
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center shadow-xl border border-gray-200 dark:border-gray-800">
+            <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center bg-[#F59E0B]/10">
+              <Search className="w-12 h-12 text-[#F59E0B]" />
+            </div>
+            <h2 className="text-3xl font-black mt-6 text-[#374151] dark:text-white">
+              No Tours Found
+            </h2>
+            <p className="text-gray-500 mt-2">
+              Try adjusting your search or filters
+            </p>
+          </div>
+        )}
+
+        {/* TOUR CARDS */}
         {filteredTours.length > 0 && (
-          <div className={viewMode === 'grid' 
-            ? "grid lg:grid-cols-2 xl:grid-cols-3 gap-6" 
-            : "space-y-4"
+          <div className={
+            viewMode === "grid"
+              ? "grid lg:grid-cols-2 xl:grid-cols-3 gap-6"
+              : "space-y-5"
           }>
-            {filteredTours.map((tour, index) => (
-              <div
-                key={tour._id}
-                className={`group bg-white dark:bg-gray-900 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden animate-fade-in-up ${
-                  viewMode === 'list' ? 'flex' : ''
-                }`}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {/* Image */}
-                <div className={viewMode === 'grid' ? 'relative h-56 overflow-hidden' : 'relative w-48 h-48 flex-shrink-0 overflow-hidden'}>
-                  <img
-                    src={tour.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'}
-                    alt={tour.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute top-3 right-3 flex gap-2">
+            {filteredTours.map((tour) => {
+              const statusStyle = getStatusBadge(tour.status);
+              const imageUrl = getImageWithFallback(tour);
+              
+              return (
+                <div
+                  key={tour._id}
+                  className="group bg-white dark:bg-gray-900 rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300"
+                >
+                  {/* IMAGE */}
+                  <div className="relative h-56 overflow-hidden bg-gray-100 dark:bg-gray-800">
+                    <img
+                      src={imageUrl}
+                      alt={tour.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
+                      onError={() => handleImageError(tour._id)}
+                      loading="lazy"
+                    />
+
+                    {/* STATUS */}
                     <button
                       onClick={() => handleStatusToggle(tour)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-xl ${
-                        tour.status === 'active'
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-500 text-white'
-                      }`}
+                      className={`absolute top-4 right-4 px-4 py-1 rounded-full text-xs font-black ${statusStyle.bg} ${statusStyle.text}`}
                     >
-                      {tour.status || 'active'}
+                      {statusStyle.label}
                     </button>
-                  </div>
-                  {tour.isFeatured && (
-                    <div className="absolute top-3 left-3">
-                      <div className="bg-yellow-500 text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                        <Star className="w-3 h-3" />
-                        Featured
-                      </div>
-                    </div>
-                  )}
-                </div>
 
-                {/* Content */}
-                <div className={viewMode === 'grid' ? 'p-6 space-y-4' : 'flex-1 p-6 space-y-4'}>
-                  <div>
-                    <h2 className="text-xl font-black text-gray-900 dark:text-white line-clamp-1">
+                    {/* BOOKINGS COUNT */}
+                    {tour.bookings && tour.bookings > 0 && (
+                      <div className="absolute top-4 left-4 bg-[#0D9488] text-white px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1">
+                        <Users size={14} />
+                        {tour.bookings} Bookings
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CONTENT */}
+                  <div className="p-6 space-y-4">
+                    <h2 className="text-xl font-black text-[#374151] dark:text-white">
                       {tour.title}
                     </h2>
-                    <div className="flex items-center gap-2 mt-2 text-gray-500 text-sm">
-                      <MapPin className="w-4 h-4 flex-shrink-0" />
-                      <span className="line-clamp-1">{tour.location}</span>
-                    </div>
-                  </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                        <Eye className="w-4 h-4" />
-                        <span>{tour.views || 0} views</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                        <Star className="w-4 h-4 text-yellow-500" />
-                        <span>{tour.rating || 0}</span>
-                      </div>
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <MapPin size={17} className="text-[#0D9488]" />
+                      {tour.location}
                     </div>
-                    <div className="text-lg font-bold text-green-600">
-                      ${tour.price}
-                    </div>
-                  </div>
 
-                  {/* Details */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <Clock3 className="w-3 h-3" />
-                        Duration
+                    {/* STATS */}
+                    <div className="flex justify-between items-center">
+                      <div className="flex gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Eye size={15} />
+                          {tour.views || 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Star size={15} className="text-[#F59E0B]" />
+                          {tour.rating || 0}
+                        </span>
                       </div>
-                      <p className="font-bold dark:text-white text-sm mt-1">{tour.duration}</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <Users className="w-3 h-3" />
-                        Travelers
+                      <div className="font-black text-[#0D9488] text-lg">
+                        ${tour.price}
                       </div>
-                      <p className="font-bold dark:text-white text-sm mt-1">{tour.travelers} max</p>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-2">
-                    <button
-                      onClick={() => handleView(tour._id)}
-                      className="flex-1 h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-2 transition-all"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleEdit(tour._id)}
-                      className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition-all"
-                    >
-                      <Pencil className="w-4 h-4 dark:text-white" />
-                    </button>
-                    <button
-                      onClick={() => handleShare(tour)}
-                      className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center transition-all"
-                    >
-                      <Share2 className="w-4 h-4 dark:text-white" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(tour)}
-                      className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 flex items-center justify-center transition-all"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                    {/* DETAILS */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                        <Clock3 size={16} className="text-[#0D9488]" />
+                        <p className="font-bold text-sm dark:text-white">
+                          {tour.duration || "N/A"}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                        <Users size={16} className="text-[#F59E0B]" />
+                        <p className="font-bold text-sm dark:text-white">
+                          {tour.travelers || 0} Travelers
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ACTIONS */}
+                    <div className="flex gap-2 pt-3">
+                      <button
+                        onClick={() => handleView(tour._id)}
+                        className="flex-1 h-10 rounded-xl bg-[#0D9488] hover:bg-[#0D9488]/90 text-white font-bold flex items-center justify-center gap-2"
+                      >
+                        <Eye size={16} />
+                        View
+                      </button>
+
+                      <button
+                        onClick={() => handleEdit(tour._id)}
+                        className="w-10 rounded-xl bg-[#374151] text-white flex items-center justify-center hover:bg-[#374151]/80 transition"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => handleShare(tour)}
+                        className="w-10 rounded-xl bg-[#F59E0B] text-white flex items-center justify-center hover:bg-[#F59E0B]/80 transition"
+                      >
+                        <Share2 size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteClick(tour)}
+                        className="w-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* DELETE MODAL */}
+        {showDeleteModal && selectedTour && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex justify-between">
+                <h3 className="text-2xl font-black text-[#374151] dark:text-white">
+                  Delete Tour?
+                </h3>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
+                >
+                  <X />
+                </button>
               </div>
-            ))}
+
+              <p className="mt-4 text-gray-500 dark:text-gray-400">
+                Are you sure you want to delete:
+                <br />
+                <b className="text-[#374151] dark:text-white">{selectedTour.title}</b>
+              </p>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 border rounded-xl py-3 font-bold text-[#374151] dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  disabled={deleteLoading}
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition disabled:opacity-50"
+                >
+                  {deleteLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && selectedTour && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6 animate-scale-up">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-600" />
-              </div>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Delete Tour
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to delete <span className="font-semibold">"{selectedTour.title}"</span>? This action cannot be undone and all associated data will be permanently removed.
-            </p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteLoading}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {deleteLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete Forever'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(100px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        
-        @keyframes scaleUp {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        .animate-fade-in-up {
-          animation: fadeInUp 0.5s ease-out forwards;
-          opacity: 0;
-        }
-        
-        .animate-slide-in-right {
-          animation: slideInRight 0.3s ease-out;
-        }
-        
-        .animate-scale-up {
-          animation: scaleUp 0.2s ease-out;
-        }
-        
-        .animate-fade-in {
-          animation: fadeInUp 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

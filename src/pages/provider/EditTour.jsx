@@ -1,708 +1,670 @@
 // src/pages/provider/AddTour.jsx
 
-import React, {
-  useState,
-} from 'react';
-
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  ImagePlus,
-  Video,
-  MapPin,
-  DollarSign,
-  Users,
-  Clock3,
-  Tag,
-  FileText,
-  UploadCloud,
-  Sparkles,
-} from 'lucide-react';
+  MapPin, DollarSign, Clock, Users, Video, FileText,
+  PlusCircle, X, AlertCircle, CheckCircle, Upload,
+  Sparkles, Camera, Image as ImageIcon
+} from "lucide-react";
+import { createTour } from "../../services/tourService";
+import { useAuth } from "../../contexts/AuthContext";
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
 const AddTour = () => {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [coverPreview, setCoverPreview] = useState(null);
+  const [galleryPreview, setGalleryPreview] = useState([]);
+  const [videoPreview, setVideoPreview] = useState([]);
+  const [formData, setFormData] = useState({
+    title: "", location: "", category: "", price: "",
+    duration: "", travelers: "", description: "",
+    highlights: "", included: "", excluded: "",
+    meetingPoint: "", cancellationPolicy: "",
+    coverImage: null, galleryImages: [], videos: []
+  });
 
-  const [formData, setFormData] =
-    useState({
-      title: '',
-      location: '',
-      price: '',
-      duration: '',
-      travelers: '',
-      category: '',
-      description: '',
+  // ============= VALIDATION =============
+  const validateField = (name, value) => {
+    switch (name) {
+      case "title":
+        if (!value?.trim()) return "Tour title is required";
+        if (value.length < 5) return "Title must contain at least 5 characters";
+        return "";
+      case "location":
+        if (!value?.trim()) return "Location is required";
+        return "";
+      case "category":
+        if (!value) return "Select tour category";
+        return "";
+      case "price":
+        if (!value) return "Price is required";
+        if (Number(value) <= 0) return "Price must be greater than 0";
+        return "";
+      case "duration":
+        if (!value?.trim()) return "Duration is required";
+        return "";
+      case "travelers":
+        if (!value) return "Maximum travelers required";
+        if (Number(value) < 1) return "Invalid travelers number";
+        return "";
+      case "description":
+        if (!value?.trim()) return "Description is required";
+        if (value.length < 30) return "Description must be at least 30 characters";
+        return "";
+      case "coverImage":
+        if (!value) return "Cover image is required";
+        if (!value.type?.startsWith("image/")) return "File must be an image";
+        if (value.size > 5 * 1024 * 1024) return "Image must be below 5MB";
+        return "";
+      case "galleryImages":
+        if (value.length > 15) return "Maximum 15 images allowed";
+        for (const img of value) {
+          if (img.size > 5 * 1024 * 1024) return "Each image must be below 5MB";
+        }
+        return "";
+      case "videos":
+        if (value.length > 3) return "Maximum 3 videos allowed";
+        for (const video of value) {
+          if (video.size > 100 * 1024 * 1024) return "Each video must be below 100MB";
+        }
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  // ============= VIDEO DURATION =============
+  const checkVideoDuration = (file) => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.src = URL.createObjectURL(file);
     });
+  };
 
-  const [images, setImages] =
-    useState([]);
-
-  const [video, setVideo] =
-    useState(null);
-
+  // ============= HANDLE TEXT INPUT =============
   const handleChange = (e) => {
-
-    setFormData({
-      ...formData,
-      [e.target.name]:
-        e.target.value,
-    });
-
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (touched[name]) {
+      setErrors({ ...errors, [name]: validateField(name, value) });
+    }
   };
 
-  const handleImageUpload = (e) => {
-
-    const files =
-      Array.from(e.target.files);
-
-    setImages(files);
-
+  // ============= BLUR VALIDATION =============
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    setErrors({ ...errors, [name]: validateField(name, value) });
   };
 
-  const handleVideoUpload = (e) => {
-
-    const file =
-      e.target.files[0];
-
-    setVideo(file);
-
+  // ============= COVER IMAGE =============
+  const handleCoverImage = (e) => {
+    const file = e.target.files[0];
+    const error = validateField("coverImage", file);
+    if (error) {
+      setErrors({ ...errors, coverImage: error });
+      return;
+    }
+    setFormData({ ...formData, coverImage: file });
+    setCoverPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (e) => {
+  // ============= GALLERY =============
+  const handleGallery = (e) => {
+    const files = Array.from(e.target.files);
+    const error = validateField("galleryImages", files);
+    if (error) {
+      setErrors({ ...errors, galleryImages: error });
+      return;
+    }
+    setFormData({ ...formData, galleryImages: files });
+    setGalleryPreview(files.map(f => URL.createObjectURL(f)));
+  };
 
+  // ============= VIDEOS =============
+  const handleVideos = async (e) => {
+    const files = Array.from(e.target.files);
+    const error = validateField("videos", files);
+    if (error) {
+      setErrors({ ...errors, videos: error });
+      return;
+    }
+    for (const video of files) {
+      const duration = await checkVideoDuration(video);
+      if (duration > 300) {
+        setErrors({
+          ...errors,
+          videos: "Each video must be maximum 5 minutes"
+        });
+        return;
+      }
+    }
+    setFormData({ ...formData, videos: files });
+    setVideoPreview(files.map(f => URL.createObjectURL(f)));
+  };
+
+  // ============= REMOVE FILE =============
+  const removeFile = (type, index) => {
+    if (type === "cover") {
+      setCoverPreview(null);
+      setFormData({ ...formData, coverImage: null });
+    }
+    if (type === "gallery") {
+      const newGallery = [...formData.galleryImages];
+      newGallery.splice(index, 1);
+      setFormData({ ...formData, galleryImages: newGallery });
+      setGalleryPreview(newGallery.map(f => URL.createObjectURL(f)));
+    }
+    if (type === "video") {
+      const newVideos = [...formData.videos];
+      newVideos.splice(index, 1);
+      setFormData({ ...formData, videos: newVideos });
+      setVideoPreview(newVideos.map(f => URL.createObjectURL(f)));
+    }
+  };
+
+  // ============= SUBMIT =============
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log({
-      ...formData,
-      images,
-      video,
+    // Validate all fields
+    const newErrors = {};
+    Object.keys(formData).forEach(key => {
+      const error = validateField(key, formData[key]);
+      if (error) newErrors[key] = error;
     });
 
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      const firstError = document.querySelector(".text-red-500");
+      if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setUploadProgress(10);
+
+      const data = new FormData();
+      data.append("title", formData.title);
+      data.append("location", formData.location);
+      data.append("category", formData.category);
+      data.append("price", formData.price);
+      data.append("duration", formData.duration);
+      data.append("travelers", formData.travelers);
+      data.append("description", formData.description);
+      data.append("highlights", formData.highlights || "");
+      data.append("included", formData.included || "");
+      data.append("excluded", formData.excluded || "");
+      data.append("meetingPoint", formData.meetingPoint || "");
+      data.append("cancellationPolicy", formData.cancellationPolicy || "");
+      data.append("coverImage", formData.coverImage);
+
+      formData.galleryImages.forEach(img => data.append("galleryImages", img));
+      formData.videos.forEach(vid => data.append("videos", vid));
+
+      await createTour(data, token, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      setUploadProgress(100);
+      alert("✅ Tour created successfully. Waiting for admin approval.");
+      
+      navigate("/provider/my-tours");
+
+      // Reset form
+      setFormData({
+        title: "", location: "", category: "", price: "",
+        duration: "", travelers: "", description: "",
+        highlights: "", included: "", excluded: "",
+        meetingPoint: "", cancellationPolicy: "",
+        coverImage: null, galleryImages: [], videos: []
+      });
+      setCoverPreview(null);
+      setGalleryPreview([]);
+      setVideoPreview([]);
+      setErrors({});
+      setTouched({});
+
+    } catch (error) {
+      console.error("Create Tour Error:", error);
+      setErrors({
+        submit: error.response?.data?.message || "Failed to create tour"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ============= RENDER =============
   return (
-    <div className="space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 py-10 px-4">
+      <div className="max-w-5xl mx-auto">
 
-      {/* PAGE HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-
-        <div>
-
-          <div className="flex items-center gap-3">
-
-            <div
-              className="
-                w-14
-                h-14
-                rounded-2xl
-                bg-gradient-to-r
-                from-blue-600
-                to-purple-600
-                flex
-                items-center
-                justify-center
-                text-white
-                shadow-lg
-              "
-            >
-
-              <Sparkles className="w-7 h-7" />
-
-            </div>
-
-            <div>
-
-              <h1 className="text-3xl font-black text-gray-900 dark:text-white">
-                Create New Tour
-              </h1>
-
-              <p className="text-gray-500 dark:text-gray-400 mt-1">
-                Publish a professional travel experience
-              </p>
-
-            </div>
-
+        {/* HEADER */}
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0D9488] via-[#F59E0B] to-[#374151] shadow-xl flex items-center justify-center mx-auto">
+            <PlusCircle size={40} className="text-white" />
           </div>
-
+          <h1 className="mt-5 text-4xl font-black text-[#374151] dark:text-white">
+            Create New Tour
+          </h1>
+          <p className="text-gray-500 mt-2">
+            Share amazing Rwanda experiences with travelers
+          </p>
         </div>
 
-        <button
-          className="
-            h-12
-            px-6
-            rounded-2xl
-            bg-gradient-to-r
-            from-blue-600
-            to-purple-600
-            text-white
-            font-bold
-            shadow-lg
-            hover:scale-105
-            transition-all
-          "
-        >
-          Preview Tour
-        </button>
+        <form onSubmit={handleSubmit} className="space-y-8">
 
-      </div>
+          {/* SUBMIT ERROR */}
+          {errors.submit && (
+            <div className="bg-red-100 text-red-700 p-4 rounded-xl flex gap-2 items-center">
+              <AlertCircle size={20} />
+              {errors.submit}
+            </div>
+          )}
 
-      {/* FORM */}
-      <form
-        onSubmit={handleSubmit}
-        className="
-          bg-white
-          dark:bg-gray-900
-          border
-          border-gray-200
-          dark:border-gray-800
-          rounded-[2rem]
-          p-8
-          shadow-sm
-          space-y-10
-        "
-      >
+          {/* MAIN CARD */}
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-8 space-y-6">
 
-        {/* BASIC INFO */}
-        <div className="space-y-6">
-
-          <div>
-
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">
-              Basic Information
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              Fill in your tour details carefully
-            </p>
-
-          </div>
-
-          {/* TITLE */}
-          <div>
-
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Tour Title
-            </label>
-
-            <div className="relative mt-2">
-
-              <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
+            {/* TITLE */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Tour Title *
+              </label>
               <input
-                type="text"
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                placeholder="Volcanoes Gorilla Trek"
-                className="
-                  w-full
-                  h-14
-                  pl-12
-                  pr-5
-                  rounded-2xl
-                  border
-                  border-gray-200
-                  dark:border-gray-700
-                  bg-gray-50
-                  dark:bg-gray-800
-                  dark:text-white
-                  outline-none
-                  focus:ring-2
-                  focus:ring-blue-500
-                "
+                onBlur={handleBlur}
+                placeholder="Gorilla Trekking Adventure"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
               />
-
+              {errors.title && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.title}
+                </p>
+              )}
             </div>
-
-          </div>
-
-          {/* GRID */}
-          <div className="grid md:grid-cols-2 gap-6">
 
             {/* LOCATION */}
             <div>
-
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Location
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Location *
               </label>
-
-              <div className="relative mt-2">
-
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="Musanze, Rwanda"
-                  className="
-                    w-full
-                    h-14
-                    pl-12
-                    pr-5
-                    rounded-2xl
-                    border
-                    border-gray-200
-                    dark:border-gray-700
-                    bg-gray-50
-                    dark:bg-gray-800
-                    dark:text-white
-                    outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
-                />
-
-              </div>
-
+              <input
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="Volcanoes National Park"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.location && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.location}
+                </p>
+              )}
             </div>
 
-            {/* PRICE */}
+            {/* CATEGORY */}
             <div>
-
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Price
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Category *
               </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              >
+                <option value="">Select Category</option>
+                <option>Adventure</option>
+                <option>Wildlife</option>
+                <option>Culture</option>
+                <option>Luxury</option>
+                <option>Hiking</option>
+                <option>City Tour</option>
+              </select>
+              {errors.category && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.category}
+                </p>
+              )}
+            </div>
 
-              <div className="relative mt-2">
-
-                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
+            {/* PRICE + DURATION */}
+            <div className="grid md:grid-cols-2 gap-5">
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Price USD *
+                </label>
                 <input
                   type="number"
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
-                  placeholder="1200"
-                  className="
-                    w-full
-                    h-14
-                    pl-12
-                    pr-5
-                    rounded-2xl
-                    border
-                    border-gray-200
-                    dark:border-gray-700
-                    bg-gray-50
-                    dark:bg-gray-800
-                    dark:text-white
-                    outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
+                  onBlur={handleBlur}
+                  placeholder="500"
+                  className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
                 />
-
+                {errors.price && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.price}
+                  </p>
+                )}
               </div>
-
-            </div>
-
-            {/* DURATION */}
-            <div>
-
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Duration
-              </label>
-
-              <div className="relative mt-2">
-
-                <Clock3 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
+              <div>
+                <label className="font-bold text-gray-700 dark:text-gray-300">
+                  Duration *
+                </label>
                 <input
-                  type="text"
                   name="duration"
                   value={formData.duration}
                   onChange={handleChange}
-                  placeholder="3 Days"
-                  className="
-                    w-full
-                    h-14
-                    pl-12
-                    pr-5
-                    rounded-2xl
-                    border
-                    border-gray-200
-                    dark:border-gray-700
-                    bg-gray-50
-                    dark:bg-gray-800
-                    dark:text-white
-                    outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
+                  onBlur={handleBlur}
+                  placeholder="3 Days 2 Nights"
+                  className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
                 />
-
+                {errors.duration && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.duration}
+                  </p>
+                )}
               </div>
-
             </div>
 
             {/* TRAVELERS */}
             <div>
-
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                Max Travelers
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Maximum Travelers *
               </label>
-
-              <div className="relative mt-2">
-
-                <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-
-                <input
-                  type="number"
-                  name="travelers"
-                  value={formData.travelers}
-                  onChange={handleChange}
-                  placeholder="10"
-                  className="
-                    w-full
-                    h-14
-                    pl-12
-                    pr-5
-                    rounded-2xl
-                    border
-                    border-gray-200
-                    dark:border-gray-700
-                    bg-gray-50
-                    dark:bg-gray-800
-                    dark:text-white
-                    outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
-                />
-
-              </div>
-
+              <input
+                type="number"
+                name="travelers"
+                value={formData.travelers}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="10"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              {errors.travelers && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.travelers}
+                </p>
+              )}
             </div>
 
-          </div>
-
-          {/* CATEGORY */}
-          <div>
-
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Category
-            </label>
-
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="
-                mt-2
-                w-full
-                h-14
-                px-5
-                rounded-2xl
-                border
-                border-gray-200
-                dark:border-gray-700
-                bg-gray-50
-                dark:bg-gray-800
-                dark:text-white
-                outline-none
-                focus:ring-2
-                focus:ring-blue-500
-              "
-            >
-
-              <option value="">
-                Select Category
-              </option>
-
-              <option value="Wildlife">
-                Wildlife
-              </option>
-
-              <option value="Adventure">
-                Adventure
-              </option>
-
-              <option value="Cultural">
-                Cultural
-              </option>
-
-              <option value="Luxury">
-                Luxury
-              </option>
-
-            </select>
-
-          </div>
-
-          {/* DESCRIPTION */}
-          <div>
-
-            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              Description
-            </label>
-
-            <div className="relative mt-2">
-
-              <FileText className="absolute left-4 top-5 w-5 h-5 text-gray-400" />
-
+            {/* DESCRIPTION */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Description *
+              </label>
               <textarea
-                rows="6"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Describe the complete travel experience..."
-                className="
-                  w-full
-                  pl-12
-                  pr-5
-                  py-4
-                  rounded-2xl
-                  border
-                  border-gray-200
-                  dark:border-gray-700
-                  bg-gray-50
-                  dark:bg-gray-800
-                  dark:text-white
-                  outline-none
-                  resize-none
-                  focus:ring-2
-                  focus:ring-blue-500
-                "
+                onBlur={handleBlur}
+                rows="6"
+                placeholder="Describe your experience..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
               />
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* MEDIA SECTION */}
-        <div className="space-y-6">
-
-          <div>
-
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">
-              Tour Media
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              Upload beautiful photos and promotional videos
-            </p>
-
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* IMAGES */}
-            <div
-              className="
-                border-2
-                border-dashed
-                border-gray-300
-                dark:border-gray-700
-                rounded-3xl
-                p-8
-                text-center
-                bg-gray-50
-                dark:bg-gray-800/50
-              "
-            >
-
-              <div
-                className="
-                  w-20
-                  h-20
-                  mx-auto
-                  rounded-3xl
-                  bg-gradient-to-r
-                  from-blue-600
-                  to-cyan-500
-                  flex
-                  items-center
-                  justify-center
-                  text-white
-                  shadow-lg
-                "
-              >
-
-                <ImagePlus className="w-10 h-10" />
-
-              </div>
-
-              <h3 className="font-black text-xl mt-5 dark:text-white">
-                Upload Images
-              </h3>
-
-              <p className="text-sm text-gray-500 mt-2">
-                JPG, PNG • Maximum 10MB
-              </p>
-
-              <label
-                className="
-                  mt-6
-                  inline-flex
-                  items-center
-                  gap-2
-                  px-6
-                  h-12
-                  rounded-2xl
-                  bg-blue-600
-                  hover:bg-blue-700
-                  text-white
-                  font-semibold
-                  cursor-pointer
-                  transition
-                "
-              >
-
-                <UploadCloud className="w-5 h-5" />
-
-                Select Images
-
-                <input
-                  type="file"
-                  multiple
-                  hidden
-                  onChange={handleImageUpload}
-                />
-
-              </label>
-
-              {images.length > 0 && (
-
-                <div className="mt-5 space-y-2 text-left">
-
-                  {images.map(
-                    (img, index) => (
-
-                      <div
-                        key={index}
-                        className="
-                          text-sm
-                          text-gray-600
-                          dark:text-gray-300
-                          truncate
-                        "
-                      >
-                        • {img.name}
-                      </div>
-
-                    )
-                  )}
-
-                </div>
-
+              {errors.description && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.description}
+                </p>
               )}
-
             </div>
 
-            {/* VIDEO */}
-            <div
-              className="
-                border-2
-                border-dashed
-                border-gray-300
-                dark:border-gray-700
-                rounded-3xl
-                p-8
-                text-center
-                bg-gray-50
-                dark:bg-gray-800/50
-              "
-            >
-
-              <div
-                className="
-                  w-20
-                  h-20
-                  mx-auto
-                  rounded-3xl
-                  bg-gradient-to-r
-                  from-purple-600
-                  to-pink-500
-                  flex
-                  items-center
-                  justify-center
-                  text-white
-                  shadow-lg
-                "
-              >
-
-                <Video className="w-10 h-10" />
-
-              </div>
-
-              <h3 className="font-black text-xl mt-5 dark:text-white">
-                Upload Short Video
-              </h3>
-
-              <p className="text-sm text-gray-500 mt-2">
-                MP4 • Maximum 1 minute
-              </p>
-
-              <label
-                className="
-                  mt-6
-                  inline-flex
-                  items-center
-                  gap-2
-                  px-6
-                  h-12
-                  rounded-2xl
-                  bg-purple-600
-                  hover:bg-purple-700
-                  text-white
-                  font-semibold
-                  cursor-pointer
-                  transition
-                "
-              >
-
-                <UploadCloud className="w-5 h-5" />
-
-                Select Video
-
-                <input
-                  type="file"
-                  hidden
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                />
-
+            {/* HIGHLIGHTS */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Tour Highlights
               </label>
+              <textarea
+                name="highlights"
+                value={formData.highlights}
+                onChange={handleChange}
+                placeholder="Gorilla visit, Local food, Nature walk..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
 
-              {video && (
+            {/* INCLUDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Included Services
+              </label>
+              <textarea
+                name="included"
+                value={formData.included}
+                onChange={handleChange}
+                placeholder="Transport, Guide, Meals..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
 
-                <div className="mt-5 text-sm text-gray-600 dark:text-gray-300 truncate">
-                  • {video.name}
-                </div>
+            {/* EXCLUDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Excluded Services
+              </label>
+              <textarea
+                name="excluded"
+                value={formData.excluded}
+                onChange={handleChange}
+                placeholder="Flight tickets, Personal expenses..."
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
 
+            {/* COVER IMAGE - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Cover Image *
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <Upload className="w-5 h-5 text-[#0D9488]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload cover image
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverImage}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.coverImage && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.coverImage}
+                </p>
               )}
+              {coverPreview && (
+                <div className="relative mt-4">
+                  <img
+                    src={coverPreview}
+                    className="h-56 w-full object-cover rounded-2xl"
+                    alt="Cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeFile("cover")}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
 
+            {/* GALLERY - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Gallery Images (Maximum 15)
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <ImageIcon className="w-5 h-5 text-[#F59E0B]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload gallery images
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleGallery}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.galleryImages && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.galleryImages}
+                </p>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                {galleryPreview.map((img, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={img}
+                      className="h-24 w-full object-cover rounded-xl"
+                      alt={`Gallery ${index}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFile("gallery", index)}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* VIDEOS - Fixed file input styling */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Videos (Maximum 3 / 5 Minutes)
+              </label>
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <Video className="w-5 h-5 text-[#0D9488]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload videos
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="video/*"
+                    onChange={handleVideos}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.videos && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.videos}
+                </p>
+              )}
+              <div className="space-y-4 mt-4">
+                {videoPreview.map((video, index) => (
+                  <div key={index} className="relative group">
+                    <video
+                      src={video}
+                      controls
+                      className="w-full rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFile("video", index)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* MEETING POINT */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Meeting Point
+              </label>
+              <input
+                name="meetingPoint"
+                value={formData.meetingPoint}
+                onChange={handleChange}
+                placeholder="Kigali International Airport"
+                className="w-full mt-2 h-12 rounded-xl border px-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+            </div>
+
+            {/* CANCELLATION */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Cancellation Policy
+              </label>
+              <textarea
+                name="cancellationPolicy"
+                value={formData.cancellationPolicy}
+                onChange={handleChange}
+                placeholder="Free cancellation 24 hours before trip"
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
             </div>
 
           </div>
 
-        </div>
-
-        {/* SUBMIT */}
-        <div className="flex justify-end pt-4">
-
+          {/* SUBMIT BUTTON */}
           <button
             type="submit"
-            className="
-              px-10
-              h-14
-              rounded-2xl
-              bg-gradient-to-r
-              from-blue-600
-              to-purple-600
-              text-white
-              font-black
-              shadow-xl
-              hover:scale-105
-              transition-all
-            "
+            disabled={loading}
+            className="group relative w-full h-14 rounded-2xl overflow-hidden bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-black text-lg shadow-xl shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
           >
-            Publish Tour
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Uploading {uploadProgress}%
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-6 h-6" />
+                  Publish Tour
+                </>
+              )}
+            </span>
+            {/* Shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           </button>
 
-        </div>
-
-      </form>
-
+        </form>
+      </div>
     </div>
   );
 };

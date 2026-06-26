@@ -1,8 +1,7 @@
 // src/pages/DestinationDetails.jsx
 
-import React, { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import {
+import React, { useState } from "react";
+import { 
   Star,
   MapPin,
   Clock,
@@ -18,273 +17,349 @@ import {
   Coffee,
   Car,
   ShieldCheck,
-} from 'lucide-react';
+  ChevronDown,
+} from "lucide-react";
 
-import Card, { CardImage, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import { rwandaDestinations as destinations } from '../data/destinations';
-import LocationMap from '../components/ui/LocationMap';
+import { Link, useNavigate, useParams } from "react-router-dom";
 
+import Card, {
+  CardImage,
+  CardContent
+} from "../components/ui/Card";
 
+import Button from "../components/ui/Button";
 
-// Icon mapping for amenities
+import {
+  rwandaDestinations as destinations
+} from "../data/destinations";
+
+import LocationMap from "../components/ui/LocationMap";
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
+
+// ===============================
+// AMENITY ICONS
+// ===============================
 const amenityIcons = {
   wifi: Wifi,
   breakfast: Coffee,
   transport: Car,
-  support: ShieldCheck,
+  support: ShieldCheck
 };
 
+// ===============================
+// COMPONENT
+// ===============================
 const DestinationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const destination = destinations.find((item) => item.id === parseInt(id));
+  const destination = destinations.find(
+    (item) => item.id === Number(id)
+  );
+
   const [currentImage, setCurrentImage] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
 
-  // If destination not found
+  // ===============================
+  // NOT FOUND
+  // ===============================
   if (!destination) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
-        <h1 className="text-3xl font-bold mb-4 dark:text-white">Destination Not Found</h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">
-          The destination you are looking for does not exist.
+        <h1 className="text-3xl font-black text-[#374151] dark:text-white mb-4">
+          Destination Not Found
+        </h1>
+        <p className="text-gray-500 mb-6">
+          The destination does not exist.
         </p>
         <Link to="/explore">
-          <Button>Back to Explore</Button>
+          <Button>Back To Explore</Button>
         </Link>
       </div>
     );
   }
 
-  // Extended destination data (can be moved to mockData later)
+  // ===============================
+  // EXTENDED DATA
+  // ===============================
   const extendedData = {
     reviews: 1243,
-    region: 'Rwanda',
-    bestTime: destination.bestTime || 'June - September',
-    language: 'English & Kinyarwanda',
-    currency: 'RWF',
-    travelers: '2-10 People',
+    region: "Rwanda",
+    bestTime: destination.bestTime || "June - September",
+    language: "English & Kinyarwanda",
+    travelers: "2 - 10 People",
     highlights: [
-      'Breathtaking landscapes',
-      'Authentic cultural experiences',
-      'Professional local guides',
-      'Safe & memorable adventure',
+      "Breathtaking landscapes",
+      "Authentic cultural experiences",
+      "Professional local guides",
+      "Safe memorable adventure"
     ],
     itinerary: [
       {
         day: 1,
-        title: 'Arrival & Relaxation',
+        title: "Arrival & Relaxation",
         activities: [
-          'Welcome at Kigali International Airport',
-          'Hotel check-in with welcome drink',
-          'City orientation tour',
-          'Traditional Rwandan dinner experience',
-        ],
+          "Airport welcome",
+          "Hotel check-in",
+          "Kigali orientation",
+          "Traditional dinner"
+        ]
       },
       {
         day: 2,
-        title: 'Adventure & Exploration',
+        title: "Adventure Experience",
         activities: [
-          'Morning guided tour of main attractions',
-          'Lunch at local restaurant',
-          'Afternoon photography session',
-          'Sunset viewing at scenic spot',
-        ],
+          "Guided exploration",
+          "Local restaurant lunch",
+          "Photography session",
+          "Sunset viewing"
+        ]
       },
       {
         day: 3,
-        title: 'Culture & Departure',
+        title: "Culture & Departure",
         activities: [
-          'Visit to cultural heritage site',
-          'Local market shopping experience',
-          'Farewell lunch',
-          'Airport transfer',
-        ],
-      },
-    ],
+          "Cultural visit",
+          "Local market",
+          "Farewell lunch",
+          "Airport transfer"
+        ]
+      }
+    ]
   };
 
-  // Multiple images (use same image as fallback)
-  const images = destination.images || [destination.image, destination.image, destination.image];
+  // ===============================
+  // IMAGES
+  // ===============================
+  const images = destination.images || [
+    destination.image,
+    destination.image,
+    destination.image
+  ];
 
-  const nextImage = () => setCurrentImage((prev) => (prev + 1) % images.length);
-  const prevImage = () => setCurrentImage((prev) => (prev - 1 + images.length) % images.length);
+  const nextImage = () => {
+    setCurrentImage((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImage((prev) => (prev - 1 + images.length) % images.length);
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 md:px-5 space-y-6 pb-32 md:pb-8 animate-fade-in">
-      
-      {/* Navigation Row: Back Button + Breadcrumbs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+    <div className="max-w-7xl mx-auto px-3 md:px-5 space-y-6 pb-32 md:pb-8">
+
+      {/* ===============================
+          NAVIGATION
+      =============================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-300 w-fit"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-gray-900 shadow hover:shadow-lg transition border border-gray-100 dark:border-gray-800"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm font-medium">Back</span>
+          <ArrowLeft className="w-4 h-4 text-[#0D9488]" />
+          <span className="text-[#374151] dark:text-white">Back</span>
         </button>
 
-        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 gap-2">
-          <Link to="/" className="hover:text-blue-600 transition">
-            Home
-          </Link>
+        <div className="text-sm text-gray-500 flex gap-2">
+          <Link to="/" className="hover:text-[#0D9488] transition">Home</Link>
           <span>/</span>
-          <Link to="/explore" className="hover:text-blue-600 transition">
-            Explore
-          </Link>
+          <Link to="/explore" className="hover:text-[#0D9488] transition">Explore</Link>
           <span>/</span>
-          <span className="text-gray-900 dark:text-white font-medium truncate max-w-[200px]">
+          <span className="text-[#374151] dark:text-white font-semibold truncate max-w-[200px]">
             {destination.name}
           </span>
         </div>
       </div>
 
-      {/* Hero Image Section */}
-<div className="w-full h-full object-cover scale-100 group-hover:scale-105 transition-transform duration-700 relative rounded-3xl overflow-hidden h-[320px] md:h-[500px] group">
+      {/* ===============================
+          HERO IMAGE
+      =============================== */}
+      <div className="relative rounded-3xl overflow-hidden h-[320px] md:h-[500px] group">
         <img
           src={images[currentImage]}
           alt={destination.name}
-          className="w-full h-full object-cover transition-all duration-500"
+          className="w-full h-full object-cover transition duration-700 group-hover:scale-105"
         />
 
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-        {/* Image Navigation Buttons */}
-        <button
-          onClick={prevImage}
-          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md hover:scale-110 transition-all opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
+        {/* IMAGE BUTTONS */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={prevImage}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 rounded-full p-3 opacity-0 group-hover:opacity-100 transition hover:scale-110 shadow-lg"
+            >
+              <ChevronLeft className="w-5 h-5 text-[#374151] dark:text-white" />
+            </button>
+            <button
+              onClick={nextImage}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-900/90 rounded-full p-3 opacity-0 group-hover:opacity-100 transition hover:scale-110 shadow-lg"
+            >
+              <ChevronRight className="w-5 h-5 text-[#374151] dark:text-white" />
+            </button>
+          </>
+        )}
 
-        <button
-          onClick={nextImage}
-          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md hover:scale-110 transition-all opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Action Buttons (Like & Share) */}
+        {/* ACTION BUTTONS */}
         <div className="absolute top-4 right-4 flex gap-3">
           <button
             onClick={() => setIsLiked(!isLiked)}
-            className="p-2 md:p-3 rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-lg hover:scale-110 transition-all"
+            className="p-3 rounded-full bg-white/90 dark:bg-gray-900/90 shadow-lg hover:scale-110 transition backdrop-blur-sm"
           >
-            <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-red-500 text-red-500' : 'text-red-500'}`} />
+            <Heart
+              className={`w-5 h-5 ${
+                isLiked ? "fill-red-500 text-red-500" : "text-[#374151] dark:text-white"
+              }`}
+            />
           </button>
-          <button className="p-2 md:p-3 rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-lg hover:scale-110 transition-all">
-            <Share2 className="w-5 h-5 text-blue-600" />
+          <button
+            onClick={() => {
+              navigator.share?.({
+                title: destination.name,
+                text: `Check out ${destination.name} in Rwanda!`,
+                url: window.location.href,
+              }).catch(() => {});
+            }}
+            className="p-3 rounded-full bg-white/90 dark:bg-gray-900/90 shadow-lg hover:scale-110 transition backdrop-blur-sm"
+          >
+            <Share2 className="w-5 h-5 text-[#0D9488]" />
           </button>
         </div>
 
-        {/* Text Overlay */}
+        {/* HERO CONTENT */}
         <div className="absolute bottom-6 left-6 right-6 text-white">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="bg-white/20 backdrop-blur-md text-xs px-3 py-1 rounded-full">
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-medium">
               Popular Destination
             </span>
-            <div className="flex items-center bg-yellow-400 text-black px-2 py-1 rounded-full text-sm font-semibold">
-              <Star className="w-3 h-3 fill-current mr-1" />
+            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-[#F59E0B] text-white font-bold text-sm">
+              <Star className="w-3 h-3 fill-current" />
               {destination.rating}
             </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold mb-2">{destination.name}</h1>
-          <div className="flex items-center text-white/90 text-sm md:text-base">
-            <MapPin className="w-4 h-4 md:w-5 md:h-5 mr-1" />
+
+          <h1 className="text-3xl md:text-5xl font-black mb-2">
+            {destination.name}
+          </h1>
+
+          <div className="flex items-center text-white/90">
+            <MapPin className="w-5 h-5 mr-2" />
             {extendedData.region}
           </div>
         </div>
       </div>
 
-      {/* Thumbnails */}
-      <div className="flex gap-2 md:gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        {images.map((img, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentImage(index)}
-            className={`w-16 h-14 md:w-24 md:h-20 rounded-xl md:rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
-              currentImage === index ? 'border-blue-600 scale-105' : 'border-transparent'
-            }`}
-          >
-            <img src={img} alt="" className="w-full h-full object-cover" />
-          </button>
-        ))}
-      </div>
+      {/* ===============================
+          THUMBNAILS
+      =============================== */}
+      {images.length > 1 && (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {images.map((img, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImage(index)}
+              className={`
+                w-20 h-16 md:w-24 md:h-20 rounded-xl overflow-hidden border-2 transition flex-shrink-0
+                ${currentImage === index ? "border-[#0D9488] scale-105" : "border-transparent"}
+              `}
+            >
+              <img src={img} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Main Grid: Content + Sidebar */}
+      {/* ===============================
+          MAIN CONTENT GRID
+      =============================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN - Main Content */}
+
+        {/* LEFT SIDE */}
         <div className="lg:col-span-2 space-y-8">
-          
-          {/* Description */}
-          <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl">
-            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 dark:text-white">
+
+          {/* ABOUT */}
+          <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <h2 className="text-2xl font-black text-[#374151] dark:text-white mb-4">
               About This Destination
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
               {destination.description}
             </p>
           </Card>
 
-          {/* Quick Info Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-            <Card className="p-3 md:p-5 text-center rounded-xl md:rounded-2xl">
-              <Clock className="w-6 h-6 md:w-7 md:h-7 mx-auto mb-2 text-blue-600" />
-              <div className="font-bold text-sm md:text-base dark:text-white">{destination.duration}</div>
-              <div className="text-xs text-gray-500">Duration</div>
+          {/* QUICK INFO */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Card className="p-5 text-center rounded-2xl border border-gray-100 dark:border-gray-800">
+              <Clock className="mx-auto mb-2 text-[#0D9488]" />
+              <p className="font-bold dark:text-white">{destination.duration}</p>
+              <span className="text-xs text-gray-500">Duration</span>
             </Card>
-            <Card className="p-3 md:p-5 text-center rounded-xl md:rounded-2xl">
-              <CalendarDays className="w-6 h-6 md:w-7 md:h-7 mx-auto mb-2 text-green-600" />
-              <div className="font-bold text-sm md:text-base dark:text-white">{extendedData.bestTime}</div>
-              <div className="text-xs text-gray-500">Best Time</div>
+
+            <Card className="p-5 text-center rounded-2xl border border-gray-100 dark:border-gray-800">
+              <CalendarDays className="mx-auto mb-2 text-[#F59E0B]" />
+              <p className="font-bold dark:text-white">{extendedData.bestTime}</p>
+              <span className="text-xs text-gray-500">Best Time</span>
             </Card>
-            <Card className="p-3 md:p-5 text-center rounded-xl md:rounded-2xl">
-              <Users className="w-6 h-6 md:w-7 md:h-7 mx-auto mb-2 text-purple-600" />
-              <div className="font-bold text-sm md:text-base dark:text-white">{extendedData.travelers}</div>
-              <div className="text-xs text-gray-500">Group Size</div>
+
+            <Card className="p-5 text-center rounded-2xl border border-gray-100 dark:border-gray-800">
+              <Users className="mx-auto mb-2 text-[#374151] dark:text-gray-400" />
+              <p className="font-bold dark:text-white">{extendedData.travelers}</p>
+              <span className="text-xs text-gray-500">Group Size</span>
             </Card>
-            <Card className="p-3 md:p-5 text-center rounded-xl md:rounded-2xl">
-              <Sparkles className="w-6 h-6 md:w-7 md:h-7 mx-auto mb-2 text-orange-600" />
-              <div className="font-bold text-sm md:text-base dark:text-white">{extendedData.language}</div>
-              <div className="text-xs text-gray-500">Language</div>
+
+            <Card className="p-5 text-center rounded-2xl border border-gray-100 dark:border-gray-800">
+              <Sparkles className="mx-auto mb-2 text-[#0D9488]" />
+              <p className="font-bold dark:text-white text-sm">{extendedData.language}</p>
+              <span className="text-xs text-gray-500">Language</span>
             </Card>
           </div>
 
-          {/* Highlights */}
-          <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-5 dark:text-white">Highlights</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          {/* HIGHLIGHTS */}
+          <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <h2 className="text-2xl font-black dark:text-white mb-5">Highlights</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
               {extendedData.highlights.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center p-3 md:p-4 rounded-xl md:rounded-2xl bg-gray-50 dark:bg-gray-800"
+                  className="flex items-center gap-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800"
                 >
-                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-3" />
-                  <span className="text-sm md:text-base dark:text-gray-200">{item}</span>
+                  <Star className="w-5 h-5 text-[#F59E0B] fill-current" />
+                  <span className="dark:text-gray-200">{item}</span>
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* Itinerary */}
-          <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 dark:text-white">Suggested Itinerary</h2>
-            <div className="space-y-4 md:space-y-5">
+          {/* ITINERARY */}
+          <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <h2 className="text-2xl font-black dark:text-white mb-6">
+              Suggested Itinerary
+            </h2>
+            <div className="space-y-5">
               {extendedData.itinerary.map((day) => (
                 <div
                   key={day.day}
-                  className="border border-gray-100 dark:border-gray-800 rounded-xl md:rounded-2xl p-4 md:p-5"
+                  className="border border-gray-100 dark:border-gray-800 rounded-2xl p-5 hover:border-[#0D9488] transition"
                 >
-                  <h3 className="font-bold text-base md:text-lg mb-3 dark:text-white">
+                  <h3 className="font-black text-lg dark:text-white mb-3">
                     Day {day.day}: {day.title}
                   </h3>
                   <div className="space-y-2">
-                    {day.activities.map((activity, idx) => (
-                      <div key={idx} className="flex items-start text-gray-600 dark:text-gray-300 text-sm md:text-base">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 mr-3"></div>
+                    {day.activities.map((activity, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start text-gray-600 dark:text-gray-300"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-[#0D9488] mt-2 mr-3" />
                         {activity}
                       </div>
                     ))}
@@ -294,63 +369,72 @@ const DestinationDetails = () => {
             </div>
           </Card>
 
-          <LocationMap 
-  destinationName={destination.name}
-  address={destination.address || `${destination.name}, Rwanda`}
-/>
+          {/* LOCATION MAP */}
+          <LocationMap
+            destinationName={destination.name}
+            address={destination.address || `${destination.name}, Rwanda`}
+          />
 
-          {/* AI Travel Tip */}
-          <Card className="p-4 md:p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700 rounded-2xl md:rounded-3xl">
-            <div className="flex items-start gap-3 md:gap-4">
-              <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                <Sparkles className="w-5 h-5 md:w-7 md:h-7 text-white" />
+          {/* AI TRAVEL TIP */}
+          <Card className="p-6 rounded-3xl bg-gradient-to-r from-[#0D9488]/10 to-[#F59E0B]/10 border border-[#0D9488]/20">
+            <div className="flex gap-4 items-start">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg flex-shrink-0">
+                <Sparkles className="text-white w-7 h-7" />
               </div>
               <div>
-                <h3 className="text-base md:text-xl font-bold mb-1 md:mb-2 dark:text-white">AI Travel Tip</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-sm md:text-base leading-relaxed">
-                  Best time to visit {destination.name} is during {extendedData.bestTime} for better weather 
-                  and amazing wildlife viewing opportunities. Book at least 2 months in advance!
+                <h3 className="text-xl font-black dark:text-white mb-2">
+                  AI Travel Tip
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Best time to visit {destination.name} is during{" "}
+                  {extendedData.bestTime}. AI Tour recommends booking early for the best experience.
                 </p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white">
-  <h2 className="text-2xl font-bold mb-3">
-    AI Recommendation
-  </h2>
+          {/* AI RECOMMENDATION */}
+          <Card className="p-6 rounded-3xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white border-0">
+            <h2 className="text-2xl font-black mb-3">
+              AI Recommendation
+            </h2>
+            <p className="leading-relaxed">
+              Based on traveler interests, AI Tour recommends this destination
+              for adventure lovers, photographers, honeymoon travelers,
+              and luxury Rwanda experiences.
+            </p>
+          </Card>
 
-  <p className="leading-relaxed">
-    Based on traveler interests, this destination is perfect for
-    adventure lovers, photographers, honeymoon trips, and luxury
-    experiences in Rwanda.
-  </p>
-</Card>
-
-          {/* Related Destinations */}
+          {/* RELATED DESTINATIONS */}
           <section>
-            <div className="flex justify-between items-center mb-4 md:mb-6">
-              <h2 className="text-xl md:text-2xl font-bold dark:text-white">You May Also Like</h2>
-              <Link to="/explore" className="text-blue-600 font-semibold text-sm md:text-base">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-2xl font-black dark:text-white">
+                You May Also Like
+              </h2>
+              <Link to="/explore" className="text-[#0D9488] font-bold hover:underline">
                 View All →
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+
+            <div className="grid sm:grid-cols-2 gap-5">
               {destinations
                 .filter((item) => item.id !== destination.id)
                 .slice(0, 2)
                 .map((item) => (
-                  <Link to={`/destination/${item.id}`} key={item.id}>
-                    <Card hover className="overflow-hidden h-full rounded-xl md:rounded-2xl">
-                      <CardImage src={item.image} alt={item.name} className="h-44 md:h-52 object-cover" />
-                      <CardContent className="p-3 md:p-4">
-                        <h3 className="text-base md:text-xl font-bold mb-1 dark:text-white line-clamp-1">
+                  <Link key={item.id} to={`/destination/${item.id}`}>
+                    <Card hover className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800">
+                      <CardImage
+                        src={item.image}
+                        alt={item.name}
+                        className="h-52 object-cover"
+                      />
+                      <CardContent className="p-4">
+                        <h3 className="font-black text-lg dark:text-white">
                           {item.name}
                         </h3>
-                        <p className="text-xs md:text-sm text-gray-500 line-clamp-2">{item.description}</p>
                         <div className="flex items-center mt-2">
-                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="ml-1 text-xs text-gray-600 dark:text-gray-400">{item.rating}</span>
+                          <Star className="w-4 h-4 text-[#F59E0B] fill-current" />
+                          <span className="ml-1 text-[#374151] dark:text-white">{item.rating}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -360,98 +444,92 @@ const DestinationDetails = () => {
           </section>
         </div>
 
-        {/* RIGHT COLUMN - Booking Sidebar (Sticky) */}
+        {/* ===============================
+            BOOKING SIDEBAR
+        =============================== */}
         <div className="lg:sticky lg:top-24 h-fit">
-          <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl">
-            
-            {/* Price */}
-            <div className="mb-4 md:mb-6">
-              <p className="text-xs md:text-sm text-gray-500 mb-1">Starting from</p>
-              <div className="text-3xl md:text-4xl font-bold text-blue-600">${destination.price}</div>
-              <p className="text-xs md:text-sm text-gray-500">per person</p>
-            </div>
+          <Card className="p-6 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800">
+            <p className="text-sm text-gray-500">Starting From</p>
+            <h2 className="text-4xl font-black text-[#0D9488]">
+              ${destination.price}
+            </h2>
+            <p className="text-gray-500 mb-6">per person</p>
 
-            {/* Quick Details */}
-            <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
-              <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2">
-                <span className="text-gray-500 text-sm">Duration</span>
-                <span className="font-semibold text-sm dark:text-white">{destination.duration}</span>
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                <span className="text-gray-500">Duration</span>
+                <b className="dark:text-white">{destination.duration}</b>
               </div>
-              <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2">
-                <span className="text-gray-500 text-sm">Best Time</span>
-                <span className="font-semibold text-sm dark:text-white">{extendedData.bestTime}</span>
+              <div className="flex justify-between border-b border-gray-100 dark:border-gray-800 pb-3">
+                <span className="text-gray-500">Best Time</span>
+                <b className="dark:text-white">{extendedData.bestTime}</b>
               </div>
-              <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-800 pb-2">
-                <span className="text-gray-500 text-sm">Rating</span>
-                <span className="font-semibold text-sm dark:text-white flex items-center">
-                  {destination.rating} <Star className="w-3 h-3 text-yellow-400 fill-current ml-1" />
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500 text-sm">Reviews</span>
-                <span className="font-semibold text-sm dark:text-white">{extendedData.reviews}+</span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Rating</span>
+                <b className="dark:text-white">{destination.rating} ⭐</b>
               </div>
             </div>
 
-            {/* Amenities */}
-            <div className="mb-4 md:mb-6">
-              <h3 className="font-bold text-sm md:text-base mb-3 dark:text-white">Amenities</h3>
-              <div className="grid grid-cols-2 gap-2 md:gap-3">
-                {[
-                  { label: 'Free WiFi', icon: 'wifi' },
-                  { label: 'Breakfast', icon: 'breakfast' },
-                  { label: 'Transport', icon: 'transport' },
-                  { label: '24/7 Support', icon: 'support' },
-                ].map((item, index) => {
-                  const Icon = amenityIcons[item.icon];
-                  return (
-                    <div key={index} className="flex items-center gap-2 p-2 md:p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                      <Icon className="w-3 h-3 md:w-4 md:h-4 text-blue-600" />
-                      <span className="text-xs md:text-sm dark:text-gray-200">{item.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* AMENITIES */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {[
+                { label: "WiFi", icon: "wifi" },
+                { label: "Breakfast", icon: "breakfast" },
+                { label: "Transport", icon: "transport" },
+                { label: "Support", icon: "support" }
+              ].map((item, index) => {
+                const Icon = amenityIcons[item.icon];
+                return (
+                  <div
+                    key={index}
+                    className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center gap-2"
+                  >
+                    <Icon className="w-4 h-4 text-[#0D9488]" />
+                    <span className="text-sm dark:text-white">{item.label}</span>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Buttons */}
             <div className="space-y-3">
               <Link to={`/booking/${destination.id}`}>
-                <Button variant="primary" className="w-full h-10 md:h-12 rounded-xl text-sm md:text-base">
+                <Button className="w-full h-12 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition">
                   Book Now
                 </Button>
               </Link>
+
               <Link
-  to="/custom-request"
-  state={{
-    destination: destination.name,
-  }}
->
+                to="/custom-request"
+                state={{ destination: destination.name }}
+              >
                 <Button
-  variant="outline"
-  className=" mt-3 w-full h-10 md:h-12 rounded-xl text-sm md:text-base"
->
-  Create AI Trip
-</Button>
+                  variant="outline"
+                  className="w-full h-12 rounded-xl border-[#0D9488] text-[#0D9488] hover:bg-[#0D9488]/10"
+                >
+                  ✨ Create AI Trip
+                </Button>
               </Link>
             </div>
           </Card>
         </div>
       </div>
 
-      {/* Mobile Fixed Booking Bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 z-50 shadow-lg">
+      {/* ===============================
+          MOBILE BOOKING BAR
+      =============================== */}
+      <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 z-50 shadow-2xl">
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-xs text-gray-500">Starting from</p>
-            <p className="text-xl font-bold text-blue-600">${destination.price}</p>
+            <p className="text-xs text-gray-500">From</p>
+            <p className="text-xl font-black text-[#0D9488]">${destination.price}</p>
           </div>
           <Link to={`/booking/${destination.id}`} className="flex-1">
-            <Button className="w-full h-11">Book Now</Button>
+            <Button className="w-full h-11 bg-gradient-to-r from-[#0D9488] to-[#F59E0B]">
+              Book Now
+            </Button>
           </Link>
         </div>
       </div>
-
     </div>
   );
 };

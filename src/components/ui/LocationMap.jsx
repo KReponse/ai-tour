@@ -17,10 +17,19 @@ import {
 import Card from './Card';
 import Button from './Button';
 
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
+
 const LocationMap = ({ destinationName, latitude, longitude, address }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapType, setMapType] = useState('roadmap'); // 'roadmap' or 'satellite'
+  const [mapType, setMapType] = useState('roadmap');
   const [hasError, setHasError] = useState(false);
   const [showDirectionsPanel, setShowDirectionsPanel] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -29,7 +38,6 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
   const containerRef = useRef(null);
   const iframeRef = useRef(null);
 
-  // Default coordinates for Rwanda destinations (fallback)
   const defaultCoordinates = {
     'Volcanoes National Park': { lat: -1.4667, lng: 29.5333 },
     'Lake Kivu': { lat: -2.0474, lng: 29.2583 },
@@ -45,20 +53,17 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     lng: longitude || defaultCoordinates[destinationName]?.lng || 30.0619,
   };
 
-  // Build Google Maps embed URL with proper parameters
   const getMapUrl = () => {
     const baseUrl = 'https://www.google.com/maps/embed/v1/place';
-    const apiKey = 'YOUR_GOOGLE_MAPS_API_KEY'; // Replace with your API key
+    const apiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
     
     if (apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
       return `${baseUrl}?key=${apiKey}&q=${encodeURIComponent(destinationName + ', Rwanda')}&maptype=${mapType}&zoom=13`;
     }
     
-    // Fallback embed without API key
     return `https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.5!2d${coords.lng}!3d${coords.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2z${coords.lat},${coords.lng}!5e0!3m2!1sen!2srw!4v1!5m2!1sen!2srw`;
   };
 
-  // Get directions URL
   const getDirectionsUrl = () => {
     if (userLocation) {
       return `https://www.google.com/maps/dir/${userLocation.lat},${userLocation.lng}/${coords.lat},${coords.lng}`;
@@ -66,7 +71,6 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     return `https://www.google.com/maps/dir//${coords.lat},${coords.lng}`;
   };
 
-  // Get user's current location
   const getUserLocation = () => {
     setLocationLoading(true);
     if (navigator.geolocation) {
@@ -91,7 +95,6 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     }
   };
 
-  // Handle iframe load
   const handleIframeLoad = () => {
     setIsLoading(false);
   };
@@ -101,7 +104,6 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     setHasError(true);
   };
 
-  // Toggle fullscreen
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       if (containerRef.current?.requestFullscreen) {
@@ -116,7 +118,6 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     }
   };
 
-  // Listen for fullscreen change
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -125,29 +126,28 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Open in Google Maps app
   const openInGoogleMaps = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank');
   };
 
   return (
     <>
-      <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl overflow-hidden hover:shadow-xl transition-all duration-300">
-        {/* Header */}
+      <Card className="p-4 md:p-6 rounded-2xl md:rounded-3xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-800">
+        {/* Header - Updated with AI Tour colors */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="text-xl md:text-2xl font-bold dark:text-white flex items-center gap-2">
-            <span className="w-1 h-6 bg-emerald-500 rounded-full"></span>
+            <span className="w-1 h-6 bg-[#0D9488] rounded-full"></span>
             Location Map
           </h2>
           
           <div className="flex items-center gap-2">
-            {/* Map Type Toggle */}
+            {/* Map Type Toggle - Updated colors */}
             <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
               <button
                 onClick={() => setMapType('roadmap')}
                 className={`p-2 rounded-lg transition-all duration-200 ${
                   mapType === 'roadmap'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-emerald-600'
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-[#0D9488]'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
                 title="Map view"
@@ -158,7 +158,7 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
                 onClick={() => setMapType('satellite')}
                 className={`p-2 rounded-lg transition-all duration-200 ${
                   mapType === 'satellite'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-emerald-600'
+                    ? 'bg-white dark:bg-gray-700 shadow-sm text-[#0D9488]'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
                 title="Satellite view"
@@ -186,10 +186,10 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
           }`}
           style={{ height: isFullscreen ? '100vh' : '350px' }}
         >
-          {/* Loading Skeleton */}
+          {/* Loading Skeleton - Updated colors */}
           {isLoading && !hasError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 z-10">
-              <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 text-[#0D9488] animate-spin mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">Loading map...</p>
             </div>
           )}
@@ -232,13 +232,13 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
             style={{ opacity: isLoading || hasError ? 0 : 1 }}
           />
 
-          {/* Location Marker Overlay (for visual effect) */}
+          {/* Location Marker Overlay - Updated colors */}
           {!isLoading && !hasError && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20">
               <div className="relative">
-                <div className="absolute -inset-4 bg-emerald-500/20 rounded-full animate-ping"></div>
-                <div className="absolute -inset-2 bg-emerald-500/30 rounded-full animate-pulse"></div>
-                <MapPin className="w-6 h-6 text-emerald-600 drop-shadow-lg relative z-10" />
+                <div className="absolute -inset-4 bg-[#0D9488]/20 rounded-full animate-ping"></div>
+                <div className="absolute -inset-2 bg-[#0D9488]/30 rounded-full animate-pulse"></div>
+                <MapPin className="w-6 h-6 text-[#0D9488] drop-shadow-lg relative z-10" />
               </div>
             </div>
           )}
@@ -254,12 +254,12 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
           )}
         </div>
 
-        {/* Map Actions Footer */}
+        {/* Map Actions Footer - Updated colors */}
         <div className="mt-4 flex flex-col sm:flex-row gap-3">
-          {/* Directions Button */}
+          {/* Directions Button - Updated colors */}
           <button
             onClick={getUserLocation}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all duration-300 group"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#0f766e] text-white hover:scale-[1.02] transition-all duration-300 group shadow-md shadow-[#0D9488]/25"
           >
             {locationLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -269,13 +269,13 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
             <span className="text-sm font-medium">Get Directions</span>
           </button>
 
-          {/* Open in Google Maps Button */}
+          {/* Open in Google Maps Button - Updated colors */}
           <button
             onClick={openInGoogleMaps}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 transition-all duration-300 group"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-[#0D9488] dark:hover:border-[#0D9488] hover:bg-[#0D9488]/5 transition-all duration-300 group"
           >
-            <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium dark:text-white">Open in Google Maps</span>
+            <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform group-hover:text-[#0D9488]" />
+            <span className="text-sm font-medium dark:text-white group-hover:text-[#0D9488] transition">Open in Google Maps</span>
           </button>
         </div>
 
@@ -289,13 +289,13 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
         )}
       </Card>
 
-      {/* Directions Panel Modal */}
+      {/* Directions Panel Modal - Updated colors */}
       {showDirectionsPanel && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowDirectionsPanel(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 animate-slide-up" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-emerald-600" />
+                <Navigation className="w-5 h-5 text-[#0D9488]" />
                 Get Directions
               </h3>
               <button onClick={() => setShowDirectionsPanel(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -305,30 +305,30 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
 
             {userLocation ? (
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20">
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    📍 Your location detected: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                <div className="p-3 rounded-xl bg-[#0D9488]/10 dark:bg-[#0D9488]/20 border border-[#0D9488]/20">
+                  <p className="text-sm text-[#0D9488] dark:text-[#0D9488]">
+                    📍 Your location detected
                   </p>
                 </div>
                 <Button
                   onClick={() => window.open(getDirectionsUrl(), '_blank')}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600"
+                  className="w-full bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30"
                 >
                   Open Directions in Google Maps
                 </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="p-3 rounded-xl bg-yellow-50 dark:bg-yellow-900/20">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    ⚠️ Unable to get your location. Please enable location services or enter your address manually.
+                <div className="p-3 rounded-xl bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20 border border-[#F59E0B]/20">
+                  <p className="text-sm text-[#F59E0B]">
+                    ⚠️ Unable to get your location. Please enter your address manually.
                   </p>
                 </div>
                 <div className="flex gap-3">
                   <input
                     type="text"
                     placeholder="Enter your starting address"
-                    className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                    className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
                     id="startAddress"
                   />
                   <Button
@@ -338,6 +338,7 @@ const LocationMap = ({ destinationName, latitude, longitude, address }) => {
                         window.open(`https://www.google.com/maps/dir/${encodeURIComponent(address)}/${coords.lat},${coords.lng}`, '_blank');
                       }
                     }}
+                    className="bg-[#0D9488] text-white hover:bg-[#0D9488]/80"
                   >
                     Go
                   </Button>

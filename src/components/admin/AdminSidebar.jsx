@@ -1,6 +1,7 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+// src/components/admin/AdminSidebar.jsx
 
+import React from "react";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -8,103 +9,161 @@ import {
   Calendar,
   Bell,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  X,
+  Home,
+  Settings,
+  TrendingUp,
 } from "lucide-react";
+import clsx from "clsx";
 
-const AdminSidebar = () => {
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
-  const location = useLocation();
+const menuItems = [
+  { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Users", path: "/admin/users", icon: Users },
+  { name: "Tours", path: "/admin/tours", icon: Map },
+  { name: "Requests", path: "/admin/requests", icon: Calendar },
+  { name: "Provider Requests", path: "/admin/provider-requests", icon: ShieldCheck },
+  { name: "Notifications", path: "/admin/notifications", icon: Bell },
+];
 
-  const menuItems = [
-    {
-      name: "Dashboard",
-      path: "/admin/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      name: "Users",
-      path: "/admin/users",
-      icon: Users,
-    },
-    {
-      name: "Tours",
-      path: "/admin/tours",
-      icon: Map,
-    },
-    {
-      name: "Requests",
-      path: "/admin/requests",
-      icon: Calendar,
-    },
-    {
-  name: "Provider Requests",
-  path: "/admin/provider-requests",
-  icon: ShieldCheck
-},
-    {
-      name: "Notifications",
-      path: "/admin/notifications",
-      icon: Bell,
-    },
-  ];
-
+const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
   return (
     <aside
-      className="
-      w-64
-      min-h-screen
-      bg-white
-      dark:bg-gray-900
-      border-r
-      border-gray-200
-      dark:border-gray-800
-      p-5
-    "
+      className={clsx(
+        "fixed left-0",
+        mobile ? "top-0 h-screen" : "top-16 h-[calc(100vh-4rem)]",
+        "bg-white/95 dark:bg-gray-950/95",
+        "backdrop-blur-xl",
+        "border-r border-gray-200 dark:border-gray-800",
+        "transition-all duration-300",
+        "z-50 shadow-2xl",
+        collapsed ? "w-20" : "w-72"
+      )}
     >
-      <h2
-        className="
-        text-2xl
-        font-black
-        mb-8
-        text-blue-600
-      "
-      >
-        AI Tour Admin
-      </h2>
+      <div className="flex flex-col h-full">
 
-      <nav className="space-y-2">
-        {menuItems.map((item) => {
+        {/* LOGO - Updated with AI Tour colors */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white shadow-lg shadow-[#0D9488]/30">
+                <Sparkles size={22} />
+              </div>
 
-          const Icon = item.icon;
+              {!collapsed && (
+                <div>
+                  <h1 className="font-black text-lg bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent">
+                    AI Tour Rwanda
+                  </h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                    Admin Portal
+                  </p>
+                </div>
+              )}
+            </div>
 
-          const active =
-            location.pathname === item.path;
+            {/* MOBILE CLOSE */}
+            {mobile && (
+              <button
+                onClick={onClose}
+                className="lg:hidden w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
+              >
+                <X size={20} className="text-gray-700 dark:text-gray-300" />
+              </button>
+            )}
+          </div>
+        </div>
 
-          return (
-            <Link
+        {/* MENU - Updated with AI Tour colors */}
+        <nav className="flex-1 py-6 space-y-1.5 px-3 overflow-y-auto">
+          {menuItems.map((item) => (
+            <NavLink
               key={item.path}
               to={item.path}
-              className={`
-                flex
-                items-center
-                gap-3
-                px-4
-                py-3
-                rounded-xl
-                transition-all
-
-                ${
-                  active
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                }
-              `}
+              onClick={() => {
+                if (mobile) onClose();
+              }}
+              className={({ isActive }) =>
+                clsx(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group",
+                  collapsed && "justify-center",
+                  isActive
+                    ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]"
+                )
+              }
             >
-              <Icon size={20} />
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
+              {({ isActive }) => (
+                <>
+                  <item.icon
+                    className={clsx(
+                      "w-5 h-5 transition-all duration-200",
+                      isActive
+                        ? "text-[#0D9488]"
+                        : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
+                    )}
+                  />
+                  {!collapsed && (
+                    <span
+                      className={clsx(
+                        "font-medium transition-colors duration-200",
+                        isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300"
+                      )}
+                    >
+                      {item.name}
+                    </span>
+                  )}
+                  {isActive && !collapsed && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* BOTTOM - Admin Info */}
+        {!collapsed && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-[#0D9488]/5 to-[#F59E0B]/5 border border-[#0D9488]/10">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0D9488]" />
+                <span className="text-xs font-medium text-[#374151] dark:text-white">
+                  Admin Access
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Full system management
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* COLLAPSE - Updated with AI Tour colors */}
+        {!mobile && (
+          <button
+            onClick={onToggle}
+            className="hidden lg:flex items-center justify-center mx-4 mb-5 p-3 rounded-xl hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-all duration-300"
+          >
+            {collapsed ? (
+              <ChevronRight size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]" />
+            ) : (
+              <ChevronLeft size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]" />
+            )}
+          </button>
+        )}
+      </div>
     </aside>
   );
 };

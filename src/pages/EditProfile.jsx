@@ -1,4 +1,6 @@
-import { useState } from "react";
+// src/pages/EditProfile.jsx
+
+import { useState, useRef } from "react";
 import axios from "axios";
 import {
   Camera,
@@ -7,13 +9,28 @@ import {
   Mail,
   Phone,
   MapPin,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
-const API = "http://localhost:5000/api/users";
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/users";
 
 const EditProfile = () => {
-  const { user, setUser } = useAuth(); // IMPORTANT: allow update in context if available
+  const { user, setUser } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -25,6 +42,8 @@ const EditProfile = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -35,14 +54,43 @@ const EditProfile = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image must be less than 2MB");
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file");
+      return;
+    }
+
+    setUploading(true);
     const reader = new FileReader();
     reader.onloadend = () => {
       setFormData((prev) => ({
         ...prev,
         avatar: reader.result,
       }));
+      setUploading(false);
+      setError(null);
+    };
+    reader.onerror = () => {
+      setError("Failed to read image file");
+      setUploading(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const removeAvatar = () => {
+    setFormData((prev) => ({
+      ...prev,
+      avatar: "",
+    }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   // ======================
@@ -53,102 +101,149 @@ const EditProfile = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    setError(null);
+    setSuccess(false);
   };
 
   // ======================
   // REAL BACKEND SUBMIT
   // ======================
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
 
-  try {
-    setLoading(true);
+    // Validation
+    if (!formData.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (!formData.email.trim()) {
+      setError("Email is required");
+      return;
+    }
+    if (!formData.email.includes("@")) {
+      setError("Please enter a valid email");
+      return;
+    }
 
-    const res = await axios.put(
-      `${API}/users/me`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    try {
+      setLoading(true);
 
-    const updatedUser = res.data.user;
+      const res = await axios.put(
+        `${API}/me`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    // 🔥 update UI instantly
-    setUser(updatedUser);
+      const updatedUser = res.data.user;
 
-    // 🔥 keep localStorage in sync
-    localStorage.setItem("user", JSON.stringify(updatedUser));
+      // Update UI instantly
+      setUser(updatedUser);
 
-    alert("Profile updated successfully");
+      // Keep localStorage in sync
+      localStorage.setItem("user", JSON.stringify(updatedUser));
 
-  } catch (err) {
-    console.log(err);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 4000);
 
-    alert(
-      err.response?.data?.message || "Update failed"
-    );
-
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.log(err);
+      setError(err.response?.data?.message || "Update failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in">
-
+    <div className="max-w-3xl mx-auto animate-fade-in p-4">
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 dark:border-gray-800">
 
-        {/* HEADER */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white">
-            Edit Profile
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Update your account information
-          </p>
+        {/* HEADER - Updated with AI Tour colors */}
+        <div className="mb-8 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
+            <User className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-[#374151] dark:text-white">
+              Edit Profile
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              Update your account information
+            </p>
+          </div>
         </div>
 
-        {/* ERROR */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-600 rounded-xl">
-            {error}
+        {/* SUCCESS NOTIFICATION */}
+        {success && (
+          <div className="mb-4 p-4 rounded-2xl bg-[#0D9488]/10 dark:bg-[#0D9488]/20 border border-[#0D9488]/30 flex items-center gap-3 animate-fade-in">
+            <CheckCircle className="w-5 h-5 text-[#0D9488]" />
+            <span className="text-[#0D9488] font-medium">Profile updated successfully! ✅</span>
           </div>
         )}
 
-        {/* AVATAR */}
-        <div className="flex justify-center mb-8">
-          <div className="relative">
-            <img
-              src={
-                formData.avatar ||
-                `https://ui-avatars.com/api/?name=${formData.name}`
-              }
-              alt="avatar"
-              className="w-32 h-32 rounded-full object-cover border-4 border-blue-500"
-            />
+        {/* ERROR */}
+        {error && (
+          <div className="mb-4 p-4 rounded-2xl bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <span className="text-red-600 dark:text-red-400">{error}</span>
+          </div>
+        )}
 
-            <label className="absolute bottom-0 right-0 bg-blue-600 p-3 rounded-full cursor-pointer">
+        {/* AVATAR - Updated with AI Tour colors */}
+        <div className="flex justify-center mb-8">
+          <div className="relative group">
+            <div className="relative">
+              <img
+                src={
+                  formData.avatar ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=0D9488&color=fff&size=128`
+                }
+                alt="avatar"
+                className="w-32 h-32 rounded-full object-cover border-4 border-[#0D9488] shadow-lg transition group-hover:scale-105"
+              />
+              {uploading && (
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                </div>
+              )}
+            </div>
+            
+            {/* Upload Button */}
+            <label className="absolute bottom-0 right-0 bg-gradient-to-r from-[#0D9488] to-[#F59E0B] p-3 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-all duration-300">
               <Camera className="w-5 h-5 text-white" />
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
               />
             </label>
+
+            {/* Remove Avatar Button */}
+            {formData.avatar && (
+              <button
+                onClick={removeAvatar}
+                className="absolute -top-2 -right-2 p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition shadow-lg hover:scale-110"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* FORM */}
+        {/* FORM - Updated with AI Tour colors */}
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* NAME */}
           <div>
-            <label className="block mb-2 text-sm font-medium dark:text-white">
-              Full Name
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
+              Full Name *
             </label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -157,15 +252,17 @@ const EditProfile = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border dark:bg-gray-800"
+                placeholder="Enter your full name"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                required
               />
             </div>
           </div>
 
           {/* EMAIL */}
           <div>
-            <label className="block mb-2 text-sm font-medium dark:text-white">
-              Email
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
+              Email *
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -174,31 +271,34 @@ const EditProfile = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border dark:bg-gray-800"
+                placeholder="Enter your email"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                required
               />
             </div>
           </div>
 
           {/* PHONE */}
           <div>
-            <label className="block mb-2 text-sm font-medium dark:text-white">
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
               Phone
             </label>
             <div className="relative">
               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
-                type="text"
+                type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border dark:bg-gray-800"
+                placeholder="+250 7XX XXX XXX"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
               />
             </div>
           </div>
 
           {/* COUNTRY */}
           <div>
-            <label className="block mb-2 text-sm font-medium dark:text-white">
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
               Country
             </label>
             <div className="relative">
@@ -208,21 +308,46 @@ const EditProfile = () => {
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border dark:bg-gray-800"
+                placeholder="Rwanda"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
               />
             </div>
           </div>
 
-          {/* SAVE */}
+          {/* SAVE - Updated with AI Tour colors */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold flex items-center justify-center gap-2"
+            className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
           >
-            <Save className="w-5 h-5" />
-            {loading ? "Saving..." : "Save Changes"}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Save Changes
+              </>
+            )}
           </button>
         </form>
+
+        {/* Profile Tips */}
+        <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-[#0D9488]/10 to-[#F59E0B]/10 border border-[#0D9488]/20">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-[#F59E0B] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-[#374151] dark:text-white">
+                💡 Profile Tips
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Add a profile photo to help providers recognize you. Keep your contact information up to date for booking confirmations.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

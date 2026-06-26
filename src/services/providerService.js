@@ -1,93 +1,384 @@
-// src/services/providerService.js
+import axios from "axios";
 
-import axios from 'axios';
 
-const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
-});
+const API =
+"http://localhost:5000/api/provider";
 
-// ADD TOKEN AUTOMATICALLY
-API.interceptors.request.use((req) => {
 
-  const token = localStorage.getItem('token');
+// =========================
+// AUTH HEADER
+// =========================
 
-  if (token) {
-    req.headers.Authorization = `Bearer ${token}`;
-  }
+const authHeader = () => {
 
-  return req;
-});
+  const token =
+  localStorage.getItem("token");
 
-// DASHBOARD STATS
-export const getProviderStats = async () => {
-  const response = await API.get(
-    '/provider/stats'
-  );
 
-  return response.data;
-};
+  return {
 
-// RECENT REQUESTS
-export const getRecentRequests =
-  async () => {
+    headers:{
+      Authorization:
+      `Bearer ${token}`
+    }
 
-    const response =
-      await API.get(
-        '/provider/requests/recent'
-      );
-
-    return response.data;
   };
-
-// ALL BOOKINGS
-export const getProviderBookings =
-  async () => {
-
-    const response =
-      await API.get(
-        '/provider/bookings'
-      );
-
-    return response.data;
-  };
-
-// ALL TRAVELERS
-export const getProviderTravelers =
-  async () => {
-
-    const response =
-      await API.get(
-        '/provider/travelers'
-      );
-
-    return response.data;
-  };
-  // CREATE PROVIDER REQUEST
-
-export const createProviderRequest =
-async (data) => {
-
-  const response =
-    await API.post(
-      "/provider/request",
-      data
-    );
-
-  return response.data;
 
 };
 
 
+
+// =========================
 // GET MY PROVIDER REQUEST
+// =========================
 
 export const getMyProviderRequest =
-async () => {
+async()=>{
 
-  const response =
-    await API.get(
-      "/provider/request/me"
-    );
+try{
 
-  return response.data;
+
+const response =
+await axios.get(
+
+`${API}/request/me`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get provider request",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+};
+
+
+
+
+// =========================
+// CREATE PROVIDER REQUEST
+// =========================
+
+export const createProviderRequest =
+async(data)=>{
+
+
+try{
+
+
+const response =
+await axios.post(
+
+`${API}/request`,
+
+data,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to submit provider request",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+
+};
+
+
+
+
+// =========================
+// GET PROVIDER PROFILE
+// =========================
+
+export const getProviderProfile =
+async()=>{
+
+
+try{
+
+
+const response =
+await axios.get(
+
+`${API}/profile`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get provider profile",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+
+};
+
+
+
+
+// =========================
+// GET PROVIDER BOOKINGS
+// =========================
+
+export const getProviderBookings =
+async()=>{
+
+
+try{
+
+
+const response =
+await axios.get(
+
+`${API}/bookings`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get bookings",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+
+};
+
+
+
+
+// =========================
+// GET PROVIDER TRAVELERS
+// =========================
+
+export const getProviderTravelers =
+async()=>{
+
+
+try{
+
+
+const response =
+await axios.get(
+
+`${API}/travelers`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get travelers",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+
+};
+
+
+
+
+// =========================
+// GET PROVIDER ANALYTICS
+// =========================
+
+export const getProviderAnalytics =
+async()=>{
+
+
+try{
+
+
+const response =
+await axios.get(
+
+`${API}/analytics`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get analytics",
+
+status:
+error.response?.status
+
+};
+
+
+}
+
+
+};
+// =========================
+// GET PROVIDER STATS
+// =========================
+
+export const getProviderStats =
+async()=>{
+
+try{
+
+const response =
+await axios.get(
+
+`${API}/analytics`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get provider stats",
+
+status:
+error.response?.status
+
+};
+
+}
+
+};
+// =========================
+// GET RECENT REQUESTS
+// =========================
+
+export const getRecentRequests =
+async()=>{
+
+try{
+
+const response =
+await axios.get(
+
+`${API}/bookings`,
+
+authHeader()
+
+);
+
+
+return response.data;
+
+
+}catch(error){
+
+throw {
+
+message:
+error.response?.data?.message ||
+"Failed to get recent requests",
+
+status:
+error.response?.status
+
+};
+
+}
 
 };

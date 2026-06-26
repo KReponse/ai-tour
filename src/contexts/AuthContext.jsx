@@ -7,145 +7,473 @@ import {
 
 import axios from "axios";
 
-const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AuthContext =
+  createContext(null);
 
-  /*
-  =========================
-  RESTORE SESSION
-  =========================
-  */
-  useEffect(() => {
-    const restoreSession = () => {
-      try {
-        const savedUser = localStorage.getItem("user");
-        const savedToken = localStorage.getItem("token");
 
-        if (savedUser && savedToken) {
-          setUser(JSON.parse(savedUser));
-          setToken(savedToken);
-        }
-      } catch (error) {
-        console.error("Auth restore error:", error);
-        clearSession();
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    restoreSession();
-  }, []);
+export const AuthProvider =
+({ children }) => {
 
-  /*
-  =========================
-  LOGIN
-  =========================
-  */
-  const login = (userData, userToken) => {
-    if (!userData || !userToken) return false;
 
-    setUser(userData);
-    setToken(userToken);
+  const [user,setUser] =
+    useState(null);
 
-    localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("token", userToken);
 
-    return true;
-  };
+  const [token,setToken] =
+    useState(null);
 
-  /*
-  =========================
-  REFRESH USER (NEW ⭐)
-  =========================
-  */
-  const refreshUser = async () => {
-    try {
-      const savedToken = localStorage.getItem("token");
 
-      if (!savedToken) return;
+  const [loading,setLoading] =
+    useState(true);
 
-      const { data } = await axios.get(
-        "http://localhost:5000/api/auth/me",
-        {
-          headers: {
-            Authorization: `Bearer ${savedToken}`,
-          },
-        }
-      );
 
-      setUser(data.user);
-      localStorage.setItem("user", JSON.stringify(data.user));
-    } catch (error) {
-      console.log("Refresh user failed:", error);
-    }
-  };
 
   /*
   =========================
   CLEAR SESSION
   =========================
   */
+
   const clearSession = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+
+    localStorage.removeItem(
+      "user"
+    );
+
+    localStorage.removeItem(
+      "token"
+    );
+
 
     setUser(null);
+
     setToken(null);
+
   };
+
+
+
+
+
+  /*
+  =========================
+  REFRESH USER ⭐
+  =========================
+
+  Gets latest user data
+  after admin approval
+  =========================
+  */
+
+
+  const refreshUser =
+  async()=>{
+
+
+    try{
+
+
+      const savedToken =
+      localStorage.getItem(
+        "token"
+      );
+
+
+      if(!savedToken)
+      return;
+
+
+
+      const response =
+      await axios.get(
+
+        "http://localhost:5000/api/auth/me",
+
+        {
+
+          headers:{
+
+            Authorization:
+            `Bearer ${savedToken}`
+
+          }
+
+        }
+
+      );
+
+
+
+      if(
+        response.data.user
+      ){
+
+        setUser(
+          response.data.user
+        );
+
+
+        localStorage.setItem(
+
+          "user",
+
+          JSON.stringify(
+            response.data.user
+          )
+
+        );
+
+      }
+
+
+
+    }catch(error){
+
+
+      console.log(
+        "Refresh user failed:",
+        error
+      );
+
+
+    }
+
+
+  };
+
+
+
+
+
+
+
+  /*
+  =========================
+  RESTORE SESSION
+  =========================
+  */
+
+
+  useEffect(()=>{
+
+
+    const restoreSession =
+    async()=>{
+
+
+      try{
+
+
+        const savedUser =
+        localStorage.getItem(
+          "user"
+        );
+
+
+        const savedToken =
+        localStorage.getItem(
+          "token"
+        );
+
+
+
+        if(
+          savedUser &&
+          savedToken
+        ){
+
+
+          setUser(
+            JSON.parse(
+              savedUser
+            )
+          );
+
+
+          setToken(
+            savedToken
+          );
+
+
+
+          // Get latest user
+          // from backend
+
+          await refreshUser();
+
+
+        }
+
+
+
+      }catch(error){
+
+
+        console.log(
+          "Auth restore error:",
+          error
+        );
+
+
+        clearSession();
+
+
+      }finally{
+
+
+        setLoading(false);
+
+
+      }
+
+
+    };
+
+
+
+    restoreSession();
+
+
+  }, []);
+
+
+
+
+
+
+
+  /*
+  =========================
+  LOGIN
+  =========================
+  */
+
+
+  const login =
+  (
+    userData,
+    userToken
+  )=>{
+
+
+    if(
+      !userData ||
+      !userToken
+    ){
+
+      return false;
+
+    }
+
+
+
+    setUser(
+      userData
+    );
+
+
+    setToken(
+      userToken
+    );
+
+
+
+    localStorage.setItem(
+
+      "user",
+
+      JSON.stringify(
+        userData
+      )
+
+    );
+
+
+    localStorage.setItem(
+
+      "token",
+
+      userToken
+
+    );
+
+
+
+    return true;
+
+
+  };
+
+
+
+
+
+
 
   /*
   =========================
   LOGOUT
   =========================
   */
-  const logout = () => {
+
+
+  const logout = ()=>{
+
     clearSession();
+
   };
+
+
+
+
+
+
 
   /*
   =========================
   ROLE HELPERS
   =========================
   */
-  const isAdmin = user?.role === "admin";
-  const isProvider = user?.role === "provider";
-  const isTraveler = user?.role === "traveler";
+
+
+  const isAdmin =
+    user?.role === "admin";
+
+
+
+  const isProvider =
+    user?.role === "provider";
+
+
+
+  const isTraveler =
+    user?.role === "traveler";
+
+
+
 
   const isApprovedProvider =
+
     user?.role === "provider" &&
-    user?.verificationStatus === "approved";
+
+    user?.verificationStatus ===
+    "approved";
+
+
+
+
+
+  const isPendingProvider =
+
+    user?.verificationStatus ===
+    "pending";
+
+
+
+
+
+  const isRejectedProvider =
+
+    user?.verificationStatus ===
+    "rejected";
+
+
+
+
+
 
   const value = {
+
+
     user,
+
     token,
+
     loading,
+
+
     login,
+
     logout,
-    refreshUser, // ⭐ NEW
-    isAuthenticated: Boolean(token),
+
+
+    refreshUser,
+
+
+    isAuthenticated:
+    Boolean(token),
+
+
+
     isAdmin,
+
     isProvider,
+
     isTraveler,
+
+
     isApprovedProvider,
+
+    isPendingProvider,
+
+    isRejectedProvider,
+
+
   };
 
+
+
+
+
+
   return (
-    <AuthContext.Provider value={value}>
+
+    <AuthContext.Provider
+      value={value}
+    >
+
       {children}
+
     </AuthContext.Provider>
+
   );
+
+
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
 
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
+
+
+
+
+
+export const useAuth = ()=>{
+
+
+  const context =
+  useContext(
+    AuthContext
+  );
+
+
+
+  if(!context){
+
+
+    throw new Error(
+
+      "useAuth must be used inside AuthProvider"
+
+    );
+
+
   }
 
+
+
   return context;
+
+
 };

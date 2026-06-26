@@ -1,10 +1,31 @@
 // src/pages/RequestTrip.jsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Calendar, Users, MapPin, DollarSign, FileText, Star } from 'lucide-react';
+import { 
+  Send, 
+  Calendar, 
+  Users, 
+  MapPin, 
+  DollarSign, 
+  FileText, 
+  Star,
+  Sparkles,
+  CheckCircle,
+  ArrowRight,
+} from 'lucide-react';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
 const RequestTrip = () => {
   const navigate = useNavigate();
@@ -20,57 +41,102 @@ const RequestTrip = () => {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const preferences = ['Adventure', 'Relaxation', 'Culture', 'Food', 'Shopping', 'Nature', 'Nightlife', 'Family-friendly'];
+  const preferences = [
+    'Adventure', 
+    'Relaxation', 
+    'Culture', 
+    'Food', 
+    'Shopping', 
+    'Nature', 
+    'Nightlife', 
+    'Family-friendly'
+  ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Submit request logic
-    console.log('Trip request:', formData);
-    setSubmitted(true);
+    setLoading(true);
+    
+    // Simulate API call
     setTimeout(() => {
-      navigate('/trips');
-    }, 3000);
+      console.log('Trip request:', formData);
+      setSubmitted(true);
+      setLoading(false);
+      
+      setTimeout(() => {
+        navigate('/trips');
+      }, 3000);
+    }, 1500);
   };
 
   if (submitted) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center animate-fade-in">
-          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Send className="w-10 h-10 text-green-600" />
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="text-center animate-fade-in max-w-md w-full">
+          <div className="relative">
+            <div className="w-20 h-20 bg-[#0D9488]/10 dark:bg-[#0D9488]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20 animate-ping" />
+              <Send className="w-10 h-10 text-[#0D9488]" />
+            </div>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Request Sent!</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            Request Sent! 🎉
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
             Our travel experts will review your request and get back to you within 24 hours.
           </p>
-          <Button variant="primary" onClick={() => navigate('/')}>
-            Return to Home
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button 
+              variant="primary" 
+              onClick={() => navigate('/')}
+              className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30"
+            >
+              Return to Home
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/explore')}
+              className="border-[#0D9488] text-[#0D9488]"
+            >
+              Explore Tours
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in px-4 pb-32 md:pb-10">
+      {/* HEADER */}
       <div className="text-center">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Request a Custom Trip</h1>
-        <p className="text-gray-600 dark:text-gray-300">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] text-sm font-semibold mb-4">
+          <Sparkles className="w-4 h-4" />
+          Custom Travel Planning
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-[#374151] dark:text-white mb-2">
+          Request a Custom Trip
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
           Tell us your preferences and we'll create the perfect itinerary for you
         </p>
       </div>
 
-      <Card>
+      <Card className="border border-gray-100 dark:border-gray-800 shadow-xl rounded-3xl">
         <CardContent className="p-6 md:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* DESTINATION */}
             <div>
-              <label className="block text-sm font-medium mb-2">Dream Destination</label>
+              <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                Dream Destination *
+              </label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   placeholder="Where do you want to go?"
-                  className="pl-10"
+                  className="pl-12 focus:ring-[#0D9488]"
                   value={formData.destination}
                   onChange={(e) => setFormData({...formData, destination: e.target.value})}
                   required
@@ -78,14 +144,17 @@ const RequestTrip = () => {
               </div>
             </div>
 
+            {/* DATES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Start Date</label>
+                <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                  Start Date *
+                </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="date"
-                    className="pl-10"
+                    className="pl-12 focus:ring-[#0D9488]"
                     value={formData.startDate}
                     onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                     required
@@ -93,12 +162,14 @@ const RequestTrip = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">End Date</label>
+                <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                  End Date *
+                </label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="date"
-                    className="pl-10"
+                    className="pl-12 focus:ring-[#0D9488]"
                     value={formData.endDate}
                     onChange={(e) => setFormData({...formData, endDate: e.target.value})}
                     required
@@ -107,28 +178,33 @@ const RequestTrip = () => {
               </div>
             </div>
 
+            {/* TRAVELERS & BUDGET */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Number of Travelers</label>
+                <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                  Number of Travelers
+                </label>
                 <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Users className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="number"
                     min="1"
-                    className="pl-10"
+                    className="pl-12 focus:ring-[#0D9488]"
                     value={formData.travelers}
                     onChange={(e) => setFormData({...formData, travelers: parseInt(e.target.value)})}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Budget (USD)</label>
+                <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                  Budget (USD)
+                </label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
                     placeholder="Your budget"
-                    className="pl-10"
+                    className="pl-12 focus:ring-[#0D9488]"
                     value={formData.budget}
                     onChange={(e) => setFormData({...formData, budget: e.target.value})}
                   />
@@ -136,12 +212,15 @@ const RequestTrip = () => {
               </div>
             </div>
 
+            {/* ACCOMMODATION */}
             <div>
-              <label className="block text-sm font-medium mb-2">Accommodation Preference</label>
+              <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                Accommodation Preference
+              </label>
               <select
                 value={formData.accommodation}
                 onChange={(e) => setFormData({...formData, accommodation: e.target.value})}
-                className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none transition"
               >
                 <option value="budget">Budget / Hostel</option>
                 <option value="standard">Standard Hotel (3-4 star)</option>
@@ -151,8 +230,11 @@ const RequestTrip = () => {
               </select>
             </div>
 
+            {/* PREFERENCES - Updated with AI Tour colors */}
             <div>
-              <label className="block text-sm font-medium mb-2">Travel Preferences</label>
+              <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                Travel Preferences
+              </label>
               <div className="flex flex-wrap gap-2">
                 {preferences.map((pref) => (
                   <button
@@ -164,10 +246,10 @@ const RequestTrip = () => {
                         : [...formData.preferences, pref];
                       setFormData({...formData, preferences: newPrefs});
                     }}
-                    className={`px-4 py-2 rounded-full text-sm transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-300 ${
                       formData.preferences.includes(pref)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                        ? 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-lg shadow-[#0D9488]/30'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     {pref}
@@ -176,24 +258,47 @@ const RequestTrip = () => {
               </div>
             </div>
 
+            {/* SPECIAL REQUESTS */}
             <div>
-              <label className="block text-sm font-medium mb-2">Special Requests</label>
+              <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
+                Special Requests
+              </label>
               <div className="relative">
-                <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <FileText className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
                 <textarea
                   rows="4"
                   placeholder="Any specific requirements or preferences?"
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none transition resize-none"
                   value={formData.specialRequests}
                   onChange={(e) => setFormData({...formData, specialRequests: e.target.value})}
                 />
               </div>
             </div>
 
-            <Button type="submit" variant="primary" className="w-full">
-              <Send className="w-4 h-4 mr-2" />
-              Submit Request
+            {/* SUBMIT - Updated with AI Tour colors */}
+            <Button 
+              type="submit" 
+              variant="primary" 
+              disabled={loading}
+              className="w-full h-14 rounded-2xl text-lg bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {loading ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5 mr-2" />
+                  Submit Request
+                </>
+              )}
             </Button>
+
+            {/* Note */}
+            <p className="text-center text-xs text-gray-400">
+              We'll respond within 24 hours with a custom itinerary
+            </p>
           </form>
         </CardContent>
       </Card>

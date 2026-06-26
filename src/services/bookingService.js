@@ -36,31 +36,20 @@ export const createBooking =
   };
 
 /* ================= MY BOOKINGS ================= */
+export const getMyBookings = async(token)=>{
 
-export const getMyBookings =
-  async (token) => {
+const response = await axios.get(
+"http://localhost:5000/api/bookings/my-bookings",
+{
+headers:{
+Authorization:`Bearer ${token}`
+}
+}
+);
 
-    const response =
-      await axios.get(
+return response.data;
 
-        `${API}/my-bookings`,
-
-        {
-
-          headers: {
-
-            Authorization:
-              `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
-
-    return response.data;
-
-  };
+};
   
   export const cancelBooking =
   async (id, token) => {
