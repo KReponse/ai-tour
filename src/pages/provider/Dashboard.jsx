@@ -19,6 +19,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { getProviderStats, getRecentRequests } from '../../services/providerService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -31,17 +32,37 @@ import { getProviderStats, getRecentRequests } from '../../services/providerServ
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [providerStats, setProviderStats] = useState([]);
   const [recentRequests, setRecentRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const analyticsResponse = await getProviderStats();
-        const bookingsResponse = await getRecentRequests();
+        setLoading(true);
+        setError(null);
 
-        const analytics = analyticsResponse?.analytics || {};
+        // ✅ Fetch analytics
+        const analyticsResponse = await getProviderStats();
+        console.log('✅ Analytics response:', analyticsResponse);
+
+        const analytics = analyticsResponse?.analytics || analyticsResponse || {};
+
+        // ✅ Fetch recent bookings
+        const bookingsResponse = await getRecentRequests();
+        console.log('✅ Bookings response:', bookingsResponse);
+
+        // Handle different response formats
+        let bookings = [];
+        if (bookingsResponse?.bookings) {
+          bookings = bookingsResponse.bookings;
+        } else if (Array.isArray(bookingsResponse)) {
+          bookings = bookingsResponse;
+        } else if (bookingsResponse?.data?.bookings) {
+          bookings = bookingsResponse.data.bookings;
+        }
 
         setProviderStats([
           { title: "Total Bookings", value: analytics.totalBookings || 0, growth: "+12%" },
@@ -50,9 +71,10 @@ const Dashboard = () => {
           { title: "Revenue", value: `$${analytics.totalRevenue || 0}`, growth: "+15%" },
         ]);
 
-        setRecentRequests(bookingsResponse?.bookings || []);
+        setRecentRequests(bookings);
       } catch (error) {
-        console.error("Dashboard Error:", error);
+        console.error("❌ Dashboard Error:", error);
+        setError(error.response?.data?.message || "Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
@@ -80,8 +102,18 @@ const Dashboard = () => {
       confirmed: { bg: 'bg-[#0D9488]/10', text: 'text-[#0D9488]', icon: CheckCircle },
       pending: { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', icon: Clock },
       cancelled: { bg: 'bg-red-100', text: 'text-red-600', icon: XCircle },
+      completed: { bg: 'bg-[#0D9488]/10', text: 'text-[#0D9488]', icon: CheckCircle },
+      rejected: { bg: 'bg-red-100', text: 'text-red-600', icon: XCircle },
     };
     return styles[status] || styles.pending;
+  };
+
+  // Get travel date from booking
+  const getTravelDate = (booking) => {
+    if (booking.startDate) return booking.startDate;
+    if (booking.travelDate) return booking.travelDate;
+    if (booking.createdAt) return booking.createdAt;
+    return null;
   };
 
   if (loading) {
@@ -96,10 +128,32 @@ const Dashboard = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[70vh]">
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+            <XCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            Error Loading Dashboard
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/80 transition"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-fade-in">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -111,7 +165,7 @@ const Dashboard = () => {
                 Provider Dashboard
               </h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1">
-                Welcome back to AI Tour Rwanda
+                Welcome back, {user?.name || 'Provider'}!
               </p>
             </div>
           </div>
@@ -126,7 +180,7 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* STATS - Updated with AI Tour colors */}
+      {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {Array.isArray(providerStats) && providerStats.map((item, index) => {
           const Icon = iconMap[item.title];
@@ -158,7 +212,7 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* RECENT BOOKINGS - Updated with AI Tour colors */}
+      {/* RECENT BOOKINGS */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center gap-2">
@@ -191,6 +245,7 @@ const Dashboard = () => {
             {Array.isArray(recentRequests) && recentRequests.slice(0, 5).map((item) => {
               const statusStyle = getStatusBadge(item.status);
               const StatusIcon = statusStyle.icon;
+              const travelDate = getTravelDate(item);
               
               return (
                 <div
@@ -200,26 +255,28 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-[#374151] dark:text-white">
-                        {item.tour?.title || "Tour"}
+                        {item.tour?.title || item.tourTitle || "Tour"}
                       </h3>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
                         <StatusIcon className="w-3 h-3" />
-                        {item.status}
+                        {item.status || 'pending'}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 mt-1">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Traveler: {item.user?.name || item.fullName || "Unknown"}
+                        Traveler: {item.user?.name || item.fullName || item.travelerName || "Unknown"}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(item.travelDate).toLocaleDateString()}
-                      </p>
+                      {travelDate && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(travelDate).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <span className="px-4 py-1.5 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-sm font-bold">
-                      ${item.totalPrice || item.tour?.price || 0}
+                      ${item.totalPrice || item.price || 0}
                     </span>
                     <button
                       onClick={() => navigate(`/provider/bookings/${item._id}`)}
@@ -239,30 +296,30 @@ const Dashboard = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <button
           onClick={() => navigate('/provider/tours')}
-          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg"
+          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg group"
         >
-          <MapPin className="w-6 h-6 text-[#0D9488] mx-auto mb-2" />
+          <MapPin className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-semibold text-[#374151] dark:text-white">My Tours</p>
         </button>
         <button
           onClick={() => navigate('/provider/add-tour')}
-          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg"
+          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg group"
         >
-          <Plus className="w-6 h-6 text-[#F59E0B] mx-auto mb-2" />
+          <Plus className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-semibold text-[#374151] dark:text-white">Add Tour</p>
         </button>
         <button
           onClick={() => navigate('/provider/analytics')}
-          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg"
+          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg group"
         >
-          <TrendingUp className="w-6 h-6 text-[#0D9488] mx-auto mb-2" />
+          <TrendingUp className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-semibold text-[#374151] dark:text-white">Analytics</p>
         </button>
         <button
           onClick={() => navigate('/provider/profile')}
-          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg"
+          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg group"
         >
-          <Users className="w-6 h-6 text-[#F59E0B] mx-auto mb-2" />
+          <Users className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-semibold text-[#374151] dark:text-white">Profile</p>
         </button>
       </div>

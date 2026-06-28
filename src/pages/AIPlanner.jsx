@@ -31,7 +31,6 @@ import {
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
-import { destinations } from '../data/mockData';
 import { generateTripPlan } from '../services/aiService';
 
 // ===============================
@@ -153,7 +152,7 @@ const AIPlanner = () => {
     };
 
     try {
-      // ✅ Call backend API (not Gemini directly)
+      // ✅ Call backend API
       const response = await generateTripPlan(requestData);
       
       console.log('✅ Backend Response:', response);
@@ -166,8 +165,12 @@ const AIPlanner = () => {
       }
 
       // ✅ Set response from backend
-      setAiText(response.plan || response.message || 'No plan generated');
-      setTripPlan(response);
+      const planText = response.plan || response.message || response.reply || 'No plan generated';
+      setAiText(planText);
+      setTripPlan({
+        plan: planText,
+        ...response,
+      });
 
       setLoading(false);
       setStep(4);
@@ -214,11 +217,11 @@ const AIPlanner = () => {
   }, []);
 
   // ============================================================
-  // RENDER - Same UI, but data comes from Backend
+  // RENDER
   // ============================================================
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in max-w-7xl mx-auto px-4 py-8">
 
       {/* HERO */}
       <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#0D9488] via-[#0D9488] to-[#F59E0B] text-white p-8 md:p-12 shadow-2xl">
@@ -276,23 +279,21 @@ const AIPlanner = () => {
                   <select
                     value={formData.destination}
                     onChange={(e) => {
-                      const selected = destinations.find(
-                        (d) => d.name === e.target.value
-                      );
                       setFormData({
                         ...formData,
                         destination: e.target.value,
-                        destinationId: selected?.id,
                       });
                     }}
                     className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
                   >
                     <option value="">Select destination</option>
-                    {destinations.map((dest) => (
-                      <option key={dest.id} value={dest.name}>
-                        {dest.name}
-                      </option>
-                    ))}
+                    <option value="Kigali City">Kigali City</option>
+                    <option value="Volcanoes National Park">Volcanoes National Park</option>
+                    <option value="Akagera National Park">Akagera National Park</option>
+                    <option value="Nyungwe Forest">Nyungwe Forest</option>
+                    <option value="Lake Kivu">Lake Kivu</option>
+                    <option value="Musanze">Musanze</option>
+                    <option value="Gisenyi">Gisenyi</option>
                   </select>
                 </div>
 
@@ -469,14 +470,14 @@ const AIPlanner = () => {
         </div>
       ) : (
         // ============================================================
-        // RESULTS - Display from Backend response
+        // RESULTS
         // ============================================================
         <div className="space-y-8">
 
           {/* RESULT HERO */}
           <div className="relative overflow-hidden rounded-[32px]">
             <img
-              src={destinations.find((d) => d.name === formData.destination)?.image || '/placeholder-tour.jpg'}
+              src="https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=1200"
               alt={formData.destination}
               className="w-full h-[350px] object-cover"
             />

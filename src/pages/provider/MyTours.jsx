@@ -1,3 +1,5 @@
+// src/pages/provider/MyTours.jsx
+
 import React, {
   useEffect,
   useState,
@@ -24,13 +26,14 @@ import {
   X,
   LayoutGrid,
   List,
-  Filter
+  Filter,
+  Loader2,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 
 import {
-  getProviderTours,
+  getMyTours,
   deleteTour,
   toggleTourStatus
 } from "../../services/tourService";
@@ -63,6 +66,7 @@ const getImageUrl = (image) => {
 
 const getTourImage = (tour) => {
   if (tour.coverImage) return getImageUrl(tour.coverImage);
+  if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
   if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
   if (tour.image) return getImageUrl(tour.image);
   return null;
@@ -170,19 +174,25 @@ const MyTours = () => {
   // FETCH FUNCTION
   // ===============================
   const fetchTours = async () => {
-  try {
-    setLoading(true);
-
-    const data = await getProviderTours(token);
-
-    setTours(data.tours || []);
-
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const data = await getMyTours(token);
+      console.log("✅ My Tours from backend:", data);
+      
+      if (data && data.tours) {
+        setTours(data.tours);
+      } else if (data && Array.isArray(data)) {
+        setTours(data);
+      } else {
+        setTours([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching tours:", error);
+      showNotification("Failed to load tours", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ===============================
   // NAVIGATION
@@ -293,6 +303,14 @@ const MyTours = () => {
       }
     };
     return styles[status] || styles.pending;
+  };
+
+  // ===============================
+  // GET RATING DISPLAY
+  // ===============================
+  const getRatingDisplay = (tour) => {
+    const rating = tour.averageRating || tour.rating || 0;
+    return rating > 0 ? rating.toFixed(1) : 'New';
   };
 
   // ===============================
@@ -511,6 +529,7 @@ const MyTours = () => {
             {filteredTours.map((tour) => {
               const statusStyle = getStatusBadge(tour.status);
               const imageUrl = getImageWithFallback(tour);
+              const ratingDisplay = getRatingDisplay(tour);
               
               return (
                 <div
@@ -527,7 +546,7 @@ const MyTours = () => {
                       loading="lazy"
                     />
 
-                    {/* STATUS */}
+                    {/* STATUS BADGE */}
                     <button
                       onClick={() => handleStatusToggle(tour)}
                       className={`absolute top-4 right-4 px-4 py-1 rounded-full text-xs font-black ${statusStyle.bg} ${statusStyle.text}`}
@@ -535,11 +554,19 @@ const MyTours = () => {
                       {statusStyle.label}
                     </button>
 
+                    {/* RATING BADGE */}
+                    {tour.averageRating > 0 && (
+                      <div className="absolute top-4 left-4 bg-black/60 backdrop-blur px-2 py-1 rounded-lg text-white text-xs flex items-center gap-1">
+                        <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
+                        {ratingDisplay}
+                      </div>
+                    )}
+
                     {/* BOOKINGS COUNT */}
-                    {tour.bookings && tour.bookings > 0 && (
-                      <div className="absolute top-4 left-4 bg-[#0D9488] text-white px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1">
+                    {tour.totalBookings > 0 && (
+                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded-lg text-white text-xs font-black flex items-center gap-1">
                         <Users size={14} />
-                        {tour.bookings} Bookings
+                        {tour.totalBookings} Bookings
                       </div>
                     )}
                   </div>
@@ -564,7 +591,7 @@ const MyTours = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <Star size={15} className="text-[#F59E0B]" />
-                          {tour.rating || 0}
+                          {ratingDisplay}
                         </span>
                       </div>
                       <div className="font-black text-[#0D9488] text-lg">

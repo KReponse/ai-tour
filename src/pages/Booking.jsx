@@ -1,6 +1,6 @@
 // src/pages/Booking.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plane,
   Hotel,
@@ -14,6 +14,11 @@ import {
   Smartphone,
   Wallet,
   BadgeDollarSign,
+  Loader2,
+  Calendar,
+  User,
+  Mail,
+  Phone,
 } from 'lucide-react';
 
 import Card, {
@@ -24,9 +29,10 @@ import Card, {
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 
-import { rwandaDestinations as destinations } from '../data/destinations';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useBooking } from '../contexts/BookingContext';
+import { useAuth } from '../contexts/AuthContext';
+import { getTourById } from '../services/tourService';
+import { createBooking } from '../services/bookingService';
 
 // ===============================
 // AI TOUR COLORS
@@ -37,96 +43,170 @@ import { useBooking } from '../contexts/BookingContext';
 // White : #FFFFFF
 // ===============================
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Booking = () => {
   const { id } = useParams();
-  const {
-    bookingData,
-    updateBooking,
-    updateFormData,
-  } = useBooking();
-
-  const destination = destinations.find(
-    (item) => item.id === parseInt(id)
-  );
-
-  const [bookingType, setBookingType] = useState('flight');
-
-  const formData = bookingData.formData;
-  
-  React.useEffect(() => {
-    if (destination && !bookingData.formData.to) {
-      updateFormData({ to: destination.name });
-    }
-  }, [destination]);
-
-  // Booking options
-  const bookingOptions = [
-    { id: 'flight', icon: Plane, label: 'Flights' },
-    { id: 'hotel', icon: Hotel, label: 'Hotels' },
-    { id: 'car', icon: Car, label: 'Car Rental' },
-  ];
-
-  // Payment methods
-  const paymentMethods = [
-    { icon: Smartphone, name: 'MTN MoMo', color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10' },
-    { icon: Smartphone, name: 'Airtel Money', color: 'text-red-600', bg: 'bg-red-100' },
-    { icon: CreditCard, name: 'Visa', color: 'text-[#0D9488]', bg: 'bg-[#0D9488]/10' },
-    { icon: Wallet, name: 'PayPal', color: 'text-indigo-600', bg: 'bg-indigo-100' },
-    { icon: BadgeDollarSign, name: 'Apple Pay', color: 'text-gray-700', bg: 'bg-gray-100' },
-  ];
-
-  // Pricing
-  const basePrice = destination?.price || 899;
-  const travelersCost = basePrice * formData.travelers;
-  const taxes = Math.round(travelersCost * 0.12);
-  const serviceFee = 45;
-  const total = travelersCost + taxes + serviceFee;
-
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const [tour, setTour] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [bookingType, setBookingType] = useState('tour');
+  const [error, setError] = useState('');
+
+  // Booking form data
+  const [formData, setFormData] = useState({
+    fullName: user?.name || '',
+    email: user?.email || '',
+    phone: '',
+    travelers: 1,
+    travelDate: '',
+    specialRequests: '',
+  });
+
+  // Fetch tour from backend
+  useEffect(() => {
+    if (id) {
+      fetchTour();
+    }
+  }, [id]);
+
+  const fetchTour = async () => {
+    try {
+      setLoading(true);
+      const data = await getTourById(id);
+      setTour(data.tour);
+    } catch (error) {
+      console.error('Error fetching tour:', error);
+      setError('Failed to load tour details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    navigate('/payment', {
-      state: {
-        destination,
-        bookingType,
-        formData,
-        total,
-      },
-    });
-    setSubmitting(false);
+
+    if (!user) {
+      alert('Please login to book a tour');
+      navigate('/login');
+      return;
+    }
+
+    if (!tour) {
+      alert('Tour not found');
+      return;
+    }
+
+    // Validation
+    if (!formData.fullName.trim()) {
+      alert('Please enter your full name');
+      return;
+    }
+    if (!formData.email.trim() || !formData.email.includes('@')) {
+      alert('Please enter a valid email');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      alert('Please enter your phone number');
+      return;
+    }
+    if (!formData.travelDate) {
+      alert('Please select a travel date');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const bookingData = {
+        tour: tour._id,
+        startDate: formData.travelDate,
+        endDate: formData.travelDate, // Single day or calculate based on duration
+        numberOfPeople: formData.travelers,
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        specialRequests: formData.specialRequests,
+      };
+
+      const response = await createBooking(bookingData);
+      
+      console.log('✅ Booking created:', response);
+      
+      // Navigate to payment or success
+      navigate('/payment', {
+        state: {
+          tour,
+          booking: response.booking,
+          formData,
+          totalPrice: tour.price * formData.travelers,
+        },
+      });
+
+    } catch (error) {
+      console.error('❌ Booking error:', error);
+      alert(error.response?.data?.message || 'Failed to create booking. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (!destination) {
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500">Loading tour details...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !tour) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
         <div className="max-w-md">
-          <h1 className="text-4xl font-bold mb-4 dark:text-white">
-            No Destination Selected
+          <h1 className="text-4xl font-bold mb-4 text-[#374151] dark:text-white">
+            Tour Not Available
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mb-6">
-            Please choose a destination before making a booking.
+            {error || 'The tour you are looking for is not available for booking.'}
           </p>
           <Link to="/explore">
-            <Button>Explore Destinations</Button>
+            <Button className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B]">
+              Explore Tours
+            </Button>
           </Link>
         </div>
       </div>
     );
   }
 
+  const totalPrice = tour.price * formData.travelers;
+  const isPending = tour.status === 'pending';
+
   return (
     <div className="max-w-7xl mx-auto px-3 md:px-5 space-y-8 pb-32 md:pb-10 animate-fade-in">
 
-      {/* HERO - Updated with AI Tour colors */}
+      {/* HERO */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0D9488] via-[#0D9488] to-[#F59E0B] p-8 md:p-12 text-white">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-3 mb-6">
-            {['Search', 'Details', 'Payment', 'Confirmation'].map((step, index) => (
+            {['Tour', 'Details', 'Payment', 'Confirmation'].map((step, index) => (
               <div
                 key={index}
                 className={`px-4 py-2 rounded-full text-sm font-medium ${
@@ -143,7 +223,7 @@ const Booking = () => {
             Book Your Dream Trip
           </h1>
           <p className="text-white/90 text-lg max-w-2xl">
-            Secure your flights, hotels, and transportation in just a few steps.
+            Complete your booking for {tour.title} in {tour.location}.
           </p>
         </div>
       </section>
@@ -154,297 +234,265 @@ const Booking = () => {
         {/* LEFT */}
         <div className="lg:col-span-2 space-y-8">
 
-          {/* DESTINATION - Updated colors */}
-          {destination && (
-            <Card className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800">
-              <div className="grid md:grid-cols-2">
-                <CardImage
-                  src={destination.image}
-                  alt={destination.name}
-                  className="h-64 md:h-full object-cover"
-                />
-                <CardContent className="p-6 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-xs font-semibold">
-                      Popular Destination
-                    </span>
-                    <div className="flex items-center text-sm font-semibold">
-                      <Star className="w-4 h-4 text-[#F59E0B] fill-current mr-1" />
-                      {destination.rating}
+          {/* TOUR DETAILS */}
+          <Card className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800">
+            <div className="grid md:grid-cols-2">
+              <CardImage
+                src={tour.coverImage ? `${API_URL}/uploads/${tour.coverImage}` : '/placeholder-tour.jpg'}
+                alt={tour.title}
+                className="h-64 md:h-full object-cover"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+                }}
+              />
+              <CardContent className="p-6 flex flex-col justify-center">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="px-3 py-1 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-xs font-semibold">
+                    {tour.category || 'Popular Destination'}
+                  </span>
+                  <div className="flex items-center text-sm font-semibold">
+                    <Star className="w-4 h-4 text-[#F59E0B] fill-current mr-1" />
+                    {tour.averageRating || tour.rating || 4.8}
+                  </div>
+                </div>
+                <h2 className="text-3xl font-bold mb-3 dark:text-white">
+                  {tour.title}
+                </h2>
+                <div className="flex items-center text-gray-500 dark:text-gray-400 mb-4">
+                  <MapPin className="w-4 h-4 mr-1 text-[#0D9488]" />
+                  {tour.location}
+                </div>
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-5 line-clamp-3">
+                  {tour.description}
+                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Starting from</p>
+                    <div className="text-3xl font-bold text-[#0D9488]">
+                      ${tour.price}
                     </div>
                   </div>
-                  <h2 className="text-3xl font-bold mb-3 dark:text-white">
-                    {destination.name}
-                  </h2>
-                  <div className="flex items-center text-gray-500 dark:text-gray-400 mb-4">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    Rwanda
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-5">
-                    {destination.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">Starting from</p>
-                      <div className="text-3xl font-bold text-[#0D9488]">
-                        ${destination.price}
-                      </div>
-                    </div>
-                    <Link to={`/destination/${destination.id}`}>
-                      <Button variant="outline">View Details</Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </div>
-            </Card>
-          )}
+                  <Link to={`/tour/${tour._id}`}>
+                    <Button variant="outline" className="border-[#0D9488] text-[#0D9488]">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </div>
+          </Card>
 
-          {/* BOOKING TYPE - Updated colors */}
-          <div className="flex flex-wrap gap-4">
-            {bookingOptions.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => setBookingType(option.id)}
-                className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all duration-300 font-medium ${
-                  bookingType === option.id
-                    ? 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-xl scale-105 shadow-[#0D9488]/30'
-                    : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-white'
-                }`}
-              >
-                <option.icon className="w-5 h-5" />
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          {/* FORM */}
+          {/* BOOKING FORM */}
           <Card className="p-6 md:p-8 rounded-3xl">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <h2 className="text-2xl font-bold mb-6 text-[#374151] dark:text-white">
+              Your Details
+            </h2>
 
-              {/* Flight Form */}
-              {bookingType === 'flight' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-white">
-                        From
-                      </label>
-                      <Input
-                        placeholder="Departure city"
-                        value={formData.from}
-                        onChange={(e) => updateFormData({ from: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-white">
-                        To
-                      </label>
-                      <Input
-                        placeholder="Destination"
-                        value={formData.to}
-                        onChange={(e) => updateFormData({ to: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-white">
-                        Departure Date
-                      </label>
-                      <Input
-                        type="date"
-                        value={formData.departDate}
-                        onChange={(e) => updateFormData({ departDate: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-white">
-                        Return Date
-                      </label>
-                      <Input
-                        type="date"
-                        value={formData.returnDate}
-                        onChange={(e) => updateFormData({ returnDate: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+            {isPending && (
+              <div className="mb-4 p-4 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B]">
+                ⏳ This tour is pending approval and cannot be booked yet.
+              </div>
+            )}
 
-              {/* Travelers */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Full Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    name="fullName"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="pl-12 focus:ring-[#0D9488]"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                  Email *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="pl-12 focus:ring-[#0D9488]"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                  Phone *
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    name="phone"
+                    placeholder="+250 7XX XXX XXX"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="pl-12 focus:ring-[#0D9488]"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Travelers + Date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-medium mb-3 dark:text-white">
-                    Travelers
+                  <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                    Travelers *
                   </label>
                   <div className="flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={() => updateFormData({ travelers: Math.max(1, formData.travelers - 1) })}
-                      className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition"
+                      onClick={() => setFormData({ ...formData, travelers: Math.max(1, formData.travelers - 1) })}
+                      className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition text-xl font-bold"
                     >
                       -
                     </button>
-                    <div className="flex items-center gap-2 text-lg font-bold dark:text-white">
+                    <div className="flex items-center gap-2 text-lg font-bold text-[#374151] dark:text-white">
                       <Users className="w-5 h-5 text-[#0D9488]" />
                       {formData.travelers}
                     </div>
                     <button
                       type="button"
-                      onClick={() => updateFormData({ travelers: formData.travelers + 1 })}
-                      className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition"
+                      onClick={() => setFormData({ ...formData, travelers: formData.travelers + 1 })}
+                      className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition text-xl font-bold"
                     >
                       +
                     </button>
                   </div>
                 </div>
 
-                {/* Class */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 dark:text-white">
-                    Travel Class
+                  <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                    Travel Date *
                   </label>
-                  <select
-                    value={formData.class}
-                    onChange={(e) => updateFormData({ class: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
-                  >
-                    <option value="economy">Economy</option>
-                    <option value="business">Business</option>
-                    <option value="first">First Class</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-medium mb-2 dark:text-white">
-                    Full Name
-                  </label>
-                  <Input placeholder="Your full name" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 dark:text-white">
-                    Email Address
-                  </label>
-                  <Input type="email" placeholder="example@gmail.com" />
-                </div>
-              </div>
-
-              {/* AI TIP - Updated colors */}
-              <div className="rounded-2xl bg-gradient-to-r from-[#0D9488]/10 to-[#F59E0B]/10 dark:from-gray-800 dark:to-gray-900 p-5 border border-[#0D9488]/20 dark:border-gray-700">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg flex-shrink-0">
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-1 dark:text-white">
-                      AI Recommendation
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                      AI recommends booking your trip during July–September for the best experience.
-                    </p>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      name="travelDate"
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={formData.travelDate}
+                      onChange={handleChange}
+                      className="pl-12 focus:ring-[#0D9488]"
+                      required
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                <p className="text-sm font-semibold dark:text-white">
-                  Recommended Package:
-                </p>
-                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                  3 Days Luxury Rwanda Experience including airport pickup,
-                  premium hotel, safari tour, and cultural activities.
-                </p>
+              {/* Special Requests */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-[#374151] dark:text-white">
+                  Special Requests
+                </label>
+                <textarea
+                  name="specialRequests"
+                  rows="3"
+                  placeholder="Any special requirements or requests..."
+                  value={formData.specialRequests}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none resize-none"
+                />
               </div>
 
-              {/* BUTTON - Updated colors */}
+              {/* Submit */}
               <Button
                 type="submit"
-                disabled={submitting}
-                className="w-full h-14 rounded-2xl text-lg bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
+                disabled={submitting || isPending}
+                className="w-full h-14 rounded-2xl text-lg bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
               >
-                {submitting ? 'Preparing Your Booking...' : 'Continue Booking'}
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Booking...
+                  </>
+                ) : isPending ? (
+                  'Tour Pending Approval'
+                ) : (
+                  `Book Now - $${totalPrice}`
+                )}
               </Button>
             </form>
           </Card>
         </div>
 
-        {/* RIGHT SIDEBAR - Updated colors */}
+        {/* RIGHT SIDEBAR - Booking Summary */}
         <div className="lg:sticky lg:top-24 h-fit">
           <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl space-y-6">
             
-            {/* SUMMARY */}
-            <div>
-              <h2 className="text-2xl font-bold mb-5 dark:text-white">
-                Booking Summary
-              </h2>
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Destination</span>
-                  <span className="font-semibold dark:text-white">
-                    {formData.to || 'Not selected'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Booking Type</span>
-                  <span className="font-semibold capitalize dark:text-white">
-                    {bookingType}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Travelers</span>
-                  <span className="font-semibold dark:text-white">
-                    {formData.travelers}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Travel Class</span>
-                  <span className="font-semibold capitalize dark:text-white">
-                    {formData.class}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Departure</span>
-                  <span className="font-semibold dark:text-white">
-                    {formData.departDate || '--'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Return</span>
-                  <span className="font-semibold dark:text-white">
-                    {formData.returnDate || '--'}
-                  </span>
-                </div>
+            <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
+              Booking Summary
+            </h2>
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Base Price</span>
-                    <span className="font-semibold dark:text-white">${basePrice}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Taxes</span>
-                    <span className="font-semibold dark:text-white">${taxes}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Service Fee</span>
-                    <span className="font-semibold dark:text-white">${serviceFee}</span>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Tour</span>
+                <span className="font-semibold dark:text-white text-right max-w-[55%]">
+                  {tour.title}
+                </span>
+              </div>
 
-                <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <span className="text-lg font-bold dark:text-white">Total</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Location</span>
+                <span className="font-semibold dark:text-white">
+                  {tour.location}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Travelers</span>
+                <span className="font-semibold dark:text-white">
+                  {formData.travelers}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Duration</span>
+                <span className="font-semibold dark:text-white">
+                  {tour.duration || 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Travel Date</span>
+                <span className="font-semibold dark:text-white">
+                  {formData.travelDate || '--'}
+                </span>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold text-[#374151] dark:text-white">
+                    Total
+                  </span>
                   <span className="text-3xl font-bold text-[#0D9488]">
-                    ${total}
+                    ${totalPrice}
                   </span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  ${tour.price} × {formData.travelers} traveler{formData.travelers > 1 ? 's' : ''}
+                </p>
               </div>
             </div>
 
-            {/* TRUST - Updated colors */}
+            {/* Trust Badges */}
             <div className="space-y-3">
               {['Secure Payment', 'Free Cancellation', '24/7 Support'].map((item, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800">
@@ -453,60 +501,7 @@ const Booking = () => {
                 </div>
               ))}
             </div>
-
-            {/* PAYMENT - Updated colors */}
-            <div>
-              <h3 className="font-bold mb-4 dark:text-white">
-                Secure Payment Methods
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {paymentMethods.map((method, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-                  >
-                    <div className={`w-12 h-12 rounded-full ${method.bg} flex items-center justify-center mb-2`}>
-                      <method.icon className={`w-6 h-6 ${method.color}`} />
-                    </div>
-                    <span className="text-sm font-medium dark:text-white text-center">
-                      {method.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                All transactions are encrypted and secure.
-              </p>
-            </div>
-
-            {/* CUSTOM TRIP - Updated colors */}
-            <div className="rounded-2xl bg-gradient-to-r from-[#0D9488]/10 to-[#F59E0B]/10 p-5">
-              <h3 className="font-bold mb-2 dark:text-white">
-                Need a Custom Trip?
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                Let AI Tour create a personalized experience just for you.
-              </p>
-              <Link to="/request-trip">
-                <Button variant="outline" className="w-full">
-                  Request Custom Trip
-                </Button>
-              </Link>
-            </div>
           </Card>
-        </div>
-      </div>
-
-      {/* MOBILE CTA - Updated colors */}
-      <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4 z-50 shadow-2xl">
-        <div className="flex items-center gap-4">
-          <div>
-            <p className="text-xs text-gray-500">Total Price</p>
-            <p className="text-2xl font-bold text-[#0D9488]">${total}</p>
-          </div>
-          <Button className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B]">
-            Continue
-          </Button>
         </div>
       </div>
     </div>

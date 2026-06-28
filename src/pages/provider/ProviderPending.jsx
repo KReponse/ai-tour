@@ -39,10 +39,28 @@ const ProviderPending = () => {
   AUTO REDIRECT IF APPROVED
   ========================= */
   useEffect(() => {
-    if (user?.role === "provider") {
-      navigate("/provider/dashboard");
+    // ✅ Check both role and verificationStatus
+    if (user?.role === "PROVIDER" || user?.role === "provider") {
+      if (user?.verificationStatus === "approved" || user?.verificationStatus === "APPROVED") {
+        navigate("/provider/dashboard");
+      }
     }
   }, [user, navigate]);
+
+  // If user is already approved, show loading briefly before redirect
+  if (user?.role === "PROVIDER" || user?.role === "provider") {
+    if (user?.verificationStatus === "approved" || user?.verificationStatus === "APPROVED") {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0D9488]/5 via-white to-[#F59E0B]/5 dark:from-gray-950 dark:via-gray-900 dark:to-black">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+            <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+          </div>
+          <p className="mt-4 text-gray-500 dark:text-gray-400">Redirecting to dashboard...</p>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-[#0D9488]/5 via-white to-[#F59E0B]/5 dark:from-gray-950 dark:via-gray-900 dark:to-black">

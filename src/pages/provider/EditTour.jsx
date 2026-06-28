@@ -1,13 +1,14 @@
-// src/pages/provider/AddTour.jsx
+// src/pages/provider/EditTour.jsx
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   MapPin, DollarSign, Clock, Users, Video, FileText,
   PlusCircle, X, AlertCircle, CheckCircle, Upload,
-  Sparkles, Camera, Image as ImageIcon
+  Sparkles, Camera, Image as ImageIcon, Loader2,
+  Save, ArrowLeft
 } from "lucide-react";
-import { createTour } from "../../services/tourService";
+import { getTourById, updateTour } from "../../services/tourService";
 import { useAuth } from "../../contexts/AuthContext";
 
 // ===============================
@@ -19,16 +20,22 @@ import { useAuth } from "../../contexts/AuthContext";
 // White : #FFFFFF
 // ===============================
 
-const AddTour = () => {
+const EditTour = () => {
+  const { id } = useParams();
   const { token } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [coverPreview, setCoverPreview] = useState(null);
   const [galleryPreview, setGalleryPreview] = useState([]);
   const [videoPreview, setVideoPreview] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [existingVideos, setExistingVideos] = useState([]);
+  
   const [formData, setFormData] = useState({
     title: "", location: "", category: "", price: "",
     duration: "", travelers: "", description: "",
@@ -36,6 +43,61 @@ const AddTour = () => {
     meetingPoint: "", cancellationPolicy: "",
     coverImage: null, galleryImages: [], videos: []
   });
+
+  // ============= FETCH TOUR =============
+  useEffect(() => {
+    fetchTour();
+  }, [id]);
+
+  const fetchTour = async () => {
+    try {
+      setLoading(true);
+      const data = await getTourById(id);
+      const tour = data.tour;
+      
+      // Populate form with existing data
+      setFormData({
+        title: tour.title || "",
+        location: tour.location || "",
+        category: tour.category || "",
+        price: tour.price || "",
+        duration: tour.duration || "",
+        travelers: tour.travelers || "",
+        description: tour.description || "",
+        highlights: tour.highlights || "",
+        included: tour.included || "",
+        excluded: tour.excluded || "",
+        meetingPoint: tour.meetingPoint || "",
+        cancellationPolicy: tour.cancellationPolicy || "",
+        coverImage: null,
+        galleryImages: [],
+        videos: []
+      });
+
+      // Set existing images and videos
+      if (tour.coverImage) {
+        setCoverPreview(`${API_URL}/uploads/${tour.coverImage}`);
+        setExistingImages([tour.coverImage]);
+      }
+      
+      if (tour.galleryImages && tour.galleryImages.length > 0) {
+        setGalleryPreview(tour.galleryImages.map(img => `${API_URL}/uploads/${img}`));
+        setExistingImages(tour.galleryImages);
+      }
+      
+      if (tour.videos && tour.videos.length > 0) {
+        setVideoPreview(tour.videos.map(vid => `${API_URL}/uploads/${vid}`));
+        setExistingVideos(tour.videos);
+      }
+      
+    } catch (error) {
+      console.error("❌ Error fetching tour:", error);
+      alert("Failed to load tour data");
+      navigate("/provider/tours");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ============= VALIDATION =============
   const validateField = (name, value) => {
@@ -65,29 +127,67 @@ const AddTour = () => {
         if (!value?.trim()) return "Description is required";
         if (value.length < 30) return "Description must be at least 30 characters";
         return "";
-      case "coverImage":
-        if (!value) return "Cover image is required";
-        if (!value.type?.startsWith("image/")) return "File must be an image";
-        if (value.size > 5 * 1024 * 1024) return "Image must be below 5MB";
-        return "";
-      case "galleryImages":
-        if (value.length > 15) return "Maximum 15 images allowed";
-        for (const img of value) {
-          if (img.size > 5 * 1024 * 1024) return "Each image must be below 5MB";
-        }
-        return "";
-      case "videos":
-        if (value.length > 3) return "Maximum 3 videos allowed";
-        for (const video of value) {
-          if (video.size > 100 * 1024 * 1024) return "Each video must be below 100MB";
-        }
-        return "";
       default:
         return "";
     }
   };
 
-  // ============= VIDEO DURATION =============
+  // ============= HANDLE TEXT INPUT =============
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (touched[name]) {
+      setErrors({ ...errors, [name]: validateField(name, value) });
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched({ ...touched, [name]: true });
+    setErrors({ ...errors, [name]: validateField(name, value) });
+  };
+
+  // ============= FILE HANDLING =============
+  const handleCoverImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFormData({ ...formData, coverImage: file });
+    setCoverPreview(URL.createObjectURL(file));
+  };
+
+  const handleGallery = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    const newGallery = [...formData.galleryImages, ...files];
+    setFormData({ ...formData, galleryImages: newGallery });
+    setGalleryPreview([
+      ...galleryPreview,
+      ...files.map(f => URL.createObjectURL(f))
+    ]);
+  };
+
+  const handleVideos = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    // Check duration for new videos
+    for (const video of files) {
+      const duration = await checkVideoDuration(video);
+      if (duration > 300) {
+        setErrors({
+          ...errors,
+          videos: "Each video must be maximum 5 minutes"
+        });
+        return;
+      }
+    }
+    const newVideos = [...formData.videos, ...files];
+    setFormData({ ...formData, videos: newVideos });
+    setVideoPreview([
+      ...videoPreview,
+      ...files.map(f => URL.createObjectURL(f))
+    ]);
+  };
+
   const checkVideoDuration = (file) => {
     return new Promise((resolve) => {
       const video = document.createElement("video");
@@ -100,93 +200,50 @@ const AddTour = () => {
     });
   };
 
-  // ============= HANDLE TEXT INPUT =============
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    if (touched[name]) {
-      setErrors({ ...errors, [name]: validateField(name, value) });
-    }
-  };
-
-  // ============= BLUR VALIDATION =============
-  const handleBlur = (e) => {
-    const { name, value } = e.target;
-    setTouched({ ...touched, [name]: true });
-    setErrors({ ...errors, [name]: validateField(name, value) });
-  };
-
-  // ============= COVER IMAGE =============
-  const handleCoverImage = (e) => {
-    const file = e.target.files[0];
-    const error = validateField("coverImage", file);
-    if (error) {
-      setErrors({ ...errors, coverImage: error });
-      return;
-    }
-    setFormData({ ...formData, coverImage: file });
-    setCoverPreview(URL.createObjectURL(file));
-  };
-
-  // ============= GALLERY =============
-  const handleGallery = (e) => {
-    const files = Array.from(e.target.files);
-    const error = validateField("galleryImages", files);
-    if (error) {
-      setErrors({ ...errors, galleryImages: error });
-      return;
-    }
-    setFormData({ ...formData, galleryImages: files });
-    setGalleryPreview(files.map(f => URL.createObjectURL(f)));
-  };
-
-  // ============= VIDEOS =============
-  const handleVideos = async (e) => {
-    const files = Array.from(e.target.files);
-    const error = validateField("videos", files);
-    if (error) {
-      setErrors({ ...errors, videos: error });
-      return;
-    }
-    for (const video of files) {
-      const duration = await checkVideoDuration(video);
-      if (duration > 300) {
-        setErrors({
-          ...errors,
-          videos: "Each video must be maximum 5 minutes"
-        });
-        return;
-      }
-    }
-    setFormData({ ...formData, videos: files });
-    setVideoPreview(files.map(f => URL.createObjectURL(f)));
-  };
-
-  // ============= REMOVE FILE =============
   const removeFile = (type, index) => {
     if (type === "cover") {
       setCoverPreview(null);
       setFormData({ ...formData, coverImage: null });
+      setExistingImages([]);
     }
     if (type === "gallery") {
       const newGallery = [...formData.galleryImages];
       newGallery.splice(index, 1);
       setFormData({ ...formData, galleryImages: newGallery });
-      setGalleryPreview(newGallery.map(f => URL.createObjectURL(f)));
+      
+      const newPreview = [...galleryPreview];
+      newPreview.splice(index, 1);
+      setGalleryPreview(newPreview);
+      
+      // Also remove from existing if it was an existing image
+      if (index < existingImages.length) {
+        const newExisting = [...existingImages];
+        newExisting.splice(index, 1);
+        setExistingImages(newExisting);
+      }
     }
     if (type === "video") {
       const newVideos = [...formData.videos];
       newVideos.splice(index, 1);
       setFormData({ ...formData, videos: newVideos });
-      setVideoPreview(newVideos.map(f => URL.createObjectURL(f)));
+      
+      const newPreview = [...videoPreview];
+      newPreview.splice(index, 1);
+      setVideoPreview(newPreview);
+      
+      if (index < existingVideos.length) {
+        const newExisting = [...existingVideos];
+        newExisting.splice(index, 1);
+        setExistingVideos(newExisting);
+      }
     }
   };
 
-  // ============= SUBMIT =============
+  // ============= SUBMIT UPDATE =============
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate all fields
+    // Validate
     const newErrors = {};
     Object.keys(formData).forEach(key => {
       const error = validateField(key, formData[key]);
@@ -201,7 +258,7 @@ const AddTour = () => {
     }
 
     try {
-      setLoading(true);
+      setSubmitting(true);
       setUploadProgress(10);
 
       const data = new FormData();
@@ -217,43 +274,60 @@ const AddTour = () => {
       data.append("excluded", formData.excluded || "");
       data.append("meetingPoint", formData.meetingPoint || "");
       data.append("cancellationPolicy", formData.cancellationPolicy || "");
-      data.append("coverImage", formData.coverImage);
 
-      formData.galleryImages.forEach(img => data.append("galleryImages", img));
-      formData.videos.forEach(vid => data.append("videos", vid));
+      // New cover image
+      if (formData.coverImage instanceof File) {
+        data.append("coverImage", formData.coverImage);
+      }
 
-      await createTour(data, token, (progress) => {
+      // New gallery images
+      formData.galleryImages.forEach(img => {
+        if (img instanceof File) {
+          data.append("galleryImages", img);
+        }
+      });
+
+      // New videos
+      formData.videos.forEach(vid => {
+        if (vid instanceof File) {
+          data.append("videos", vid);
+        }
+      });
+
+      // Track which existing files to keep
+      data.append("existingImages", JSON.stringify(existingImages));
+      data.append("existingVideos", JSON.stringify(existingVideos));
+
+      await updateTour(id, data, token, (progress) => {
         setUploadProgress(progress);
       });
 
       setUploadProgress(100);
-      alert("✅ Tour created successfully. Waiting for admin approval.");
-      
-      navigate("/provider/my-tours");
-
-      // Reset form
-      setFormData({
-        title: "", location: "", category: "", price: "",
-        duration: "", travelers: "", description: "",
-        highlights: "", included: "", excluded: "",
-        meetingPoint: "", cancellationPolicy: "",
-        coverImage: null, galleryImages: [], videos: []
-      });
-      setCoverPreview(null);
-      setGalleryPreview([]);
-      setVideoPreview([]);
-      setErrors({});
-      setTouched({});
+      alert("✅ Tour updated successfully!");
+      navigate("/provider/tours");
 
     } catch (error) {
-      console.error("Create Tour Error:", error);
+      console.error("❌ Update Tour Error:", error);
       setErrors({
-        submit: error.response?.data?.message || "Failed to create tour"
+        submit: error.response?.data?.message || "Failed to update tour"
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
+  // ============= LOADING =============
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading tour...</p>
+      </div>
+    );
+  }
 
   // ============= RENDER =============
   return (
@@ -266,10 +340,10 @@ const AddTour = () => {
             <PlusCircle size={40} className="text-white" />
           </div>
           <h1 className="mt-5 text-4xl font-black text-[#374151] dark:text-white">
-            Create New Tour
+            Edit Tour
           </h1>
           <p className="text-gray-500 mt-2">
-            Share amazing Rwanda experiences with travelers
+            Update your tour details and media
           </p>
         </div>
 
@@ -478,32 +552,13 @@ const AddTour = () => {
               />
             </div>
 
-            {/* COVER IMAGE - Fixed file input styling */}
+            {/* COVER IMAGE */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
-                Cover Image *
+                Cover Image
               </label>
-              <div className="mt-2">
-                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
-                  <Upload className="w-5 h-5 text-[#0D9488]" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Click to upload cover image
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCoverImage}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-              {errors.coverImage && (
-                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                  <AlertCircle size={14} /> {errors.coverImage}
-                </p>
-              )}
               {coverPreview && (
-                <div className="relative mt-4">
+                <div className="relative mt-2">
                   <img
                     src={coverPreview}
                     className="h-56 w-full object-cover rounded-2xl"
@@ -518,18 +573,57 @@ const AddTour = () => {
                   </button>
                 </div>
               )}
+              <div className="mt-2">
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
+                  <Upload className="w-5 h-5 text-[#0D9488]" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    {coverPreview ? 'Change cover image' : 'Upload cover image'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverImage}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {errors.coverImage && (
+                <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.coverImage}
+                </p>
+              )}
             </div>
 
-            {/* GALLERY - Fixed file input styling */}
+            {/* GALLERY */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Gallery Images (Maximum 15)
               </label>
+              {galleryPreview.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+                  {galleryPreview.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={img}
+                        className="h-24 w-full object-cover rounded-xl"
+                        alt={`Gallery ${index}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeFile("gallery", index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-2">
                 <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
                   <ImageIcon className="w-5 h-5 text-[#F59E0B]" />
                   <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Click to upload gallery images
+                    {galleryPreview.length > 0 ? 'Add more images' : 'Upload gallery images'}
                   </span>
                   <input
                     type="file"
@@ -545,36 +639,38 @@ const AddTour = () => {
                   <AlertCircle size={14} /> {errors.galleryImages}
                 </p>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-                {galleryPreview.map((img, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={img}
-                      className="h-24 w-full object-cover rounded-xl"
-                      alt={`Gallery ${index}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeFile("gallery", index)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            {/* VIDEOS - Fixed file input styling */}
+            {/* VIDEOS */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Videos (Maximum 3 / 5 Minutes)
               </label>
+              {videoPreview.length > 0 && (
+                <div className="space-y-3 mt-3">
+                  {videoPreview.map((video, index) => (
+                    <div key={index} className="relative group">
+                      <video
+                        src={video}
+                        controls
+                        className="w-full rounded-xl"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeFile("video", index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-2">
                 <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:border-[#0D9488] transition-all duration-300">
                   <Video className="w-5 h-5 text-[#0D9488]" />
                   <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Click to upload videos
+                    {videoPreview.length > 0 ? 'Add more videos' : 'Upload videos'}
                   </span>
                   <input
                     type="file"
@@ -590,24 +686,6 @@ const AddTour = () => {
                   <AlertCircle size={14} /> {errors.videos}
                 </p>
               )}
-              <div className="space-y-4 mt-4">
-                {videoPreview.map((video, index) => (
-                  <div key={index} className="relative group">
-                    <video
-                      src={video}
-                      controls
-                      className="w-full rounded-xl"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeFile("video", index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* MEETING POINT */}
@@ -641,27 +719,34 @@ const AddTour = () => {
           </div>
 
           {/* SUBMIT BUTTON */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="group relative w-full h-14 rounded-2xl overflow-hidden bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-black text-lg shadow-xl shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading ? (
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/provider/tours")}
+              className="flex-1 h-14 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-[#374151] dark:text-white font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 h-14 rounded-2xl overflow-hidden bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-black text-lg shadow-xl shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Uploading {uploadProgress}%
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Updating {uploadProgress}%
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-6 h-6" />
-                  Publish Tour
+                  <Save className="w-6 h-6" />
+                  Update Tour
                 </>
               )}
-            </span>
-            {/* Shine effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          </button>
+            </button>
+          </div>
 
         </form>
       </div>
@@ -669,4 +754,4 @@ const AddTour = () => {
   );
 };
 
-export default AddTour;
+export default EditTour;

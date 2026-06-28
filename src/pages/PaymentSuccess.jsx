@@ -1,7 +1,9 @@
 // src/pages/PaymentSuccess.jsx
 
-import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle, Sparkles, Calendar, ArrowRight, Home } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle, Sparkles, Calendar, ArrowRight, Home, Loader2 } from 'lucide-react';
+import { verifyPayment } from '../services/paymentService';
 
 // ===============================
 // AI TOUR COLORS
@@ -14,9 +16,58 @@ import { CheckCircle, Sparkles, Calendar, ArrowRight, Home } from 'lucide-react'
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [bookingRef, setBookingRef] = useState('');
+  const [error, setError] = useState('');
 
-  // Get booking reference from URL or state
-  const bookingRef = new URLSearchParams(window.location.search).get('ref') || 'AI-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  // Get session ID from URL or state
+  const sessionId = new URLSearchParams(window.location.search).get('session_id') 
+    || location.state?.sessionId;
+
+  useEffect(() => {
+    if (sessionId) {
+      verifyPaymentStatus();
+    } else {
+      // Fallback - generate random reference
+      setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // ✅ Verify payment with backend
+  const verifyPaymentStatus = async () => {
+    try {
+      setLoading(true);
+      const response = await verifyPayment(sessionId);
+      
+      console.log('✅ Payment verified:', response);
+      
+      if (response.success && response.booking) {
+        setBookingRef(response.booking.bookingCode || response.booking._id?.slice(0, 8));
+      } else {
+        setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+      }
+    } catch (error) {
+      console.error('❌ Payment verification error:', error);
+      setError('Could not verify payment status. Please check your email for confirmation.');
+      setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-4">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Verifying payment...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-4">
@@ -48,6 +99,13 @@ const PaymentSuccess = () => {
             {bookingRef}
           </p>
         </div>
+
+        {/* Error Warning */}
+        {error && (
+          <div className="mt-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 text-left">
+            <p className="text-xs text-amber-700 dark:text-amber-400">{error}</p>
+          </div>
+        )}
 
         {/* What's Next */}
         <div className="mt-6 text-left bg-gradient-to-r from-[#0D9488]/5 to-[#F59E0B]/5 rounded-2xl p-4 border border-[#0D9488]/10">
@@ -90,25 +148,6 @@ const PaymentSuccess = () => {
           </button>
         </div>
 
-        {/* Share */}
-        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
-          <span>Share your excitement:</span>
-          <button
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({
-                  title: 'AI Tour Rwanda Booking',
-                  text: `I just booked my trip with AI Tour Rwanda! 🎉`,
-                  url: window.location.href,
-                }).catch(() => {});
-              }
-            }}
-            className="text-[#0D9488] hover:underline font-medium"
-          >
-            Share →
-          </button>
-        </div>
-
         {/* Footer */}
         <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
           <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -120,12 +159,6 @@ const PaymentSuccess = () => {
               Contact Support
             </a>
           </p>
-        </div>
-
-        {/* Brand */}
-        <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
-          <Sparkles className="w-3 h-3 text-[#0D9488]" />
-          <span>AI Tour Rwanda • Book with Confidence</span>
         </div>
       </div>
     </div>

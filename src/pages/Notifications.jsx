@@ -17,8 +17,9 @@ import {
   TrendingUp,
   AlertCircle,
   Check,
+  CreditCard,
+  Compass,
 } from "lucide-react";
-import io from "socket.io-client";
 import Card, { CardContent } from "../components/ui/Card";
 
 // ===============================
@@ -31,7 +32,20 @@ import Card, { CardContent } from "../components/ui/Card";
 // ===============================
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+
+// ✅ Only connect socket if we're in browser
+let socket = null;
+if (typeof window !== 'undefined') {
+  import('socket.io-client').then((module) => {
+    const io = module.default;
+    socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+  });
+}
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -56,18 +70,23 @@ const Notifications = () => {
   useEffect(() => {
     fetchNotifications();
 
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user?._id) {
-      socket.emit("join", user._id);
+    // ✅ Connect to socket only if available
+    if (socket) {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user?._id) {
+        socket.emit("join", user._id);
+      }
+
+      socket.on("notification", (data) => {
+        setNotifications((prev) => [data, ...prev]);
+      });
     }
 
-    socket.on("notification", (data) => {
-      setNotifications((prev) => [data, ...prev]);
-    });
-
     return () => {
-      socket.off("notification");
-      socket.disconnect();
+      if (socket) {
+        socket.off("notification");
+        socket.disconnect();
+      }
     };
   }, []);
 
@@ -137,7 +156,7 @@ const Notifications = () => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 px-4 py-6">
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">

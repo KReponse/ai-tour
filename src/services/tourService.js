@@ -1,89 +1,201 @@
-import axios from "axios";
+// src/services/tourService.js
 
-const API = "http://localhost:5000/api/tours";
+import axios from 'axios';
 
-/* ================= PUBLIC TOURS ================= */
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// ===============================
+// ✅ GET ALL TOURS (Public)
+// ===============================
 export const getTours = async () => {
-const response = await axios.get(API);
-return response.data;
+  try {
+    const response = await axios.get(`${API_URL}/tours`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get tours error:', error);
+    throw error;
+  }
 };
 
-/* ================= SINGLE TOUR ================= */
+// ===============================
+// ✅ GET TOUR BY ID (Public)
+// ===============================
 export const getTourById = async (id) => {
-const response = await axios.get(`${API}/${id}`);
-return response.data;
+  try {
+    const response = await axios.get(`${API_URL}/tours/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get tour by id error:', error);
+    throw error;
+  }
 };
 
-/* ================= GET PROVIDER TOURS ================= */
-
-export const getProviderTours = async(token)=>{
-
-const response = await axios.get(
-`${API}/provider/my-tours`,
-{
-headers:{
-Authorization:`Bearer ${token}`
-}
-}
-);
-
-return response.data;
-
+// ===============================
+// ✅ GET FEATURED TOURS (Public)
+// ===============================
+export const getFeaturedTours = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/tours/featured`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get featured tours error:', error);
+    throw error;
+  }
 };
 
-/* ================= CREATE TOUR ================= */
-export const createTour = async (formData, token) => {
-const response = await axios.post(API, formData, {
-headers: {
-Authorization: `Bearer ${token}`,
-"Content-Type": "multipart/form-data",
-},
-});
-
-return response.data;
+// ===============================
+// ✅ GET MY TOURS (Provider - Requires Auth)
+// ===============================
+export const getMyTours = async (token) => {
+  try {
+    const response = await axios.get(`${API_URL}/tours/my`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get my tours error:', error);
+    throw error;
+  }
 };
 
-/* ================= UPDATE TOUR ================= */
-export const updateTour = async (id, formData, token) => {
-const response = await axios.put(
-`${API}/${id}`,
-formData,
-{
-headers: {
-Authorization: `Bearer ${token}`,
-"Content-Type": "multipart/form-data",
-},
-}
-);
-
-return response.data;
+// ===============================
+// ✅ CREATE TOUR (Provider - Requires Auth)
+// ===============================
+export const createTour = async (data, token, onProgress) => {
+  try {
+    const response = await axios.post(`${API_URL}/tours`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progress) => {
+        if (onProgress) {
+          const percent = Math.round((progress.loaded * 100) / progress.total);
+          onProgress(percent);
+        }
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Create tour error:', error);
+    throw error;
+  }
 };
 
-/* ================= DELETE TOUR ================= */
+// ===============================
+// ✅ UPDATE TOUR (Provider - Requires Auth)
+// ===============================
+export const updateTour = async (id, data, token, onProgress) => {
+  try {
+    const response = await axios.put(`${API_URL}/tours/${id}`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progress) => {
+        if (onProgress) {
+          const percent = Math.round((progress.loaded * 100) / progress.total);
+          onProgress(percent);
+        }
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Update tour error:', error);
+    throw error;
+  }
+};
+
+// ===============================
+// ✅ DELETE TOUR (Provider - Requires Auth)
+// ===============================
 export const deleteTour = async (id, token) => {
-const response = await axios.delete(
-`${API}/${id}`,
-{
-headers: {
-Authorization: `Bearer ${token}`,
-},
-}
-);
-
-return response.data;
+  try {
+    const response = await axios.delete(`${API_URL}/tours/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Delete tour error:', error);
+    throw error;
+  }
 };
 
-/* ================= TOGGLE STATUS ================= */
+// ===============================
+// ✅ TOGGLE TOUR STATUS (Provider - Requires Auth)
+// ===============================
 export const toggleTourStatus = async (id, token) => {
-const response = await axios.patch(
-`${API}/${id}/toggle-status`,
-{},
-{
-headers: {
-Authorization: `Bearer ${token}`,
-},
-}
-);
+  try {
+    const response = await axios.patch(
+      `${API_URL}/tours/${id}/status`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Toggle tour status error:', error);
+    throw error;
+  }
+};
 
-return response.data;
+// ===============================
+// ✅ TOGGLE LIKE (NEW - For TourDetails)
+// ===============================
+export const toggleLike = async (id) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.post(
+      `${API_URL}/tours/${id}/like`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Toggle like error:', error);
+    throw error;
+  }
+};
+
+// ===============================
+// ✅ GET TOUR LIKES (NEW)
+// ===============================
+export const getTourLikes = async (id) => {
+  try {
+    const response = await axios.get(`${API_URL}/tours/${id}/likes`);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get tour likes error:', error);
+    throw error;
+  }
+};
+
+// ===============================
+// ✅ CHECK IF USER LIKED (NEW)
+// ===============================
+export const checkLikeStatus = async (id) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_URL}/tours/${id}/likes/check`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Check like status error:', error);
+    throw error;
+  }
+};
+
+// ===============================
+// ✅ GET PROVIDER TOURS (Provider - Requires Auth)
+// ===============================
+export const getProviderTours = async (token) => {
+  try {
+    const response = await axios.get(`${API_URL}/tours/provider`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get provider tours error:', error);
+    throw error;
+  }
 };

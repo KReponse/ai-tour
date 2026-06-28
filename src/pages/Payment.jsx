@@ -1,8 +1,7 @@
 // src/pages/Payment.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
 import {
   CreditCard,
   Smartphone,
@@ -12,11 +11,13 @@ import {
   Sparkles,
   Lock,
   ArrowLeft,
+  Loader2,
 } from 'lucide-react';
-
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { createCheckout } from '../services/paymentService';
+import { useAuth } from '../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -30,18 +31,28 @@ import Input from '../components/ui/Input';
 const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const bookingData = location.state;
-
-  const [paymentMethod, setPaymentMethod] = useState('mobile');
+  const { user } = useAuth();
+  
   const [loading, setLoading] = useState(false);
-  const [paymentData, setPaymentData] = useState({
-    names: '',
-    phone: '',
-    cardNumber: '',
-    expiry: '',
-    cvv: '',
-  });
+  const [error, setError] = useState('');
+  const [bookingData, setBookingData] = useState(null);
+
+  // Get booking data from location state
+  useEffect(() => {
+    if (location.state) {
+      setBookingData(location.state);
+    } else {
+      // Try to get from sessionStorage
+      const saved = sessionStorage.getItem('bookingData');
+      if (saved) {
+        try {
+          setBookingData(JSON.parse(saved));
+        } catch (e) {
+          console.error('Error parsing booking data:', e);
+        }
+      }
+    }
+  }, [location]);
 
   // Prevent direct access
   if (!bookingData) {
@@ -68,70 +79,57 @@ const Payment = () => {
     );
   }
 
-  const {
-    destination,
-    bookingType,
-    formData,
-    total,
-  } = bookingData;
+  const { tour, booking, formData, totalPrice } = bookingData;
+  const total = totalPrice || tour?.price * formData?.travelers || 0;
 
-  const handlePayment = (e) => {
+  // ===============================
+  // ✅ HANDLE PAYMENT - Backend Integration
+  // ===============================
+  const handlePayment = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!user) {
+      alert('Please login to continue');
+      navigate('/login');
+      return;
+    }
 
-    // Simulate payment processing
-    setTimeout(() => {
-      console.log({
-        bookingData,
-        paymentMethod,
-        paymentData,
-      });
+    if (!booking || !booking._id) {
+      alert('Booking not found. Please try again.');
+      return;
+    }
 
-      navigate('/confirmation', {
-        state: {
-          bookingData,
-          paymentMethod,
-        },
-      });
+    try {
+      setLoading(true);
+      setError('');
+
+      // ✅ Call backend to create Stripe checkout session
+      const response = await createCheckout(booking._id);
+      
+      console.log('✅ Checkout response:', response);
+      
+      if (response.url) {
+        // ✅ Redirect to Stripe checkout
+        window.location.href = response.url;
+      } else if (response.sessionId) {
+        // ✅ Or navigate to success with session ID
+        navigate('/payment-success', {
+          state: {
+            sessionId: response.sessionId,
+            bookingId: booking._id,
+          },
+        });
+      } else {
+        setError('Failed to create payment session. Please try again.');
+      }
+
+    } catch (error) {
+      console.error('❌ Payment error:', error);
+      setError(error.response?.data?.message || 'Payment initialization failed');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
-
-  // Payment methods with AI Tour colors
-  const paymentMethods = [
-    {
-      id: 'mobile',
-      icon: Smartphone,
-      label: 'Mobile Money',
-      color: '#F59E0B',
-      borderColor: 'border-[#F59E0B]',
-      bgColor: 'bg-[#F59E0B]/10',
-    },
-    {
-      id: 'card',
-      icon: CreditCard,
-      label: 'Visa Card',
-      color: '#0D9488',
-      borderColor: 'border-[#0D9488]',
-      bgColor: 'bg-[#0D9488]/10',
-    },
-    {
-      id: 'paypal',
-      icon: Wallet,
-      label: 'PayPal',
-      color: '#374151',
-      borderColor: 'border-[#374151]',
-      bgColor: 'bg-[#374151]/10',
-    },
-    {
-      id: 'secure',
-      icon: ShieldCheck,
-      label: 'Secure Pay',
-      color: '#0D9488',
-      borderColor: 'border-[#0D9488]',
-      bgColor: 'bg-[#0D9488]/10',
-    },
-  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10">
@@ -145,12 +143,19 @@ const Payment = () => {
         <span>Back</span>
       </button>
 
+      {/* ERROR */}
+      {error && (
+        <div className="mb-6 p-4 rounded-2xl bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-8">
 
         {/* LEFT */}
         <div className="lg:col-span-2 space-y-8">
 
-          {/* HEADER - Updated with AI Tour colors */}
+          {/* HEADER */}
           <div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
@@ -167,168 +172,79 @@ const Payment = () => {
             </div>
           </div>
 
-          {/* PAYMENT METHODS - Updated with AI Tour colors */}
+          {/* TOUR SUMMARY */}
           <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
-            <h2 className="text-2xl font-bold mb-6 text-[#374151] dark:text-white">
-              Choose Payment Method
+            <h2 className="text-2xl font-bold mb-4 text-[#374151] dark:text-white">
+              Booking Summary
             </h2>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {paymentMethods.map((method) => {
-                const Icon = method.icon;
-                const isActive = paymentMethod === method.id;
-                return (
-                  <button
-                    key={method.id}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`p-5 rounded-2xl border-2 transition-all duration-300 ${
-                      isActive
-                        ? `${method.borderColor} ${method.bgColor} scale-[1.02] shadow-md`
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center">
-                      <Icon
-                        className="w-8 h-8 mb-2"
-                        style={{ color: isActive ? method.color : '#94a3b8' }}
-                      />
-                      <span className={`font-medium text-sm ${isActive ? 'text-[#374151] dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {method.label}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Tour</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  {tour?.title || 'Tour'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Location</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  {tour?.location || 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Travelers</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  {formData?.travelers || 1}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Travel Date</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  {formData?.travelDate || 'N/A'}
+                </span>
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold text-[#374151] dark:text-white">
+                    Total
+                  </span>
+                  <span className="text-3xl font-bold text-[#0D9488]">
+                    ${total}
+                  </span>
+                </div>
+              </div>
             </div>
           </Card>
 
-          {/* PAYMENT FORM - Updated with AI Tour colors */}
+          {/* PAYMENT FORM */}
           <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
             <h2 className="text-2xl font-bold mb-6 text-[#374151] dark:text-white">
               Payment Details
             </h2>
 
             <form onSubmit={handlePayment} className="space-y-5">
-              <div>
-                <label className="block mb-2 font-medium text-[#374151] dark:text-white">
-                  Full Names *
-                </label>
-                <Input
-                  placeholder="Enter your names"
-                  value={paymentData.names}
-                  onChange={(e) =>
-                    setPaymentData({
-                      ...paymentData,
-                      names: e.target.value,
-                    })
-                  }
-                  className="focus:ring-[#0D9488]"
-                  required
-                />
+              {/* Payment Method Selection */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { id: 'card', label: '💳 Card', color: '#0D9488' },
+                  { id: 'mobile', label: '📱 Mobile', color: '#F59E0B' },
+                  { id: 'paypal', label: '💰 PayPal', color: '#374151' },
+                ].map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    onClick={() => setPaymentMethod(method.id)}
+                    className={`p-3 rounded-xl border-2 transition ${
+                      paymentMethod === method.id
+                        ? `border-[${method.color}] bg-[${method.color}]/10`
+                        : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{method.label}</span>
+                  </button>
+                ))}
               </div>
 
-              {paymentMethod === 'mobile' && (
-                <div>
-                  <label className="block mb-2 font-medium text-[#374151] dark:text-white">
-                    Mobile Number *
-                  </label>
-                  <Input
-                    placeholder="+250 7XX XXX XXX"
-                    value={paymentData.phone}
-                    onChange={(e) =>
-                      setPaymentData({
-                        ...paymentData,
-                        phone: e.target.value,
-                      })
-                    }
-                    className="focus:ring-[#0D9488]"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    You will receive a payment confirmation SMS
-                  </p>
-                </div>
-              )}
-
-              {paymentMethod === 'card' && (
-                <>
-                  <div>
-                    <label className="block mb-2 font-medium text-[#374151] dark:text-white">
-                      Card Number *
-                    </label>
-                    <Input
-                      placeholder="1234 5678 9012 3456"
-                      value={paymentData.cardNumber}
-                      onChange={(e) =>
-                        setPaymentData({
-                          ...paymentData,
-                          cardNumber: e.target.value,
-                        })
-                      }
-                      className="focus:ring-[#0D9488]"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block mb-2 font-medium text-[#374151] dark:text-white">
-                        Expiry *
-                      </label>
-                      <Input
-                        placeholder="MM/YY"
-                        value={paymentData.expiry}
-                        onChange={(e) =>
-                          setPaymentData({
-                            ...paymentData,
-                            expiry: e.target.value,
-                          })
-                        }
-                        className="focus:ring-[#0D9488]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block mb-2 font-medium text-[#374151] dark:text-white">
-                        CVV *
-                      </label>
-                      <Input
-                        placeholder="123"
-                        type="password"
-                        maxLength="4"
-                        value={paymentData.cvv}
-                        onChange={(e) =>
-                          setPaymentData({
-                            ...paymentData,
-                            cvv: e.target.value,
-                          })
-                        }
-                        className="focus:ring-[#0D9488]"
-                        required
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {paymentMethod === 'paypal' && (
-                <div className="p-5 rounded-2xl bg-[#374151]/10 dark:bg-gray-800 border border-[#374151]/20">
-                  <p className="text-[#374151] dark:text-white text-sm">
-                    You will be redirected to PayPal after clicking Pay Now.
-                  </p>
-                </div>
-              )}
-
-              {paymentMethod === 'secure' && (
-                <div className="p-5 rounded-2xl bg-[#0D9488]/10 dark:bg-[#0D9488]/20 border border-[#0D9488]/20">
-                  <p className="text-[#0D9488] dark:text-[#0D9488] text-sm flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5" />
-                    Your payment is fully encrypted and secure.
-                  </p>
-                </div>
-              )}
-
-              {/* Payment Button - Updated with AI Tour colors */}
+              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={loading}
@@ -336,57 +252,57 @@ const Payment = () => {
               >
                 {loading ? (
                   <>
-                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Processing...
                   </>
                 ) : (
                   <>
                     <Lock className="w-5 h-5 mr-2" />
-                    Pay ${total}
+                    Pay ${total} Securely
                   </>
                 )}
               </Button>
 
               <p className="text-center text-xs text-gray-400">
-                🔒 Your payment information is secure and encrypted
+                🔒 Your payment is secure and encrypted
               </p>
             </form>
           </Card>
         </div>
 
-        {/* RIGHT SIDEBAR - Updated with AI Tour colors */}
+        {/* RIGHT SIDEBAR */}
         <div>
           <Card className="p-6 rounded-3xl sticky top-24 border border-gray-100 dark:border-gray-800 shadow-xl">
             <h2 className="text-2xl font-bold mb-6 text-[#374151] dark:text-white">
-              Booking Summary
+              Order Summary
             </h2>
 
             <div className="space-y-4">
               <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Destination</span>
+                <span className="text-gray-500">Booking ID</span>
+                <span className="font-semibold text-[#374151] dark:text-white text-xs">
+                  {booking?._id?.slice(0, 8) || 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-gray-500">Subtotal</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {destination?.name || 'Rwanda'}
+                  ${total}
                 </span>
               </div>
 
               <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Booking Type</span>
-                <span className="font-semibold capitalize text-[#374151] dark:text-white">
-                  {bookingType}
-                </span>
-              </div>
-
-              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Travelers</span>
+                <span className="text-gray-500">Taxes</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {formData.travelers}
+                  $0.00
                 </span>
               </div>
 
               <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Class</span>
-                <span className="font-semibold capitalize text-[#374151] dark:text-white">
-                  {formData.class}
+                <span className="text-gray-500">Service Fee</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  $0.00
                 </span>
               </div>
 
@@ -400,24 +316,12 @@ const Payment = () => {
               </div>
             </div>
 
-            {/* Trust Badge - Updated with AI Tour colors */}
+            {/* Trust Badge */}
             <div className="mt-6 p-4 rounded-2xl bg-[#0D9488]/10 dark:bg-[#0D9488]/20 border border-[#0D9488]/20 flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-[#0D9488] flex-shrink-0" />
+              <ShieldCheck className="w-6 h-6 text-[#0D9488] flex-shrink-0" />
               <p className="text-sm text-[#0D9488] dark:text-[#0D9488]">
                 Your payment is protected and encrypted.
               </p>
-            </div>
-
-            {/* Payment Methods Accepted */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <p className="text-xs text-gray-400 text-center">
-                We accept all major payment methods
-              </p>
-              <div className="flex justify-center gap-2 mt-2">
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">💳 Visa</span>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">💳 Mastercard</span>
-                <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">📱 MoMo</span>
-              </div>
             </div>
           </Card>
         </div>

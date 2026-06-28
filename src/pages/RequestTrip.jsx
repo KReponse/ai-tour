@@ -13,10 +13,13 @@ import {
   Sparkles,
   CheckCircle,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { createRequest } from '../services/requestService';
+import { useAuth } from '../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -29,6 +32,7 @@ import Input from '../components/ui/Input';
 
 const RequestTrip = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     destination: '',
     startDate: '',
@@ -42,6 +46,7 @@ const RequestTrip = () => {
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const preferences = [
     'Adventure', 
@@ -54,20 +59,60 @@ const RequestTrip = () => {
     'Family-friendly'
   ];
 
-  const handleSubmit = (e) => {
+  // ===============================
+  // ✅ SUBMIT TO BACKEND
+  // ===============================
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Trip request:', formData);
-      setSubmitted(true);
-      setLoading(false);
+    setError('');
+
+    // Validation
+    if (!formData.destination.trim()) {
+      setError('Please enter a destination');
+      return;
+    }
+    if (!formData.startDate || !formData.endDate) {
+      setError('Please select travel dates');
+      return;
+    }
+    if (!formData.budget) {
+      setError('Please enter your budget');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Prepare data for backend
+      const requestData = {
+        destination: formData.destination,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        travelers: formData.travelers,
+        budget: formData.budget,
+        accommodation: formData.accommodation,
+        specialRequests: formData.specialRequests,
+        preferences: formData.preferences.join(', '),
+      };
+
+      // ✅ Call backend API
+      const response = await createRequest(requestData);
       
+      console.log('✅ Request created:', response);
+      
+      setSubmitted(true);
+      
+      // Redirect after 3 seconds
       setTimeout(() => {
         navigate('/trips');
       }, 3000);
-    }, 1500);
+
+    } catch (error) {
+      console.error('❌ Request error:', error);
+      setError(error.response?.data?.message || 'Failed to submit request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -123,6 +168,13 @@ const RequestTrip = () => {
           Tell us your preferences and we'll create the perfect itinerary for you
         </p>
       </div>
+
+      {/* ERROR */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       <Card className="border border-gray-100 dark:border-gray-800 shadow-xl rounded-3xl">
         <CardContent className="p-6 md:p-8">
@@ -197,16 +249,17 @@ const RequestTrip = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
-                  Budget (USD)
+                  Budget (USD) *
                 </label>
                 <div className="relative">
                   <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Your budget"
+                    placeholder="e.g., 1000"
                     className="pl-12 focus:ring-[#0D9488]"
                     value={formData.budget}
                     onChange={(e) => setFormData({...formData, budget: e.target.value})}
+                    required
                   />
                 </div>
               </div>
@@ -230,7 +283,7 @@ const RequestTrip = () => {
               </select>
             </div>
 
-            {/* PREFERENCES - Updated with AI Tour colors */}
+            {/* PREFERENCES */}
             <div>
               <label className="block text-sm font-medium text-[#374151] dark:text-white mb-2">
                 Travel Preferences
@@ -275,7 +328,7 @@ const RequestTrip = () => {
               </div>
             </div>
 
-            {/* SUBMIT - Updated with AI Tour colors */}
+            {/* SUBMIT */}
             <Button 
               type="submit" 
               variant="primary" 
@@ -284,7 +337,7 @@ const RequestTrip = () => {
             >
               {loading ? (
                 <>
-                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
                   Submitting...
                 </>
               ) : (

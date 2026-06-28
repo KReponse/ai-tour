@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
+
 // ===============================
 // AI TOUR COLORS
 // ===============================

@@ -99,15 +99,14 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Footer Pages */}
           <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/help" element={<HelpCenter />} />
-          <Route path="/careers" element={<Careers />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/faqs" element={<FAQs />} />
+<Route path="/terms" element={<Terms />} />
+<Route path="/about" element={<About />} />
+<Route path="/contact" element={<Contact />} />
+<Route path="/help" element={<HelpCenter />} />
+<Route path="/careers" element={<Careers />} />
+<Route path="/blog" element={<Blog />} />
+<Route path="/faqs" element={<FAQs />} />
 
           {/* PROTECTED ROUTES */}
           <Route

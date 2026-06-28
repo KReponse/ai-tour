@@ -17,10 +17,12 @@ import {
   TrendingUp,
   ChevronDown,
   ArrowRight,
+  DollarSign,
 } from 'lucide-react';
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { getMyBookings } from '../services/bookingService';
+import { getMyBookings, cancelBooking } from '../services/bookingService';
+import { useAuth } from '../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -34,10 +36,12 @@ import { getMyBookings } from '../services/bookingService';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const Trips = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('upcoming');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedTrip, setExpandedTrip] = useState(null);
+  const [cancelling, setCancelling] = useState(null);
 
   useEffect(() => {
     fetchBookings();
@@ -48,11 +52,48 @@ const Trips = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const data = await getMyBookings(token);
-      setBookings(data.bookings || []);
+      console.log('✅ Bookings from backend:', data);
+      
+      if (data && data.bookings) {
+        setBookings(data.bookings);
+      } else if (data && Array.isArray(data)) {
+        setBookings(data);
+      } else {
+        setBookings([]);
+      }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('❌ Error fetching bookings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancel = async (bookingId) => {
+    const confirmCancel = window.confirm(
+      'Are you sure you want to cancel this booking?'
+    );
+    if (!confirmCancel) return;
+
+    try {
+      setCancelling(bookingId);
+      const token = localStorage.getItem('token');
+      await cancelBooking(bookingId, token);
+
+      // Update local state
+      setBookings(
+        bookings.map((booking) =>
+          booking._id === bookingId
+            ? { ...booking, status: 'cancelled' }
+            : booking
+        )
+      );
+
+      alert('Booking cancelled successfully');
+    } catch (error) {
+      console.error('❌ Error cancelling booking:', error);
+      alert('Failed to cancel booking');
+    } finally {
+      setCancelling(null);
     }
   };
 
@@ -65,17 +106,36 @@ const Trips = () => {
 
   const getTourImage = (tour) => {
     if (tour?.coverImage) return getImageUrl(tour.coverImage);
+    if (tour?.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
     if (tour?.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
     if (tour?.image) return getImageUrl(tour.image);
     return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+  };
+
+  // Get travel date from booking
+  const getTravelDate = (booking) => {
+    if (booking.startDate) return booking.startDate;
+    if (booking.travelDate) return booking.travelDate;
+    return null;
+  };
+
+  // Get travelers count
+  const getTravelers = (booking) => {
+    return booking.numberOfPeople || booking.travelers || 1;
+  };
+
+  // Get total price
+  const getTotalPrice = (booking) => {
+    return booking.totalPrice || booking.tour?.price || 0;
   };
 
   // Filter bookings by status
   const upcomingBookings = bookings.filter(
     b => b.status === 'confirmed' || b.status === 'pending'
   );
+  
   const pastBookings = bookings.filter(
-    b => b.status === 'completed' || b.status === 'cancelled'
+    b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'rejected'
   );
 
   const getStatusColor = (status) => {
@@ -84,6 +144,7 @@ const Trips = () => {
       pending: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20',
       cancelled: 'bg-red-100 text-red-600 border-red-200',
       completed: 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20',
+      rejected: 'bg-red-100 text-red-600 border-red-200',
     };
     return colors[status] || colors.pending;
   };
@@ -94,6 +155,7 @@ const Trips = () => {
       pending: Clock,
       cancelled: XCircle,
       completed: CheckCircle,
+      rejected: XCircle,
     };
     return icons[status] || Clock;
   };
@@ -102,6 +164,10 @@ const Trips = () => {
     const tour = booking.tour || {};
     const StatusIcon = getStatusIcon(booking.status);
     const isExpanded = expandedTrip === booking._id;
+    const travelDate = getTravelDate(booking);
+    const travelers = getTravelers(booking);
+    const totalPrice = getTotalPrice(booking);
+    const isCancellable = booking.status === 'confirmed' || booking.status === 'pending';
 
     return (
       <Card hover className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-3xl">
@@ -122,6 +188,14 @@ const Trips = () => {
                 {booking.status}
               </span>
             </div>
+            
+            {/* Price Badge */}
+            {totalPrice > 0 && (
+              <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
+                <DollarSign className="w-3 h-3" />
+                {totalPrice}
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -135,6 +209,11 @@ const Trips = () => {
                   <MapPin className="w-4 h-4 mr-1 text-[#0D9488]" />
                   <span>{tour.location || 'Location not specified'}</span>
                 </div>
+                {booking.bookingCode && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Ref: {booking.bookingCode}
+                  </p>
+                )}
               </div>
               <button 
                 onClick={() => setExpandedTrip(isExpanded ? null : booking._id)}
@@ -148,16 +227,15 @@ const Trips = () => {
               <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2">
                 <Calendar className="w-4 h-4 mr-2 text-[#0D9488]" />
                 <span className="text-sm">
-                  {booking.startDate
- ? new Date(booking.startDate).toLocaleDateString()
- : "Date not set"}
+                  {travelDate 
+                    ? new Date(travelDate).toLocaleDateString()
+                    : 'Date not set'}
                 </span>
               </div>
               <div className="flex items-center text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2">
                 <Users className="w-4 h-4 mr-2 text-[#F59E0B]" />
                 <span className="text-sm">
-                  {booking.numberOfPeople || 1} 
-{booking.numberOfPeople > 1 ? " Travelers" : " Traveler"}
+                  {travelers} {travelers > 1 ? 'Travelers' : 'Traveler'}
                 </span>
               </div>
             </div>
@@ -169,13 +247,13 @@ const Trips = () => {
                   <div>
                     <p className="text-gray-500">Booking Reference</p>
                     <p className="font-mono font-semibold text-[#0D9488] text-xs">
-                      {booking.bookingCode || booking._id?.slice(0,8)}
+                      {booking.bookingCode || booking._id?.slice(0, 8)}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-500">Payment Status</p>
                     <p className={`font-semibold ${
-                      booking.paymentStatus === 'paid' || booking.paymentStatus === "paid"
+                      booking.paymentStatus === 'paid' || booking.paymentStatus === 'Paid'
                         ? 'text-[#0D9488]'
                         : 'text-[#F59E0B]'
                     }`}>
@@ -184,7 +262,7 @@ const Trips = () => {
                   </div>
                   <div className="col-span-2">
                     <p className="text-gray-500">Total Price</p>
-                    <p className="font-bold text-[#0D9488]">${booking.totalPrice || tour.price || 0}</p>
+                    <p className="font-bold text-[#0D9488]">${totalPrice}</p>
                   </div>
                 </div>
               </div>
@@ -201,13 +279,19 @@ const Trips = () => {
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
-              {booking.status === 'confirmed' && (
+              {isCancellable && (
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  onClick={() => handleCancel(booking._id)}
+                  disabled={cancelling === booking._id}
+                  className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                 >
-                  Cancel
+                  {cancelling === booking._id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Cancel'
+                  )}
                 </Button>
               )}
             </div>
@@ -234,7 +318,7 @@ const Trips = () => {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-8 animate-fade-in pb-20 md:pb-6">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -257,7 +341,7 @@ const Trips = () => {
         </div>
       </div>
 
-      {/* TABS - Updated with AI Tour colors */}
+      {/* TABS */}
       <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
         <button
           onClick={() => setActiveTab('upcoming')}

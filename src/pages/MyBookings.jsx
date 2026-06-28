@@ -13,6 +13,7 @@ import {
   Clock,
   ArrowRight,
   Sparkles,
+  DollarSign,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -80,9 +81,19 @@ const MyBookings = () => {
     try {
       const token = localStorage.getItem('token');
       const data = await getMyBookings(token);
-      setBookings(data.bookings || []);
+      console.log('✅ Bookings from backend:', data);
+      
+      // Handle different response formats
+      let bookingsList = [];
+      if (data && data.bookings) {
+        bookingsList = data.bookings;
+      } else if (data && Array.isArray(data)) {
+        bookingsList = data;
+      }
+      
+      setBookings(bookingsList);
     } catch (error) {
-      console.error(error);
+      console.error('❌ Error fetching bookings:', error);
     } finally {
       setLoading(false);
     }
@@ -109,8 +120,39 @@ const MyBookings = () => {
         icon: XCircle,
         label: 'Cancelled',
       },
+      completed: {
+        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
+        text: 'text-[#0D9488] dark:text-[#0D9488]',
+        icon: CheckCircle,
+        label: 'Completed',
+      },
+      rejected: {
+        bg: 'bg-red-100 dark:bg-red-900/20',
+        text: 'text-red-600 dark:text-red-400',
+        icon: XCircle,
+        label: 'Rejected',
+      },
     };
     return styles[status] || styles.pending;
+  };
+
+  // Get payment status styling
+  const getPaymentBadge = (status) => {
+    const styles = {
+      paid: 'text-[#0D9488]',
+      pending: 'text-[#F59E0B]',
+      unpaid: 'text-gray-400',
+      failed: 'text-red-600',
+      refunded: 'text-gray-400',
+    };
+    return styles[status] || styles.pending;
+  };
+
+  // Get travel date from booking
+  const getTravelDate = (booking) => {
+    if (booking.travelDate) return booking.travelDate;
+    if (booking.startDate) return booking.startDate;
+    return null;
   };
 
   if (loading) {
@@ -168,6 +210,16 @@ const MyBookings = () => {
           {bookings.map((booking) => {
             const statusStyle = getStatusBadge(booking.status);
             const StatusIcon = statusStyle.icon;
+            const travelDate = getTravelDate(booking);
+            const paymentColor = getPaymentBadge(booking.paymentStatus);
+            
+            // Get tour image
+            const tour = booking.tour || {};
+            const imageUrl = 
+              getImageUrl(tour.coverImage) ||
+              getImageUrl(tour.images?.[0]) ||
+              getImageUrl(tour.image) ||
+              'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
 
             return (
               <div
@@ -178,13 +230,8 @@ const MyBookings = () => {
                   {/* IMAGE */}
                   <div className="relative">
                     <img
-                      src={
-                        getImageUrl(booking.tour?.coverImage) ||
-                        getImageUrl(booking.tour?.images?.[0]) ||
-                        getImageUrl(booking.tour?.image) ||
-                        'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500'
-                      }
-                      alt={booking.tour?.title || 'Tour'}
+                      src={imageUrl}
+                      alt={tour.title || 'Tour'}
                       className="w-full h-full object-cover min-h-[220px]"
                       onError={(e) => {
                         e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
@@ -197,6 +244,14 @@ const MyBookings = () => {
                         {statusStyle.label}
                       </span>
                     </div>
+                    
+                    {/* Price Badge */}
+                    {booking.totalPrice && (
+                      <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        {booking.totalPrice}
+                      </div>
+                    )}
                   </div>
 
                   {/* CONTENT */}
@@ -204,12 +259,17 @@ const MyBookings = () => {
                     <div className="flex flex-wrap justify-between gap-4">
                       <div>
                         <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-                          {booking.tour?.title || 'Tour'}
+                          {tour.title || 'Tour'}
                         </h2>
                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mt-2">
                           <MapPin size={16} className="text-[#0D9488]" />
-                          {booking.tour?.location || 'Location not specified'}
+                          {tour.location || 'Location not specified'}
                         </div>
+                        {booking.bookingCode && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Ref: {booking.bookingCode}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -220,7 +280,7 @@ const MyBookings = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Travel Date</p>
                           <p className="font-semibold text-[#374151] dark:text-white">
-                            {new Date(booking.travelDate).toLocaleDateString()}
+                            {travelDate ? new Date(travelDate).toLocaleDateString() : 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -231,7 +291,7 @@ const MyBookings = () => {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Travelers</p>
                           <p className="font-semibold text-[#374151] dark:text-white">
-                            {booking.travelers}
+                            {booking.numberOfPeople || booking.travelers || 1}
                           </p>
                         </div>
                       </div>
@@ -241,18 +301,14 @@ const MyBookings = () => {
                         <CreditCard size={18} className="text-[#0D9488]" />
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Payment</p>
-                          <p className={`font-semibold ${
-                            booking.paymentStatus === 'paid' || booking.paymentStatus === 'confirmed'
-                              ? 'text-[#0D9488]'
-                              : 'text-[#F59E0B]'
-                          }`}>
+                          <p className={`font-semibold ${paymentColor}`}>
                             {booking.paymentStatus || 'Pending'}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    {/* ACTION BUTTONS - Updated with AI Tour colors */}
+                    {/* ACTION BUTTONS */}
                     <div className="mt-6 flex flex-wrap gap-3">
                       <button
                         onClick={() => setSelectedBooking(booking)}
@@ -262,7 +318,7 @@ const MyBookings = () => {
                         View Details
                       </button>
 
-                      {booking.status !== 'cancelled' && (
+                      {booking.status !== 'cancelled' && booking.status !== 'completed' && (
                         <button
                           onClick={() => handleCancel(booking._id)}
                           disabled={cancelling === booking._id}
@@ -310,7 +366,9 @@ const MyBookings = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Tour</p>
-                  <p className="font-semibold">{selectedBooking.tour?.title}</p>
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {selectedBooking.tour?.title || 'N/A'}
+                  </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Status</p>
@@ -324,21 +382,40 @@ const MyBookings = () => {
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Travel Date</p>
-                  <p className="font-semibold">
-                    {new Date(selectedBooking.travelDate).toLocaleDateString()}
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {getTravelDate(selectedBooking) 
+                      ? new Date(getTravelDate(selectedBooking)).toLocaleDateString() 
+                      : 'N/A'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Travelers</p>
-                  <p className="font-semibold">{selectedBooking.travelers}</p>
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {selectedBooking.numberOfPeople || selectedBooking.travelers || 1}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Total Price</p>
+                  <p className="font-semibold text-[#0D9488]">
+                    ${selectedBooking.totalPrice || 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Payment Status</p>
+                  <p className={`font-semibold ${getPaymentBadge(selectedBooking.paymentStatus)}`}>
+                    {selectedBooking.paymentStatus || 'Pending'}
+                  </p>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800">
-                <p className="text-sm text-gray-500">Booking Reference</p>
-                <p className="font-mono font-semibold text-[#0D9488]">
-                  {selectedBooking._id}
-                </p>
-              </div>
+              
+              {selectedBooking.bookingCode && (
+                <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Booking Reference</p>
+                  <p className="font-mono font-semibold text-[#0D9488]">
+                    {selectedBooking.bookingCode}
+                  </p>
+                </div>
+              )}
             </div>
 
             <button

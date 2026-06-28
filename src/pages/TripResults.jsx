@@ -21,6 +21,7 @@ import {
   List,
   X,
   Check,
+  Eye,
 } from 'lucide-react';
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -39,7 +40,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const TripResults = () => {
   const location = useLocation();
-  const [sortBy, setSortBy] = useState('price');
+  const [sortBy, setSortBy] = useState('recommended');
   const [view, setView] = useState('grid');
   const [loading, setLoading] = useState(true);
   const [tours, setTours] = useState([]);
@@ -47,7 +48,7 @@ const TripResults = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     minPrice: 0,
-    maxPrice: 1000,
+    maxPrice: 5000,
     location: '',
   });
 
@@ -67,9 +68,17 @@ const TripResults = () => {
     try {
       setLoading(true);
       const data = await getTours();
-      setTours(data.tours || []);
+      console.log('✅ Tours from backend:', data);
+      
+      if (data && data.tours) {
+        setTours(data.tours);
+      } else if (data && Array.isArray(data)) {
+        setTours(data);
+      } else {
+        setTours([]);
+      }
     } catch (error) {
-      console.error('Error fetching tours:', error);
+      console.error('❌ Error fetching tours:', error);
     } finally {
       setLoading(false);
     }
@@ -100,19 +109,29 @@ const TripResults = () => {
       );
     }
 
-    // Sort
+    // ✅ Sort - Updated with averageRating
     switch (sortBy) {
-      case 'price':
+      case 'recommended':
+        result.sort((a, b) => {
+          const scoreA = (a.views || 0) + (a.averageRating || 0) * 10;
+          const scoreB = (b.views || 0) + (b.averageRating || 0) * 10;
+          return scoreB - scoreA;
+        });
+        break;
+      case 'price-low':
         result.sort((a, b) => a.price - b.price);
         break;
-      case 'price-desc':
+      case 'price-high':
         result.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
-        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        result.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
         break;
-      case 'duration':
-        result.sort((a, b) => (a.duration || '').localeCompare(b.duration || ''));
+      case 'popular':
+        result.sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'newest':
+        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       default:
         break;
@@ -129,7 +148,9 @@ const TripResults = () => {
   };
 
   const getTourImage = (tour) => {
+    // ✅ Check coverImage first, then galleryImages, then images
     if (tour.coverImage) return getImageUrl(tour.coverImage);
+    if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
     if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
     if (tour.image) return getImageUrl(tour.image);
     return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
@@ -138,13 +159,19 @@ const TripResults = () => {
   const getIncludes = (tour) => {
     const items = [];
     if (tour.included) {
-      const includedItems = tour.included.split(',').map(s => s.trim());
+      const includedItems = tour.included.split(',').map(s => s.trim()).filter(Boolean);
       items.push(...includedItems);
     }
     if (items.length === 0) {
       items.push('Tour Guide', 'Transport', 'Meals');
     }
     return items.slice(0, 4);
+  };
+
+  // ✅ Get rating display
+  const getRatingDisplay = (tour) => {
+    const rating = tour.averageRating || 0;
+    return rating > 0 ? rating.toFixed(1) : 'New';
   };
 
   if (loading) {
@@ -161,7 +188,7 @@ const TripResults = () => {
 
   return (
     <div className="space-y-6 animate-fade-in px-4 py-6 max-w-7xl mx-auto">
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -184,7 +211,7 @@ const TripResults = () => {
         </div>
       </div>
 
-      {/* FILTERS AND SORT - Updated with AI Tour colors */}
+      {/* FILTERS AND SORT */}
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div className="flex gap-2">
           <Button 
@@ -229,10 +256,12 @@ const TripResults = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none transition"
           >
-            <option value="price">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="rating">Rating</option>
-            <option value="duration">Duration</option>
+            <option value="recommended">Recommended</option>
+            <option value="newest">Newest</option>
+            <option value="popular">Most Popular</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="rating">Top Rated</option>
           </select>
         </div>
       </div>
@@ -280,7 +309,7 @@ const TripResults = () => {
           </div>
           <div className="mt-4 flex justify-end">
             <Button
-              onClick={() => setFilters({ minPrice: 0, maxPrice: 1000, location: '' })}
+              onClick={() => setFilters({ minPrice: 0, maxPrice: 5000, location: '' })}
               className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
             >
               <X className="w-4 h-4 mr-2" />
@@ -290,7 +319,7 @@ const TripResults = () => {
         </div>
       )}
 
-      {/* RESULTS GRID - Updated with AI Tour colors */}
+      {/* RESULTS */}
       {filteredTours.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center border border-gray-100 dark:border-gray-800 shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
@@ -308,6 +337,7 @@ const TripResults = () => {
           {filteredTours.map((tour) => {
             const includes = getIncludes(tour);
             const imageUrl = getTourImage(tour);
+            const ratingDisplay = getRatingDisplay(tour);
 
             return (
               <Link to={`/tour/${tour._id}`} key={tour._id}>
@@ -324,13 +354,21 @@ const TripResults = () => {
                         Pending
                       </div>
                     )}
-                    {/* Rating Badge - Updated with AI Tour colors */}
+                    {/* Rating Badge */}
                     <div className="absolute top-4 right-4 flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur px-2 py-1 rounded-lg shadow-lg">
                       <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
                       <span className="text-sm font-bold text-[#374151] dark:text-white">
-                        {tour.rating || 4.8}
+                        {ratingDisplay}
                       </span>
                     </div>
+                    
+                    {/* Views Badge */}
+                    {tour.views > 0 && (
+                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur px-2 py-1 rounded-lg text-white text-xs flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        {tour.views}
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-2">

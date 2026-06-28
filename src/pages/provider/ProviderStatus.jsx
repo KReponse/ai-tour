@@ -24,22 +24,39 @@ import { useNavigate } from "react-router-dom";
 // White : #FFFFFF
 // ===============================
 
+// ✅ Fix: Use correct API endpoint (plural)
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/provider-request";
 
 const ProviderStatus = () => {
   const navigate = useNavigate();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const token = localStorage.getItem("token");
 
   const fetchStatus = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const { data } = await axios.get(`${API}/my`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setRequest(data.request);
+      
+      console.log("✅ Provider status:", data);
+      
+      // ✅ Handle different response formats
+      if (data && data.request) {
+        setRequest(data.request);
+      } else if (data && data.success === false) {
+        setError(data.message || "Failed to fetch status");
+      } else {
+        setRequest(null);
+      }
     } catch (error) {
-      console.log(error);
+      console.error("❌ Error fetching status:", error);
+      setError(error.response?.data?.message || "Failed to fetch status");
+      setRequest(null);
     } finally {
       setLoading(false);
     }
@@ -51,12 +68,60 @@ const ProviderStatus = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#0D9488]/5 via-white to-[#F59E0B]/5 dark:from-gray-950 dark:via-gray-900 dark:to-black">
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
         </div>
         <p className="mt-4 text-gray-500 dark:text-gray-400">Loading status...</p>
+      </div>
+    );
+  }
+
+  // ✅ Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#0D9488]/5 via-white to-[#F59E0B]/5 dark:from-gray-950 dark:via-gray-900 dark:to-black">
+        <div className="max-w-xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-8 text-center border border-gray-100 dark:border-gray-800">
+          <div className="w-20 h-20 mx-auto rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mb-4">
+            <XCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            Error Loading Status
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
+          <button
+            onClick={fetchStatus}
+            className="px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/80 transition"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ No request found
+  if (!request) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#0D9488]/5 via-white to-[#F59E0B]/5 dark:from-gray-950 dark:via-gray-900 dark:to-black">
+        <div className="max-w-xl w-full bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-8 text-center border border-gray-100 dark:border-gray-800">
+          <div className="w-20 h-20 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-4">
+            <Building2 className="w-10 h-10 text-[#0D9488]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            No Provider Application
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            You haven't submitted a provider application yet.
+          </p>
+          <button
+            onClick={() => navigate("/provider/request")}
+            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition"
+          >
+            Apply Now
+          </button>
+        </div>
       </div>
     );
   }
@@ -78,8 +143,8 @@ const ProviderStatus = () => {
           Application Status
         </p>
 
-        {/* PENDING - Updated with AI Tour colors */}
-        {request?.status === "pending" && (
+        {/* PENDING */}
+        {request.status === "pending" && (
           <div>
             <div className="relative w-20 h-20 mx-auto mb-4">
               <div className="absolute inset-0 rounded-full border-4 border-[#F59E0B]/20 animate-ping" />
@@ -99,11 +164,20 @@ const ProviderStatus = () => {
                 <span>Usually takes 24-48 hours</span>
               </div>
             </div>
+            {/* Show business info */}
+            {request.businessName && (
+              <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-left">
+                <p className="text-xs text-gray-400">Business</p>
+                <p className="font-semibold text-[#374151] dark:text-white">
+                  {request.businessName}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* APPROVED - Updated with AI Tour colors */}
-        {request?.status === "approved" && (
+        {/* APPROVED */}
+        {request.status === "approved" && (
           <div>
             <div className="relative w-20 h-20 mx-auto mb-4">
               <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20 animate-ping" />
@@ -127,8 +201,8 @@ const ProviderStatus = () => {
           </div>
         )}
 
-        {/* REJECTED - Updated with AI Tour colors */}
-        {request?.status === "rejected" && (
+        {/* REJECTED */}
+        {request.status === "rejected" && (
           <div>
             <div className="relative w-20 h-20 mx-auto mb-4">
               <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping" />
@@ -145,11 +219,11 @@ const ProviderStatus = () => {
                 Admin Notes
               </h3>
               <p className="text-gray-700 dark:text-gray-300 mt-2">
-                {request?.adminNotes || "No reason provided"}
+                {request.adminNotes || "No reason provided"}
               </p>
             </div>
             <button
-              onClick={() => navigate("/provider-request")}
+              onClick={() => navigate("/provider/request")}
               className="mt-6 px-8 py-3.5 rounded-2xl border-2 border-red-500 text-red-600 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300"
             >
               Apply Again

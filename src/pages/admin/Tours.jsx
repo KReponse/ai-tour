@@ -11,6 +11,11 @@ import {
   Filter,
   AlertCircle,
   CheckCircle as SuccessIcon,
+  Eye,
+  MapPin,
+  DollarSign,
+  User,
+  Clock,
 } from 'lucide-react';
 
 // ===============================
@@ -22,7 +27,6 @@ import {
 // White : #FFFFFF
 // ===============================
 
-// ✅ FIX: Use consistent API variable
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/admin';
 
 const Tours = () => {
@@ -33,6 +37,7 @@ const Tours = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [actionLoading, setActionLoading] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [selectedTour, setSelectedTour] = useState(null);
 
   const token = localStorage.getItem('token');
 
@@ -43,6 +48,7 @@ const Tours = () => {
       const { data } = await axios.get(`${API_URL}/tours`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('✅ Admin tours:', data);
       setTours(data.tours || []);
       setFilteredTours(data.tours || []);
     } catch (error) {
@@ -60,8 +66,7 @@ const Tours = () => {
   // ============= SEARCH & FILTER =============
   useEffect(() => {
     let filtered = [...tours];
-    
-    // Search
+
     if (searchTerm.trim()) {
       filtered = filtered.filter(tour =>
         tour.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -69,12 +74,11 @@ const Tours = () => {
         tour.location?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
-    // Status filter
+
     if (statusFilter !== 'all') {
       filtered = filtered.filter(tour => tour.status === statusFilter);
     }
-    
+
     setFilteredTours(filtered);
   }, [searchTerm, statusFilter, tours]);
 
@@ -87,7 +91,7 @@ const Tours = () => {
   // ============= APPROVE TOUR =============
   const approveTour = async (id) => {
     if (!window.confirm('Are you sure you want to approve this tour?')) return;
-    
+
     try {
       setActionLoading(id);
       await axios.put(
@@ -108,7 +112,7 @@ const Tours = () => {
   // ============= REJECT TOUR =============
   const rejectTour = async (id) => {
     if (!window.confirm('Are you sure you want to reject this tour?')) return;
-    
+
     try {
       setActionLoading(id);
       await axios.put(
@@ -129,7 +133,7 @@ const Tours = () => {
   // ============= DELETE TOUR =============
   const deleteTour = async (id) => {
     if (!window.confirm('⚠️ Delete this tour permanently? This action cannot be undone!')) return;
-    
+
     try {
       setActionLoading(id);
       await axios.delete(`${API_URL}/tours/${id}`, {
@@ -159,7 +163,7 @@ const Tours = () => {
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-[400px] gap-4">
-        <div className="relative w-16 h-16">
+        <div className="relative w-12 h-12">
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
         </div>
@@ -171,30 +175,29 @@ const Tours = () => {
   // ============= RENDER =============
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-6">
-      
+
       {/* NOTIFICATION */}
       {notification && (
-        <div className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-xl flex items-center gap-3 animate-fade-in ${
-          notification.type === 'success' 
-            ? 'bg-[#0D9488] text-white' 
+        <div className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-xl flex items-center gap-3 ${
+          notification.type === 'success'
+            ? 'bg-[#0D9488] text-white'
             : notification.type === 'error'
             ? 'bg-red-600 text-white'
             : 'bg-[#F59E0B] text-white'
         }`}>
           {notification.type === 'success' && <SuccessIcon className="w-5 h-5" />}
           {notification.type === 'error' && <AlertCircle className="w-5 h-5" />}
-          {notification.type === 'info' && <AlertCircle className="w-5 h-5" />}
           <span>{notification.message}</span>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto">
-        
+
         {/* HEADER */}
         <div className="mb-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
-              <Search className="w-6 h-6 text-white" />
+              <MapPin className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-4xl font-black text-[#374151] dark:text-white">
@@ -219,7 +222,7 @@ const Tours = () => {
               className="w-full pl-12 pr-4 h-12 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
             />
           </div>
-          
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -234,7 +237,7 @@ const Tours = () => {
 
         {/* TABLE */}
         <div className="overflow-x-auto bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800">
-          
+
           {filteredTours.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
@@ -244,7 +247,7 @@ const Tours = () => {
                 No tours found
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mt-2">
-                {searchTerm || statusFilter !== 'all' 
+                {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filters'
                   : 'No tours have been created yet'}
               </p>
@@ -282,19 +285,35 @@ const Tours = () => {
                   >
                     <td className="p-4 font-medium text-gray-900 dark:text-white">
                       <div>
-                        <div>{tour.title}</div>
-                        <div className="md:hidden text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-2">
+                          {tour.coverImage && (
+                            <img
+                              src={`${API_URL}/uploads/${tour.coverImage}`}
+                              alt={tour.title}
+                              className="w-10 h-10 rounded-lg object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          )}
+                          <span>{tour.title}</span>
+                        </div>
+                        <div className="md:hidden text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {tour.provider?.name || 'Unknown'} • ${tour.price}
                         </div>
                       </div>
                     </td>
 
                     <td className="p-4 text-gray-600 dark:text-gray-300 hidden md:table-cell">
-                      {tour.provider?.name || 'Unknown'}
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-[#0D9488]" />
+                        {tour.provider?.name || 'Unknown'}
+                      </div>
                     </td>
 
                     <td className="p-4 text-gray-600 dark:text-gray-300 hidden lg:table-cell">
-                      {tour.location || 'N/A'}
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-[#0D9488]" />
+                        {tour.location || 'N/A'}
+                      </div>
                     </td>
 
                     <td className="p-4 font-semibold text-[#0D9488]">

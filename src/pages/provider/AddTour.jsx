@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import {
   MapPin, DollarSign, Clock, Users, Video, FileText,
   PlusCircle, X, AlertCircle, CheckCircle, Upload,
-  Sparkles, Camera, Image as ImageIcon
+  Sparkles, Camera, Image as ImageIcon, Loader2
 } from "lucide-react";
 import { createTour } from "../../services/tourService";
 import { useAuth } from "../../contexts/AuthContext";
@@ -222,14 +222,18 @@ const AddTour = () => {
       formData.galleryImages.forEach(img => data.append("galleryImages", img));
       formData.videos.forEach(vid => data.append("videos", vid));
 
-      await createTour(data, token, (progress) => {
+      // ✅ Backend will set provider from req.user and status to pending
+      const response = await createTour(data, token, (progress) => {
         setUploadProgress(progress);
       });
+
+      console.log("✅ Tour created:", response);
 
       setUploadProgress(100);
       alert("✅ Tour created successfully. Waiting for admin approval.");
       
-      navigate("/provider/my-tours");
+      // ✅ Navigate to My Tours
+      navigate("/provider/tours");
 
       // Reset form
       setFormData({
@@ -246,7 +250,7 @@ const AddTour = () => {
       setTouched({});
 
     } catch (error) {
-      console.error("Create Tour Error:", error);
+      console.error("❌ Create Tour Error:", error);
       setErrors({
         submit: error.response?.data?.message || "Failed to create tour"
       });
@@ -478,7 +482,7 @@ const AddTour = () => {
               />
             </div>
 
-            {/* COVER IMAGE - Fixed file input styling */}
+            {/* COVER IMAGE */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Cover Image *
@@ -520,7 +524,7 @@ const AddTour = () => {
               )}
             </div>
 
-            {/* GALLERY - Fixed file input styling */}
+            {/* GALLERY */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Gallery Images (Maximum 15)
@@ -565,7 +569,7 @@ const AddTour = () => {
               </div>
             </div>
 
-            {/* VIDEOS - Fixed file input styling */}
+            {/* VIDEOS */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Videos (Maximum 3 / 5 Minutes)
@@ -649,7 +653,7 @@ const AddTour = () => {
             <span className="relative z-10 flex items-center justify-center gap-2">
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                   Uploading {uploadProgress}%
                 </>
               ) : (

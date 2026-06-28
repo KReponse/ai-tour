@@ -14,6 +14,9 @@ import {
   ChevronDown,
   User,
   ExternalLink,
+  RefreshCw,
+  MessageCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -37,15 +40,16 @@ const AIWidget = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('chat');
   const [typing, setTyping] = useState(false);
+  const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
   // Quick actions
   const quickActions = [
-    { label: 'Plan a Trip', icon: Calendar, action: 'plan' },
-    { label: 'Find Tours', icon: MapPin, action: 'tours' },
-    { label: 'Budget Help', icon: DollarSign, action: 'budget' },
-    { label: 'Recommendations', icon: Sparkles, action: 'recommend' },
+    { label: 'Plan a Trip', icon: Calendar, action: 'plan', color: 'bg-[#0D9488]/10 text-[#0D9488]' },
+    { label: 'Find Tours', icon: MapPin, action: 'tours', color: 'bg-[#0D9488]/10 text-[#0D9488]' },
+    { label: 'Budget Help', icon: DollarSign, action: 'budget', color: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
+    { label: 'Recommendations', icon: Sparkles, action: 'recommend', color: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
   ];
 
   // Welcome message
@@ -83,13 +87,19 @@ const AIWidget = ({ isOpen, onClose }) => {
       recommend: 'Can you recommend the best places to visit in Rwanda?',
     };
     setInput(prompts[action] || '');
-    handleSend(prompts[action] || '');
+    // Auto send after setting input
+    setTimeout(() => {
+      handleSend(prompts[action] || '');
+    }, 100);
   };
 
   // Send message
   const handleSend = async (messageOverride) => {
     const messageToSend = messageOverride || input;
     if (!messageToSend.trim() || loading) return;
+
+    // Clear error
+    setError(null);
 
     const userMessage = {
       id: Date.now(),
@@ -114,10 +124,13 @@ const AIWidget = ({ isOpen, onClose }) => {
 
       setTyping(false);
 
+      // ✅ Handle different response formats
+      const aiText = response.reply || response.message || response.response || "I couldn't generate a response. Please try again.";
+
       const aiMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: response.message || response.reply || 'I couldn\'t generate a response. Please try again.',
+        content: aiText,
         timestamp: new Date().toISOString(),
       };
 
@@ -127,15 +140,43 @@ const AIWidget = ({ isOpen, onClose }) => {
       console.error('❌ AI Chat Error:', error);
       setTyping(false);
       
-      const errorMessage = {
+      let errorMessage = "⚠️ Sorry, I encountered an error. Please try again later.";
+      
+      if (error.response?.status === 401) {
+        errorMessage = "⚠️ Please login to use the AI chat.";
+      } else if (error.response?.status === 429) {
+        errorMessage = "⚠️ Too many requests. Please wait a moment.";
+      } else if (error.response?.data?.message) {
+        errorMessage = `⚠️ ${error.response.data.message}`;
+      }
+      
+      setError(errorMessage);
+      
+      const errorMsg = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: '⚠️ Sorry, I encountered an error. Please try again later.',
+        content: errorMessage,
         timestamp: new Date().toISOString(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Reset chat
+  const resetChat = () => {
+    if (messages.length > 1) {
+      if (window.confirm('Clear all messages?')) {
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: `👋 Hi ${user?.name || 'Traveler'}! I'm your AI Tour assistant. How can I help you today?`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      }
     }
   };
 
@@ -147,6 +188,9 @@ const AIWidget = ({ isOpen, onClose }) => {
       }
       if (line.startsWith('**') && line.endsWith('**')) {
         return <div key={i} className="font-bold">{line.replace(/\*\*/g, '')}</div>;
+      }
+      if (line.trim() === '') {
+        return <div key={i} className="h-1" />;
       }
       return <div key={i} className="mb-1">{line}</div>;
     });
@@ -172,10 +216,26 @@ const AIWidget = ({ isOpen, onClose }) => {
               </div>
               <div>
                 <h3 className="font-bold">AI Tour Assistant</h3>
-                <p className="text-xs text-white/70">Online • 24/7</p>
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Online
+                  </span>
+                  <span>•</span>
+                  <span>24/7</span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              {messages.length > 1 && (
+                <button
+                  onClick={resetChat}
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition"
+                  title="Reset chat"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="p-1.5 rounded-lg hover:bg-white/20 transition"
@@ -205,22 +265,24 @@ const AIWidget = ({ isOpen, onClose }) => {
             <div className="flex border-b border-gray-200 dark:border-gray-800">
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`flex-1 py-2.5 text-sm font-medium transition-all duration-200 ${
+                className={`flex-1 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
                   activeTab === 'chat'
                     ? 'text-[#0D9488] border-b-2 border-[#0D9488]'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
+                <MessageCircle className="w-4 h-4" />
                 Chat
               </button>
               <button
                 onClick={() => setActiveTab('planner')}
-                className={`flex-1 py-2.5 text-sm font-medium transition-all duration-200 ${
+                className={`flex-1 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
                   activeTab === 'planner'
                     ? 'text-[#0D9488] border-b-2 border-[#0D9488]'
                     : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
+                <Sparkles className="w-4 h-4" />
                 Planner
               </button>
             </div>
@@ -230,17 +292,17 @@ const AIWidget = ({ isOpen, onClose }) => {
               {activeTab === 'chat' ? (
                 <>
                   {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth">
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
                       >
                         <div
                           className={`max-w-[85%] rounded-2xl p-3 ${
                             msg.role === 'user'
                               ? 'bg-[#0D9488] text-white'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                           }`}
                         >
                           <div className="text-sm whitespace-pre-wrap">
@@ -253,8 +315,8 @@ const AIWidget = ({ isOpen, onClose }) => {
                       </div>
                     ))}
                     {typing && (
-                      <div className="flex justify-start">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl p-3">
+                      <div className="flex justify-start animate-fade-in">
+                        <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl p-3">
                           <div className="flex gap-1">
                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                             <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -266,9 +328,23 @@ const AIWidget = ({ isOpen, onClose }) => {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Error Message */}
+                  {error && (
+                    <div className="px-4 pb-2">
+                      <div className="p-2 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        {error}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Quick Actions */}
                   {messages.length <= 2 && (
                     <div className="px-4 pb-2">
+                      <p className="text-[10px] text-gray-400 mb-2 flex items-center gap-1">
+                        <HelpCircle className="w-3 h-3" />
+                        Try asking:
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {quickActions.map((action) => {
                           const Icon = action.icon;
@@ -276,7 +352,7 @@ const AIWidget = ({ isOpen, onClose }) => {
                             <button
                               key={action.label}
                               onClick={() => handleQuickAction(action.action)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition"
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${action.color} hover:scale-105 transition`}
                             >
                               <Icon className="w-3 h-3" />
                               {action.label}
@@ -288,22 +364,22 @@ const AIWidget = ({ isOpen, onClose }) => {
                   )}
 
                   {/* Input */}
-                  <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+                  <div className="p-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-2">
                       <input
                         ref={inputRef}
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                         placeholder="Ask AI Tour..."
-                        className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none dark:text-white"
                         disabled={loading}
                       />
                       <button
                         onClick={() => handleSend()}
                         disabled={!input.trim() || loading}
-                        className="w-10 h-10 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center disabled:opacity-50 hover:scale-105 transition"
+                        className="w-10 h-10 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center disabled:opacity-50 hover:scale-105 transition shadow-lg shadow-[#0D9488]/30"
                       >
                         {loading ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -312,6 +388,9 @@ const AIWidget = ({ isOpen, onClose }) => {
                         )}
                       </button>
                     </div>
+                    <p className="text-[10px] text-gray-400 text-center mt-1.5">
+                      Powered by AI • Responses are AI-generated
+                    </p>
                   </div>
                 </>
               ) : (
@@ -327,9 +406,9 @@ const AIWidget = ({ isOpen, onClose }) => {
                       onClick={() => {
                         setActiveTab('chat');
                         setInput('I want to plan a trip to Rwanda. Can you help me?');
-                        setTimeout(() => handleSend(), 100);
+                        setTimeout(() => handleSend(), 200);
                       }}
-                      className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white text-sm font-medium hover:scale-105 transition"
+                      className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white text-sm font-medium hover:scale-105 transition shadow-lg shadow-[#0D9488]/30"
                     >
                       Start Planning
                     </button>
@@ -357,6 +436,12 @@ const AIWidget = ({ isOpen, onClose }) => {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Gorilla trekking: $1500, Safari: $800+</p>
                     </div>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-xl bg-[#0D9488]/5 border border-[#0D9488]/10">
+                    <p className="text-xs text-gray-400 text-center">
+                      💡 AI will create a personalized plan based on your preferences
+                    </p>
                   </div>
                 </div>
               )}

@@ -1,34 +1,19 @@
 // src/pages/ProviderStatus.jsx
 
-import React, {
-  useEffect,
-  useState
-} from "react";
-
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Loader2,
+  Clock,
   CheckCircle,
   XCircle,
-  Clock,
-  AlertCircle,
-  ArrowRight,
+  Loader2,
   Sparkles,
   Building2,
-  User,
-  Mail,
+  ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
-
-import {
-  getMyProviderRequest
-} from "../services/providerService";
-
-import {
-  useAuth
-} from "../contexts/AuthContext";
-
-import {
-  useNavigate
-} from "react-router-dom";
+import { getMyProviderRequest } from "../services/providerService";
+import { useAuth } from "../contexts/AuthContext";
 
 // ===============================
 // AI TOUR COLORS
@@ -40,10 +25,10 @@ import {
 // ===============================
 
 const ProviderStatus = () => {
+  const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user, refreshUser } = useAuth();
-  const navigate = useNavigate();
 
   useEffect(() => {
     loadRequest();
@@ -52,15 +37,17 @@ const ProviderStatus = () => {
   const loadRequest = async () => {
     try {
       const data = await getMyProviderRequest();
+      console.log("✅ Provider request:", data);
       setRequest(data.request);
       await refreshUser();
     } catch (error) {
-      console.log("Provider status error:", error);
+      console.log("❌ Provider status error:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto redirect if approved
   useEffect(() => {
     if (user?.role === "provider" && user?.verificationStatus === "approved") {
       navigate("/provider/dashboard");
@@ -86,15 +73,12 @@ const ProviderStatus = () => {
           <div className="w-20 h-20 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center">
             <Building2 className="w-10 h-10 text-[#0D9488]" />
           </div>
-
           <h1 className="text-3xl font-black mt-5 text-[#374151] dark:text-white">
             Become AI Tour Provider
           </h1>
-
           <p className="text-gray-500 dark:text-gray-400 mt-3">
             You have not submitted a provider application yet.
           </p>
-
           <button
             onClick={() => navigate("/provider/request")}
             className="mt-6 w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
@@ -106,7 +90,7 @@ const ProviderStatus = () => {
     );
   }
 
-  // Status configurations with AI Tour colors
+  // Status configurations
   const statusUI = {
     pending: {
       title: "Application Pending",
@@ -135,17 +119,6 @@ const ProviderStatus = () => {
         text: "Submit New Application",
         onClick: () => navigate("/provider/request"),
         gradient: "from-[#0D9488] to-[#F59E0B]",
-      },
-    },
-    needs_information: {
-      title: "More Information Needed",
-      message: request.adminNotes || "Admin requested additional information.",
-      icon: <AlertCircle className="w-16 h-16 text-[#F59E0B]" />,
-      badgeClass: "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20",
-      action: {
-        text: "Update Information",
-        onClick: () => navigate("/provider/request"),
-        gradient: "from-[#F59E0B] to-[#d97706]",
       },
     },
   };
@@ -192,13 +165,7 @@ const ProviderStatus = () => {
           <div className="flex items-center gap-3 text-sm">
             <User className="w-4 h-4 text-[#0D9488]" />
             <span className="text-gray-600 dark:text-gray-300">
-              <span className="font-medium">Owner:</span> {request.fullName}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Mail className="w-4 h-4 text-[#0D9488]" />
-            <span className="text-gray-600 dark:text-gray-300">
-              <span className="font-medium">Status:</span> {request.status}
+              <span className="font-medium">Owner:</span> {request.fullName || "N/A"}
             </span>
           </div>
         </div>
