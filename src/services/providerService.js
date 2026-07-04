@@ -1,384 +1,145 @@
-import axios from "axios";
+// src/services/providerService.js
 
+import axios from 'axios';
 
-const API =
-"http://localhost:5000/api/provider";
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+// ===============================
+// ✅ CREATE PROVIDER REQUEST
+// ===============================
+export const createProviderRequest = async (formData) => {
+  const token = localStorage.getItem("token");
 
-// =========================
-// AUTH HEADER
-// =========================
-
-const authHeader = () => {
-
-  const token =
-  localStorage.getItem("token");
-
-
-  return {
-
-    headers:{
-      Authorization:
-      `Bearer ${token}`
+  const response = await axios.post(
+    `${API_URL}/requests/provider`,
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // ✅ Content-Type is automatically set by axios for FormData
+      },
     }
+  );
 
-  };
-
+  return response.data;
 };
 
-
-
-// =========================
-// GET MY PROVIDER REQUEST
-// =========================
-
-export const getMyProviderRequest =
-async()=>{
-
-try{
-
-
-const response =
-await axios.get(
-
-`${API}/request/me`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get provider request",
-
-status:
-error.response?.status
-
+// ===============================
+// ✅ GET MY PROVIDER REQUEST
+// ===============================
+export const getMyProviderRequest = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/requests/provider/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get my provider request error:', error);
+    throw error;
+  }
 };
 
-
-}
-
+// ===============================
+// ✅ GET PROVIDER STATS
+// ===============================
+export const getProviderStats = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/requests/provider/stats`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get provider stats error:', error);
+    throw error;
+  }
 };
 
-
-
-
-// =========================
-// CREATE PROVIDER REQUEST
-// =========================
-
-export const createProviderRequest =
-async(data)=>{
-
-
-try{
-
-
-const response =
-await axios.post(
-
-`${API}/request`,
-
-data,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to submit provider request",
-
-status:
-error.response?.status
-
+// ===============================
+// ✅ GET RECENT REQUESTS
+// ===============================
+export const getRecentRequests = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/requests/provider/recent`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get recent requests error:', error);
+    throw error;
+  }
 };
 
-
-}
-
-
+// ===============================
+// ✅ GET PUBLIC PROVIDER PROFILE
+// ===============================
+export const getPublicProviderProfile = async (providerId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/providers/${providerId}/public`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get public provider profile error:', error);
+    throw error;
+  }
 };
 
-
-
-
-// =========================
-// GET PROVIDER PROFILE
-// =========================
-
-export const getProviderProfile =
-async()=>{
-
-
-try{
-
-
-const response =
-await axios.get(
-
-`${API}/profile`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get provider profile",
-
-status:
-error.response?.status
-
+// ===============================
+// ✅ GET PROVIDER TOURS (Public)
+// ===============================
+export const getPublicProviderTours = async (providerId, page = 1, limit = 10) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/providers/${providerId}/tours`,
+      {
+        params: { page, limit },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get public provider tours error:', error);
+    throw error;
+  }
 };
 
-
-}
-
-
-};
-
-
-
-
-// =========================
-// GET PROVIDER BOOKINGS
-// =========================
-
-export const getProviderBookings =
-async()=>{
-
-
-try{
-
-
-const response =
-await axios.get(
-
-`${API}/bookings`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get bookings",
-
-status:
-error.response?.status
-
-};
-
-
-}
-
-
-};
-
-
-
-
-// =========================
-// GET PROVIDER TRAVELERS
-// =========================
-
-export const getProviderTravelers =
-async()=>{
-
-
-try{
-
-
-const response =
-await axios.get(
-
-`${API}/travelers`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get travelers",
-
-status:
-error.response?.status
-
-};
-
-
-}
-
-
-};
-
-
-
-
-// =========================
-// GET PROVIDER ANALYTICS
-// =========================
-
-export const getProviderAnalytics =
-async()=>{
-
-
-try{
-
-
-const response =
-await axios.get(
-
-`${API}/analytics`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get analytics",
-
-status:
-error.response?.status
-
-};
-
-
-}
-
-
-};
-// =========================
-// GET PROVIDER STATS
-// =========================
-
-export const getProviderStats =
-async()=>{
-
-try{
-
-const response =
-await axios.get(
-
-`${API}/analytics`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get provider stats",
-
-status:
-error.response?.status
-
-};
-
-}
-
-};
-// =========================
-// GET RECENT REQUESTS
-// =========================
-
-export const getRecentRequests =
-async()=>{
-
-try{
-
-const response =
-await axios.get(
-
-`${API}/bookings`,
-
-authHeader()
-
-);
-
-
-return response.data;
-
-
-}catch(error){
-
-throw {
-
-message:
-error.response?.data?.message ||
-"Failed to get recent requests",
-
-status:
-error.response?.status
-
-};
-
-}
-
+// ===============================
+// ✅ GET PROVIDER REVIEWS (Public)
+// ===============================
+export const getPublicProviderReviews = async (providerId, page = 1, limit = 10) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/providers/${providerId}/reviews`,
+      {
+        params: { page, limit },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get public provider reviews error:', error);
+    throw error;
+  }
 };

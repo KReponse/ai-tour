@@ -1,20 +1,27 @@
-// src/pages/Reviews.jsx
+// src/pages/provider/Reviews.jsx
 
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { 
-  Star, 
-  ThumbsUp, 
-  Loader2, 
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Star,
   MessageCircle,
   Sparkles,
-  User,
+  Loader2,
+  Search,
+  Filter,
+  ThumbsUp,
   Calendar,
+  MapPin,
+  User,
+  Eye,
   TrendingUp,
   Award,
-  Heart,
-} from "lucide-react";
-import Card, { CardContent } from "../components/ui/Card";
+} from 'lucide-react';
+import Card, { CardContent } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import ReviewCard from '../../components/ReviewCard';
+import { getProviderReviews } from '../../services/reviewService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -25,84 +32,79 @@ import Card, { CardContent } from "../components/ui/Card";
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/reviews";
-
-const Reviews = () => {
+const ProviderReviews = () => {
+  const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
+  const [filteredReviews, setFilteredReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [ratingFilter, setRatingFilter] = useState('all');
   const [stats, setStats] = useState({
     average: 0,
     total: 0,
-    distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+    byTour: {},
   });
-
-  const fetchReviews = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const { data } = await axios.get(API, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const reviewsData = data.reviews || [];
-      setReviews(reviewsData);
-
-      // Calculate stats
-      if (reviewsData.length > 0) {
-        const total = reviewsData.length;
-        const sum = reviewsData.reduce((acc, r) => acc + r.rating, 0);
-        const avg = (sum / total).toFixed(1);
-
-        const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-        reviewsData.forEach(r => {
-          if (dist[r.rating]) dist[r.rating]++;
-        });
-
-        setStats({ average: avg, total, distribution: dist });
-      }
-    } catch (error) {
-      console.log("Reviews error:", error);
-      setReviews([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchReviews();
   }, []);
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }).map((_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 ${
-          i < rating
-            ? "text-[#F59E0B] fill-[#F59E0B]"
-            : "text-gray-300 dark:text-gray-600"
-        }`}
-      />
-    ));
+  useEffect(() => {
+    filterReviews();
+  }, [reviews, searchTerm, ratingFilter]);
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const data = await getProviderReviews();
+      const reviewsList = data.reviews || [];
+      setReviews(reviewsList);
+      setFilteredReviews(reviewsList);
+
+      // Calculate stats
+      if (reviewsList.length > 0) {
+        const total = reviewsList.length;
+        const sum = reviewsList.reduce((acc, r) => acc + r.rating, 0);
+        const avg = (sum / total).toFixed(1);
+
+        const byTour = {};
+        reviewsList.forEach(r => {
+          const tourId = r.tour?._id;
+          const tourTitle = r.tour?.title || 'Unknown Tour';
+          if (tourId) {
+            if (!byTour[tourId]) {
+              byTour[tourId] = { title: tourTitle, count: 0, sum: 0 };
+            }
+            byTour[tourId].count++;
+            byTour[tourId].sum += r.rating;
+          }
+        });
+
+        setStats({ average: avg, total, byTour });
+      }
+    } catch (error) {
+      console.error('Error fetching provider reviews:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleHelpful = async (reviewId) => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `${API}/${reviewId}/helpful`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
+  const filterReviews = () => {
+    let filtered = [...reviews];
+
+    if (searchTerm) {
+      filtered = filtered.filter(r =>
+        r.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.tour?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      // Update local state
-      setReviews(prev =>
-        prev.map(r =>
-          r._id === reviewId
-            ? { ...r, helpful: (r.helpful || 0) + 1 }
-            : r
-        )
-      );
-    } catch (error) {
-      console.error("Failed to mark helpful:", error);
     }
+
+    if (ratingFilter !== 'all') {
+      filtered = filtered.filter(r => r.rating === parseInt(ratingFilter));
+    }
+
+    setFilteredReviews(filtered);
   };
 
   if (loading) {
@@ -118,24 +120,30 @@ const Reviews = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in px-4 py-6 max-w-4xl mx-auto">
+    <div className="space-y-6 animate-fade-in px-4 py-6 max-w-5xl mx-auto">
 
-      {/* HEADER - Updated with AI Tour colors */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
-          <MessageCircle className="w-6 h-6 text-white" />
+      {/* HEADER */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
+            <Star className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-[#374151] dark:text-white">
+              Reviews on My Tours
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              See what travelers are saying about your tours
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-[#374151] dark:text-white">
-            Traveler Reviews
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Real experiences from travelers across Rwanda & beyond
-          </p>
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Sparkles className="w-4 h-4 text-[#0D9488]" />
+          <span>{reviews.length} reviews</span>
         </div>
       </div>
 
-      {/* STATS - Updated with AI Tour colors */}
+      {/* STATS */}
       {reviews.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
@@ -160,100 +168,102 @@ const Reviews = () => {
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-[#0D9488]" />
               <span className="text-2xl font-bold text-[#374151] dark:text-white">
-                {stats.distribution[5] || 0}
+                {Object.keys(stats.byTour).length}
               </span>
             </div>
-            <p className="text-xs text-gray-500">5-Star Reviews</p>
+            <p className="text-xs text-gray-500">Tours with Reviews</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-[#F59E0B]" />
               <span className="text-2xl font-bold text-[#374151] dark:text-white">
-                {Math.round((stats.distribution[4] + stats.distribution[5]) / stats.total * 100)}%
+                {reviews.filter(r => r.rating >= 4).length}
               </span>
             </div>
-            <p className="text-xs text-gray-500">Recommend Rate</p>
+            <p className="text-xs text-gray-500">4+ Star Reviews</p>
           </div>
         </div>
       )}
 
-      {/* EMPTY STATE - Updated with AI Tour colors */}
-      {reviews.length === 0 ? (
+      {/* TOUR BREAKDOWN */}
+      {Object.keys(stats.byTour).length > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-[#374151] dark:text-white mb-3">
+            Reviews by Tour
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {Object.entries(stats.byTour).map(([id, data]) => (
+              <Link
+                key={id}
+                to={`/tour/${id}`}
+                className="px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition flex items-center gap-2"
+              >
+                <span className="text-sm font-medium text-[#374151] dark:text-white">
+                  {data.title}
+                </span>
+                <span className="text-xs bg-[#0D9488]/10 text-[#0D9488] px-2 py-0.5 rounded-full">
+                  {data.count} {data.count > 1 ? 'reviews' : 'review'}
+                </span>
+                <span className="text-xs text-[#F59E0B]">
+                  ⭐ {(data.sum / data.count).toFixed(1)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SEARCH & FILTER */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search reviews by traveler or tour..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-4 h-12 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+          />
+        </div>
+        <select
+          value={ratingFilter}
+          onChange={(e) => setRatingFilter(e.target.value)}
+          className="h-12 px-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+        >
+          <option value="all">All Ratings</option>
+          <option value="5">⭐ 5 Stars</option>
+          <option value="4">⭐ 4 Stars</option>
+          <option value="3">⭐ 3 Stars</option>
+          <option value="2">⭐ 2 Stars</option>
+          <option value="1">⭐ 1 Star</option>
+        </select>
+      </div>
+
+      {/* EMPTY STATE */}
+      {filteredReviews.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
             <MessageCircle className="w-10 h-10 text-[#0D9488]" />
           </div>
-          <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-            No Reviews Yet
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            {searchTerm || ratingFilter !== 'all' ? 'No Reviews Found' : 'No Reviews Yet'}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Reviews will appear once travelers start sharing experiences.
+          <p className="text-gray-500 dark:text-gray-400">
+            {searchTerm || ratingFilter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Reviews will appear here once travelers review your tours'}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {reviews.map((review) => (
-            <Card
+          {filteredReviews.map((review) => (
+            <ReviewCard
               key={review._id}
-              className="hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden"
-            >
-              <CardContent className="p-6">
-                {/* TOP - Updated with AI Tour colors */}
-                <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white font-bold text-sm">
-                        {review.user?.name?.charAt(0) || 'A'}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-[#374151] dark:text-white">
-                          {review.user?.name || "Anonymous"}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {review.tour?.title || review.destination || 'Tour'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    {renderStars(review.rating)}
-                    <span className="ml-2 font-semibold text-[#374151] dark:text-white">
-                      {review.rating}
-                    </span>
-                  </div>
-                </div>
-
-                {/* COMMENT */}
-                <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
-                  {review.comment}
-                </p>
-
-                {/* BOTTOM - Updated with AI Tour colors */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <button
-                    onClick={() => handleHelpful(review._id)}
-                    className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-[#0D9488] transition-all duration-300 group"
-                  >
-                    <ThumbsUp className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    <span className="text-sm font-medium">
-                      Helpful ({review.helpful || 0})
-                    </span>
-                  </button>
-
-                  {review.rating >= 4 && (
-                    <span className="flex items-center gap-1 text-xs text-[#0D9488] bg-[#0D9488]/10 px-3 py-1 rounded-full">
-                      <Heart className="w-3 h-3" />
-                      Recommended
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+              review={review}
+              showActions={false}
+              showTourInfo={true}
+              onHelpfulToggle={() => fetchReviews()}
+            />
           ))}
         </div>
       )}
@@ -261,4 +271,4 @@ const Reviews = () => {
   );
 };
 
-export default Reviews;
+export default ProviderReviews;

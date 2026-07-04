@@ -12,6 +12,7 @@ import AIWidget from './components/ai/AIWidget';
 
 // User Pages
 import Home from './pages/Home';
+import Dashboard from "./pages/Dashboard";
 import Explore from './pages/Explore';
 import AIPlanner from './pages/AIPlanner';
 import Booking from './pages/Booking';
@@ -30,6 +31,8 @@ import PaymentCancel from './pages/PaymentCancel';
 import MyBookings from './pages/MyBookings';
 import AIChat from './pages/AIChat';
 import CustomRequest from './pages/CustomRequest';
+import MyReviews from './pages/MyReviews';
+import BookingDetails from './pages/BookingDetails';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -55,6 +58,8 @@ import AdminRequests from './pages/admin/Requests';
 import AdminNotifications from './pages/admin/Notifications';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProviderRequests from './pages/admin/ProviderRequests';
+import AdminReviews from './pages/admin/Reviews';
+import ProviderRequestDetails from "./pages/admin/ProviderRequestDetails";
 
 // Provider Pages
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -71,6 +76,7 @@ import EditTour from './pages/provider/EditTour';
 import ProviderStatus from './pages/provider/ProviderStatus';
 import ProviderPending from './pages/ProviderPending';
 import ProviderRequest from './pages/ProviderRequest';
+import ProviderReviews from './pages/provider/Reviews';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -93,20 +99,20 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/destination/:id" element={<DestinationDetails />} />
-          <Route path="/reviews" element={<Reviews />} />
+          
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="/privacy" element={<PrivacyPolicy />} />
-<Route path="/terms" element={<Terms />} />
-<Route path="/about" element={<About />} />
-<Route path="/contact" element={<Contact />} />
-<Route path="/help" element={<HelpCenter />} />
-<Route path="/careers" element={<Careers />} />
-<Route path="/blog" element={<Blog />} />
-<Route path="/faqs" element={<FAQs />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/help" element={<HelpCenter />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/faqs" element={<FAQs />} />
 
           {/* PROTECTED ROUTES */}
           <Route
@@ -122,7 +128,7 @@ function App() {
             path="/booking/:id"
             element={
               <ProtectedRoute>
-                <Booking />
+                <BookingDetails />
               </ProtectedRoute>
             }
           />
@@ -229,10 +235,28 @@ function App() {
           />
 
           <Route
-            path="/dashboard"
+  path="/dashboard"
+  element={
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  }
+/>
+
+          <Route
+            path="/my-reviews"
             element={
               <ProtectedRoute>
-                <AdminDashboard />
+                <MyReviews />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reviews"
+            element={
+              <ProtectedRoute>
+                <Reviews />
               </ProtectedRoute>
             }
           />
@@ -275,32 +299,39 @@ function App() {
           <Route path="travelers" element={<Travelers />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="earnings" element={<Earnings />} />
-          <Route path="reviews" element={<Reviews />} />
           <Route path="profile" element={<ProviderProfile />} />
           <Route path="settings" element={<ProviderSettings />} />
           <Route path="add-tour" element={<AddTour />} />
           <Route path="tours" element={<MyTours />} />
           <Route path="tours/edit/:id" element={<EditTour />} />
           <Route path="pending" element={<ProviderPending />} />
+          {/* ✅ FIX: ProviderReviews for provider review management */}
+          <Route path="reviews" element={<ProviderReviews />} />
         </Route>
 
         {/* ================= ADMIN DASHBOARD ================= */}
         <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<Users />} />
+  path="/admin"
+  element={
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <AdminLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<AdminDashboard />} />
+  <Route path="dashboard" element={<AdminDashboard />} />
+  <Route path="users" element={<Users />} />
           <Route path="providers" element={<Providers />} />
           <Route path="tours" element={<Tours />} />
           <Route path="requests" element={<AdminRequests />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="provider-requests" element={<AdminProviderRequests />} />
+          {/* ✅ FIX: AdminReviews for admin review management */}
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route
+    path="/admin/provider-requests/:id"
+    element={<ProviderRequestDetails />}
+/>
         </Route>
       </Routes>
 

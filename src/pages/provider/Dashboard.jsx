@@ -17,9 +17,13 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Star,
+  MessageCircle,
 } from 'lucide-react';
-import { getProviderStats, getRecentRequests } from '../../services/providerService';
 import { useAuth } from '../../contexts/AuthContext';
+import { getProviderBookings, getProviderAnalytics, getProviderEarnings } from '../../services/bookingService';
+import { getProviderReviews, getProviderReviewStats } from '../../services/reviewService';
+import ReviewCard from '../../components/ReviewCard';
 
 // ===============================
 // AI TOUR COLORS
@@ -35,6 +39,8 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [providerStats, setProviderStats] = useState([]);
   const [recentRequests, setRecentRequests] = useState([]);
+  const [reviewStats, setReviewStats] = useState(null);
+  const [recentReviews, setRecentReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -44,34 +50,64 @@ const Dashboard = () => {
         setLoading(true);
         setError(null);
 
+        const token = localStorage.getItem('token');
+
         // ✅ Fetch analytics
-        const analyticsResponse = await getProviderStats();
-        console.log('✅ Analytics response:', analyticsResponse);
+        const analytics = await getProviderAnalytics(token);
+        console.log('✅ Analytics:', analytics);
 
-        const analytics = analyticsResponse?.analytics || analyticsResponse || {};
+        // ✅ Fetch earnings
+        const earnings = await getProviderEarnings(token);
+        console.log('✅ Earnings:', earnings);
 
-        // ✅ Fetch recent bookings
-        const bookingsResponse = await getRecentRequests();
-        console.log('✅ Bookings response:', bookingsResponse);
+        // ✅ Fetch bookings
+        const bookingsData = await getProviderBookings(token);
+        const bookings = bookingsData.bookings || [];
+        console.log('✅ Bookings:', bookings.length);
 
-        // Handle different response formats
-        let bookings = [];
-        if (bookingsResponse?.bookings) {
-          bookings = bookingsResponse.bookings;
-        } else if (Array.isArray(bookingsResponse)) {
-          bookings = bookingsResponse;
-        } else if (bookingsResponse?.data?.bookings) {
-          bookings = bookingsResponse.data.bookings;
+        // ✅ Fetch review stats
+        try {
+          const reviewStatsData = await getProviderReviewStats();
+          setReviewStats(reviewStatsData.stats || null);
+        } catch (error) {
+          console.error('Error fetching review stats:', error);
         }
 
-        setProviderStats([
-          { title: "Total Bookings", value: analytics.totalBookings || 0, growth: "+12%" },
-          { title: "Travelers", value: analytics.totalTravelers || 0, growth: "+8%" },
-          { title: "Tours", value: analytics.totalTours || 0, growth: "+5%" },
-          { title: "Revenue", value: `$${analytics.totalRevenue || 0}`, growth: "+15%" },
-        ]);
+        // ✅ Fetch recent reviews
+        try {
+          const reviewsData = await getProviderReviews();
+          setRecentReviews(reviewsData.reviews || []);
+        } catch (error) {
+          console.error('Error fetching reviews:', error);
+        }
 
-        setRecentRequests(bookings);
+        // ✅ Build stats from real data
+        const stats = [
+          { 
+            title: "Total Bookings", 
+            value: analytics?.totalBookings || 0, 
+            growth: `${analytics?.growth || 0}%` 
+          },
+          { 
+            title: "Travelers", 
+            value: analytics?.totalTravelers || 0, 
+            growth: `${analytics?.travelerGrowth || 0}%` 
+          },
+          { 
+            title: "Tours", 
+            value: analytics?.totalTours || 0, 
+            growth: `${analytics?.tourGrowth || 0}%` 
+          },
+          { 
+            title: "Revenue", 
+            value: `$${earnings?.totalEarnings || 0}`, 
+            growth: `${earnings?.growth || 0}%` 
+          },
+        ];
+
+        setProviderStats(stats);
+        setRecentRequests(bookings.slice(0, 5));
+
       } catch (error) {
         console.error("❌ Dashboard Error:", error);
         setError(error.response?.data?.message || "Failed to load dashboard data");
@@ -108,7 +144,6 @@ const Dashboard = () => {
     return styles[status] || styles.pending;
   };
 
-  // Get travel date from booking
   const getTravelDate = (booking) => {
     if (booking.startDate) return booking.startDate;
     if (booking.travelDate) return booking.travelDate;
@@ -212,6 +247,46 @@ const Dashboard = () => {
         })}
       </div>
 
+      {/* REVIEW STATS - NEW */}
+      {reviewStats && (
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center">
+              <Star className="w-5 h-5 text-[#F59E0B]" />
+            </div>
+            <h2 className="text-2xl font-black text-[#374151] dark:text-white">
+              Review Analytics
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Reviews</p>
+              <p className="text-2xl font-bold text-[#374151] dark:text-white">
+                {reviewStats.totalReviews || 0}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Average Rating</p>
+              <p className="text-2xl font-bold text-[#F59E0B]">
+                {reviewStats.averageRating ? reviewStats.averageRating.toFixed(1) : '0.0'} ★
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Replied</p>
+              <p className="text-2xl font-bold text-[#0D9488]">
+                {reviewStats.replied || 0}
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Reply Rate</p>
+              <p className="text-2xl font-bold text-[#374151] dark:text-white">
+                {reviewStats.replyRate || '0%'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RECENT BOOKINGS */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -292,8 +367,60 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* RECENT REVIEWS - NEW */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-[#F59E0B]" />
+            </div>
+            <h2 className="text-2xl font-black text-[#374151] dark:text-white">
+              Recent Reviews
+            </h2>
+          </div>
+          <button
+            onClick={() => navigate('/provider/reviews')}
+            className="text-sm text-[#0D9488] hover:text-[#0D9488]/80 font-medium flex items-center gap-1 transition"
+          >
+            View All
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {recentReviews.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+              <Star className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="font-medium">No reviews yet</p>
+            <p className="text-sm">Reviews will appear here once travelers leave feedback</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentReviews.slice(0, 3).map((review) => (
+              <ReviewCard
+                key={review._id}
+                review={review}
+                showTourInfo={true}
+                compact
+              />
+            ))}
+            {recentReviews.length > 3 && (
+              <div className="text-center pt-2">
+                <button
+                  onClick={() => navigate('/provider/reviews')}
+                  className="text-sm text-[#0D9488] hover:underline font-medium"
+                >
+                  View all {recentReviews.length} reviews →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button
           onClick={() => navigate('/provider/tours')}
           className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg group"
@@ -321,6 +448,13 @@ const Dashboard = () => {
         >
           <Users className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
           <p className="text-sm font-semibold text-[#374151] dark:text-white">Profile</p>
+        </button>
+        <button
+          onClick={() => navigate('/provider/reviews')}
+          className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg group"
+        >
+          <MessageCircle className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
+          <p className="text-sm font-semibold text-[#374151] dark:text-white">Reviews</p>
         </button>
       </div>
     </div>

@@ -1,9 +1,8 @@
-// src/pages/PaymentSuccess.jsx
-
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle, Sparkles, Calendar, ArrowRight, Home, Loader2 } from 'lucide-react';
 import { verifyPayment } from '../services/paymentService';
+import axios from 'axios';
 
 // ===============================
 // AI TOUR COLORS
@@ -14,10 +13,13 @@ import { verifyPayment } from '../services/paymentService';
 // White : #FFFFFF
 // ===============================
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const PaymentSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(null);
   const [bookingRef, setBookingRef] = useState('');
   const [error, setError] = useState('');
 
@@ -29,7 +31,6 @@ const PaymentSuccess = () => {
     if (sessionId) {
       verifyPaymentStatus();
     } else {
-      // Fallback - generate random reference
       setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
       setLoading(false);
     }
@@ -39,12 +40,17 @@ const PaymentSuccess = () => {
   const verifyPaymentStatus = async () => {
     try {
       setLoading(true);
-      const response = await verifyPayment(sessionId);
       
+      // Step 1: Verify payment
+      const response = await verifyPayment(sessionId);
       console.log('✅ Payment verified:', response);
       
       if (response.success && response.booking) {
+        setBooking(response.booking);
         setBookingRef(response.booking.bookingCode || response.booking._id?.slice(0, 8));
+        
+        // Step 2: Fetch full booking details
+        await fetchBookingDetails(response.booking._id);
       } else {
         setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
       }
@@ -54,6 +60,25 @@ const PaymentSuccess = () => {
       setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ Fetch full booking details
+  const fetchBookingDetails = async (bookingId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/bookings/my-bookings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const bookings = response.data.bookings || [];
+      const foundBooking = bookings.find(b => b._id === bookingId);
+      
+      if (foundBooking) {
+        setBooking(foundBooking);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching booking details:', error);
     }
   };
 
@@ -99,6 +124,36 @@ const PaymentSuccess = () => {
             {bookingRef}
           </p>
         </div>
+
+        {/* Booking Details */}
+        {booking && (
+          <div className="mt-4 text-left bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-gray-500">Tour</span>
+              <span className="font-medium text-[#374151] dark:text-white">
+                {booking.tour?.title || 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-gray-500">Travelers</span>
+              <span className="font-medium text-[#374151] dark:text-white">
+                {booking.numberOfPeople || 1}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-gray-500">Total</span>
+              <span className="font-medium text-[#0D9488]">
+                ${booking.totalPrice || 0}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-gray-500">Status</span>
+              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-[#0D9488]/10 text-[#0D9488]">
+                Confirmed
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Error Warning */}
         {error && (

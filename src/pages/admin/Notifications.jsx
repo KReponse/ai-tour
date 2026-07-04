@@ -23,7 +23,7 @@ import {
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/admin";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const AdminNotifications = () => {
   const [notifications, setNotifications] = useState([]);

@@ -69,9 +69,9 @@ export default function AdminNavbar({
   }, []);
 
   const handleLogout = () => {
-    logout();
-    navigate("/admin/login");
-  };
+  logout();
+  navigate("/login", { replace: true });
+};
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 transition-all duration-300 shadow-sm">

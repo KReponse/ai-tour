@@ -1,3 +1,5 @@
+// src/contexts/AuthContext.jsx
+
 import {
   createContext,
   useContext,
@@ -7,473 +9,236 @@ import {
 
 import axios from "axios";
 
+// ===============================
+// AI TOUR COLORS
+// ===============================
+// Teal  : #0D9488
+// Gold  : #F59E0B
+// Slate : #374151
+// White : #FFFFFF
+// ===============================
 
-const AuthContext =
-  createContext(null);
+const AuthContext = createContext(null);
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+// ===============================
+// ROLE MAPPING
+// ===============================
+// Backend: user, provider, admin
+// Frontend: traveler, provider, admin
+// ===============================
 
-export const AuthProvider =
-({ children }) => {
+const ROLE_MAP = {
+  'user': 'traveler',
+  'provider': 'provider',
+  'admin': 'admin',
+};
 
+const mapRole = (role) => {
+  return ROLE_MAP[role] || role;
+};
 
-  const [user,setUser] =
-    useState(null);
-
-
-  const [token,setToken] =
-    useState(null);
-
-
-  const [loading,setLoading] =
-    useState(true);
-
-
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   /*
   =========================
   CLEAR SESSION
   =========================
   */
-
   const clearSession = () => {
-
-    localStorage.removeItem(
-      "user"
-    );
-
-    localStorage.removeItem(
-      "token"
-    );
-
-
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
     setUser(null);
-
     setToken(null);
-
   };
-
-
-
-
 
   /*
   =========================
   REFRESH USER ⭐
   =========================
-
-  Gets latest user data
-  after admin approval
-  =========================
   */
+  const refreshUser = async () => {
+    try {
+      const savedToken = localStorage.getItem("token");
+      if (!savedToken) return;
 
-
-  const refreshUser =
-  async()=>{
-
-
-    try{
-
-
-      const savedToken =
-      localStorage.getItem(
-        "token"
-      );
-
-
-      if(!savedToken)
-      return;
-
-
-
-      const response =
-      await axios.get(
-
-        "http://localhost:5000/api/auth/me",
-
+      const response = await axios.get(
+        `${API_URL}/auth/me`,
         {
-
-          headers:{
-
-            Authorization:
-            `Bearer ${savedToken}`
-
-          }
-
+          headers: {
+            Authorization: `Bearer ${savedToken}`,
+          },
         }
-
       );
 
-
-
-      if(
-        response.data.user
-      ){
-
-        setUser(
-          response.data.user
-        );
-
-
-        localStorage.setItem(
-
-          "user",
-
-          JSON.stringify(
-            response.data.user
-          )
-
-        );
-
+      if (response.data.user) {
+        const userData = response.data.user;
+        
+        // ✅ Keep role as is from backend (user, provider, admin)
+        // Frontend will map when needed
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        
+        console.log("✅ User refreshed:", userData);
       }
-
-
-
-    }catch(error){
-
-
-      console.log(
-        "Refresh user failed:",
-        error
-      );
-
-
+    } catch (error) {
+      console.log("❌ Refresh user failed:", error);
     }
-
-
   };
-
-
-
-
-
-
 
   /*
   =========================
   RESTORE SESSION
   =========================
   */
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const savedUser = localStorage.getItem("user");
+        const savedToken = localStorage.getItem("token");
 
-
-  useEffect(()=>{
-
-
-    const restoreSession =
-    async()=>{
-
-
-      try{
-
-
-        const savedUser =
-        localStorage.getItem(
-          "user"
-        );
-
-
-        const savedToken =
-        localStorage.getItem(
-          "token"
-        );
-
-
-
-        if(
-          savedUser &&
-          savedToken
-        ){
-
-
-          setUser(
-            JSON.parse(
-              savedUser
-            )
-          );
-
-
-          setToken(
-            savedToken
-          );
-
-
-
-          // Get latest user
-          // from backend
-
+        if (savedUser && savedToken) {
+          setUser(JSON.parse(savedUser));
+          setToken(savedToken);
           await refreshUser();
-
-
         }
-
-
-
-      }catch(error){
-
-
-        console.log(
-          "Auth restore error:",
-          error
-        );
-
-
+      } catch (error) {
+        console.log("❌ Auth restore error:", error);
         clearSession();
-
-
-      }finally{
-
-
+      } finally {
         setLoading(false);
-
-
       }
-
-
     };
 
-
-
     restoreSession();
-
-
   }, []);
-
-
-
-
-
-
 
   /*
   =========================
   LOGIN
   =========================
   */
-
-
-  const login =
-  (
-    userData,
-    userToken
-  )=>{
-
-
-    if(
-      !userData ||
-      !userToken
-    ){
-
+  const login = (userData, userToken) => {
+    if (!userData || !userToken) {
       return false;
-
     }
 
+    setUser(userData);
+    setToken(userToken);
 
-
-    setUser(
-      userData
-    );
-
-
-    setToken(
-      userToken
-    );
-
-
-
-    localStorage.setItem(
-
-      "user",
-
-      JSON.stringify(
-        userData
-      )
-
-    );
-
-
-    localStorage.setItem(
-
-      "token",
-
-      userToken
-
-    );
-
-
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", userToken);
 
     return true;
-
-
   };
-
-
-
-
-
-
 
   /*
   =========================
   LOGOUT
   =========================
   */
-
-
-  const logout = ()=>{
-
+  const logout = () => {
     clearSession();
-
   };
-
-
-
-
-
-
 
   /*
   =========================
-  ROLE HELPERS
+  ✅ UPDATE USER (For EditProfile)
+  =========================
+  */
+  const updateUser = (userData) => {
+    if (!userData) return;
+    
+    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(userData));
+    console.log("✅ User updated:", userData);
+  };
+
+  /*
+  =========================
+  ROLE HELPERS (Updated)
   =========================
   */
 
-
-  const isAdmin =
-    user?.role === "admin";
-
-
-
-  const isProvider =
-    user?.role === "provider";
-
-
-
-  const isTraveler =
-    user?.role === "traveler";
-
-
-
-
-  const isApprovedProvider =
-
-    user?.role === "provider" &&
-
-    user?.verificationStatus ===
-    "approved";
-
-
-
-
-
-  const isPendingProvider =
-
-    user?.verificationStatus ===
-    "pending";
-
-
-
-
-
-  const isRejectedProvider =
-
-    user?.verificationStatus ===
-    "rejected";
-
-
-
-
-
-
-  const value = {
-
-
-    user,
-
-    token,
-
-    loading,
-
-
-    login,
-
-    logout,
-
-
-    refreshUser,
-
-
-    isAuthenticated:
-    Boolean(token),
-
-
-
-    isAdmin,
-
-    isProvider,
-
-    isTraveler,
-
-
-    isApprovedProvider,
-
-    isPendingProvider,
-
-    isRejectedProvider,
-
-
+  // Get user role in frontend format
+  const getUserRole = () => {
+    if (!user) return null;
+    return mapRole(user.role);
   };
 
+  // Check if user has a specific role (works with both formats)
+  const hasRole = (role) => {
+    if (!user) return false;
+    const userRole = user.role;
+    
+    // Check both formats
+    if (role === 'traveler' && userRole === 'user') return true;
+    return userRole === role;
+  };
 
+  // ✅ Updated: Check if user is admin
+  const isAdmin = hasRole('admin');
 
+  // ✅ Updated: Check if user is provider
+  const isProvider = hasRole('provider');
 
+  // ✅ Updated: Check if user is traveler (includes 'user' from backend)
+  const isTraveler = hasRole('traveler') || user?.role === 'user';
 
+  // ✅ Updated: Check if provider is approved
+  const isApprovedProvider = isProvider && user?.verificationStatus === "approved";
+
+  // Check if provider is pending
+  const isPendingProvider = isProvider && user?.verificationStatus === "pending";
+
+  // Check if provider is rejected
+  const isRejectedProvider = isProvider && user?.verificationStatus === "rejected";
+
+  // Get display role
+  const displayRole = getUserRole();
+
+  const value = {
+    user,
+    token,
+    loading,
+
+    login,
+    logout,
+    refreshUser,
+    updateUser, // ✅ Added for EditProfile
+
+    isAuthenticated: Boolean(token),
+
+    // Role checks
+    isAdmin,
+    isProvider,
+    isTraveler,
+
+    isApprovedProvider,
+    isPendingProvider,
+    isRejectedProvider,
+
+    // Helpers
+    hasRole,
+    getUserRole,
+    displayRole,
+  };
 
   return (
-
-    <AuthContext.Provider
-      value={value}
-    >
-
+    <AuthContext.Provider value={value}>
       {children}
-
     </AuthContext.Provider>
-
   );
-
-
 };
 
-
-
-
-
-
-
-export const useAuth = ()=>{
-
-
-  const context =
-  useContext(
-    AuthContext
-  );
-
-
-
-  if(!context){
-
-
-    throw new Error(
-
-      "useAuth must be used inside AuthProvider"
-
-    );
-
-
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used inside AuthProvider");
   }
-
-
-
   return context;
-
-
 };

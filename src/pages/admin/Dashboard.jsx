@@ -34,7 +34,7 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
-  Cell, // ✅ ADD THIS
+  Cell,
 } from "recharts";
 
 // ===============================
@@ -46,7 +46,8 @@ import {
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/admin";
+// ✅ FIX: Use /api as base, not /api/admin
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -89,7 +90,8 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
       
-      const { data } = await axios.get(`${API}/dashboard`, {
+      // ✅ FIX: Use /admin/dashboard endpoint
+      const { data } = await axios.get(`${API}/admin/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       

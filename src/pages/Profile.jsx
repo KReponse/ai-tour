@@ -58,31 +58,70 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const token = localStorage.getItem("token");
-
   const fetchProfile = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      const [u, b, r] = await Promise.all([
-        axios.get(`${API}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API}/bookings/my`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API}/reviews/my`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
+      const token = localStorage.getItem("token");
+      console.log("🔍 Token exists:", !!token);
 
-      setUser(u.data.user);
-      setBookings(b.data.bookings || []);
-      setReviews(r.data.reviews || []);
+      if (!token) {
+        setError("Please login to view your profile");
+        setLoading(false);
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+
+      console.log("🔍 Fetching profile data...");
+      
+      // ✅ Use individual try-catch for each request to prevent one failure from breaking everything
+      let userData = null;
+      let bookingsData = [];
+      let reviewsData = [];
+
+      // ✅ Fetch user data (required)
+      try {
+        const u = await axios.get(`${API}/users/me`, { headers });
+        userData = u.data.user;
+        console.log("✅ User data fetched");
+      } catch (err) {
+        console.error("❌ User fetch error:", err.response?.status, err.message);
+        setError(err.response?.data?.message || "Failed to load user data");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Fetch bookings (optional - won't break the page if it fails)
+      try {
+        const b = await axios.get(`${API}/bookings/my-bookings`, { headers });
+        bookingsData = b.data.bookings || [];
+        console.log("✅ Bookings fetched:", bookingsData.length);
+      } catch (err) {
+        console.error("❌ Bookings fetch error:", err.response?.status, err.message);
+        bookingsData = [];
+      }
+
+      // ✅ Fetch reviews (optional - won't break the page if it fails)
+      try {
+        const r = await axios.get(`${API}/reviews/my-reviews`, { headers });
+        reviewsData = r.data.reviews || [];
+        console.log("✅ Reviews fetched:", reviewsData.length);
+      } catch (err) {
+        console.error("❌ Reviews fetch error:", err.response?.status, err.message);
+        reviewsData = [];
+      }
+
+      setUser(userData);
+      setBookings(bookingsData);
+      setReviews(reviewsData);
       setError(null);
     } catch (err) {
-      console.log(err);
-      setError("Failed to load profile data");
+      console.error("❌ Profile fetch error:", err);
+      console.error("Response status:", err.response?.status);
+      console.error("Response data:", err.response?.data);
+      setError(err.response?.data?.message || "Failed to load profile data");
     } finally {
       setLoading(false);
     }

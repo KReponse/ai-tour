@@ -5,13 +5,31 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // ===============================
-// ✅ GET ALL TOURS (Public)
+// ✅ GET ALL TOURS (Public - with optional auth)
 // ===============================
 export const getTours = async () => {
   try {
-    const response = await axios.get(`${API_URL}/tours`);
+    const token = localStorage.getItem('token');
+    const config = {};
+    
+    // If token exists, include it; otherwise make public request
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    
+    const response = await axios.get(`${API_URL}/tours`, config);
     return response.data;
   } catch (error) {
+    // If 401, try again without auth (public access)
+    if (error.response?.status === 401) {
+      try {
+        const response = await axios.get(`${API_URL}/tours`);
+        return response.data;
+      } catch (retryError) {
+        console.error('❌ Get tours error (public fallback):', retryError);
+        throw retryError;
+      }
+    }
     console.error('❌ Get tours error:', error);
     throw error;
   }
@@ -31,13 +49,29 @@ export const getTourById = async (id) => {
 };
 
 // ===============================
-// ✅ GET FEATURED TOURS (Public)
+// ✅ GET FEATURED TOURS (Public - with optional auth)
 // ===============================
 export const getFeaturedTours = async () => {
   try {
-    const response = await axios.get(`${API_URL}/tours/featured`);
+    const token = localStorage.getItem('token');
+    const config = {};
+    
+    if (token) {
+      config.headers = { Authorization: `Bearer ${token}` };
+    }
+    
+    const response = await axios.get(`${API_URL}/tours/featured`, config);
     return response.data;
   } catch (error) {
+    if (error.response?.status === 401) {
+      try {
+        const response = await axios.get(`${API_URL}/tours/featured`);
+        return response.data;
+      } catch (retryError) {
+        console.error('❌ Get featured tours error (public fallback):', retryError);
+        throw retryError;
+      }
+    }
     console.error('❌ Get featured tours error:', error);
     throw error;
   }
@@ -181,21 +215,6 @@ export const checkLikeStatus = async (id) => {
     return response.data;
   } catch (error) {
     console.error('❌ Check like status error:', error);
-    throw error;
-  }
-};
-
-// ===============================
-// ✅ GET PROVIDER TOURS (Provider - Requires Auth)
-// ===============================
-export const getProviderTours = async (token) => {
-  try {
-    const response = await axios.get(`${API_URL}/tours/provider`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data;
-  } catch (error) {
-    console.error('❌ Get provider tours error:', error);
     throw error;
   }
 };

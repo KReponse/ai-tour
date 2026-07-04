@@ -13,10 +13,14 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Star,
+  MessageCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMyBookings } from "../services/bookingService";
 import { getMyProviderRequest } from "../services/providerService";
+import { getMyReviews } from "../services/reviewService";
+import ReviewCard from "../components/ReviewCard";
 
 // ===============================
 // AI TOUR COLORS
@@ -30,9 +34,16 @@ import { getMyProviderRequest } from "../services/providerService";
 const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [providerRequest, setProviderRequest] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const user = JSON.parse(localStorage.getItem("user"));
+
+  // ✅ Role checks
+  const isAdmin = user?.role === "admin" || user?.role === "ADMIN";
+  const isProvider = user?.role === "provider" || user?.role === "PROVIDER";
+  const isTraveler = user?.role === "traveler" || user?.role === "TRAVELER" || !user?.role;
 
   useEffect(() => {
     fetchData();
@@ -40,18 +51,44 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const bookingsData = await getMyBookings(token);
-      setBookings(bookingsData.bookings || []);
+      setLoading(true);
+      setError(null);
 
+      const token = localStorage.getItem("token");
+
+      // ✅ ONLY user-specific endpoints - NO admin calls
+      // Admin dashboard has its own data fetching
+
+      // Fetch bookings (for travelers and providers)
       try {
-        const providerData = await getMyProviderRequest();
-        setProviderRequest(providerData.request);
-      } catch (error) {
-        console.log(error);
+        const bookingsData = await getMyBookings(token);
+        setBookings(bookingsData.bookings || []);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        // Don't fail the whole dashboard
       }
-    } catch (error) {
-      console.error(error);
+
+      // Fetch user's reviews (for travelers)
+      try {
+        const reviewsData = await getMyReviews();
+        setReviews(reviewsData.reviews || []);
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+        // Don't fail the whole dashboard
+      }
+
+      // Fetch provider request (only for travelers)
+      if (isTraveler) {
+        try {
+          const providerData = await getMyProviderRequest();
+          setProviderRequest(providerData.request);
+        } catch (err) {
+          console.log("Error fetching provider request:", err);
+        }
+      }
+    } catch (err) {
+      console.error("Dashboard error:", err);
+      setError("Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -70,6 +107,34 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-6">
+        <div className="text-center">
+          <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
+            <XCircle className="w-10 h-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            Failed to Load Dashboard
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
+          <button
+            onClick={fetchData}
+            className="px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/80 transition"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate review stats
+  const totalReviews = reviews.length;
+  const averageRating = totalReviews > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+    : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-6">
@@ -93,8 +158,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* PROVIDER FLOW - Updated colors */}
-        {user?.role === "traveler" && !providerRequest && (
+        {/* ✅ ONLY SHOW PROVIDER FLOW FOR TRAVELERS */}
+        {isTraveler && !providerRequest && (
           <div className="mb-10 rounded-3xl p-8 text-white bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-xl shadow-[#0D9488]/30 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative z-10">
@@ -117,7 +182,8 @@ const Dashboard = () => {
           </div>
         )}
 
-        {providerRequest?.status === "pending" && (
+        {/* ✅ ONLY SHOW PROVIDER STATUS FOR TRAVELERS */}
+        {isTraveler && providerRequest?.status === "pending" && (
           <div className="mb-10 p-8 rounded-3xl bg-[#F59E0B]/10 border-2 border-[#F59E0B]/30 dark:bg-[#F59E0B]/20">
             <div className="flex items-center gap-3 mb-3">
               <Clock className="w-8 h-8 text-[#F59E0B]" />
@@ -131,8 +197,8 @@ const Dashboard = () => {
             </p>
           </div>
         )}
-
-        {providerRequest?.status === "approved" && (
+        
+        {isTraveler && providerRequest?.status === "approved" && (
           <div className="mb-10 p-8 rounded-3xl bg-[#0D9488]/10 border-2 border-[#0D9488]/30 dark:bg-[#0D9488]/20">
             <div className="flex items-center gap-3 mb-3">
               <CheckCircle className="w-8 h-8 text-[#0D9488]" />
@@ -152,7 +218,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {providerRequest?.status === "rejected" && (
+        {isTraveler && providerRequest?.status === "rejected" && (
           <div className="mb-10 p-8 rounded-3xl bg-red-100 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-800">
             <div className="flex items-center gap-3 mb-3">
               <XCircle className="w-8 h-8 text-red-600" />
@@ -172,8 +238,50 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* STATS - Updated colors */}
-        <div className="grid md:grid-cols-4 gap-6 mb-10">
+        {/* ✅ PROVIDER DASHBOARD OVERVIEW */}
+        {isProvider && (
+          <div className="mb-10 p-8 rounded-3xl bg-[#0D9488]/10 border-2 border-[#0D9488]/30 dark:bg-[#0D9488]/20">
+            <div className="flex items-center gap-3 mb-3">
+              <Briefcase className="w-8 h-8 text-[#0D9488]" />
+              <h2 className="text-2xl font-bold text-[#0D9488]">
+                Provider Dashboard
+              </h2>
+            </div>
+            <p className="text-gray-600 dark:text-gray-300">
+              Manage your tours, bookings, and earnings.
+            </p>
+            <Link
+              to="/provider/dashboard"
+              className="inline-block mt-4 px-8 py-3.5 rounded-xl bg-[#0D9488] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
+            >
+              Go to Provider Dashboard →
+            </Link>
+          </div>
+        )}
+
+        {/* ✅ ADMIN DASHBOARD OVERVIEW */}
+        {isAdmin && (
+          <div className="mb-10 p-8 rounded-3xl bg-purple-100 dark:bg-purple-900/20 border-2 border-purple-300 dark:border-purple-800">
+            <div className="flex items-center gap-3 mb-3">
+              <Shield className="w-8 h-8 text-purple-600" />
+              <h2 className="text-2xl font-bold text-purple-600">
+                Admin Dashboard
+              </h2>
+            </div>
+            <p className="text-gray-600 dark:text-gray-300">
+              Manage users, tours, and platform settings.
+            </p>
+            <Link
+              to="/admin/dashboard"
+              className="inline-block mt-4 px-8 py-3.5 rounded-xl bg-purple-600 text-white font-bold shadow-lg shadow-purple-600/30 hover:scale-[1.02] transition-all duration-300"
+            >
+              Go to Admin Dashboard →
+            </Link>
+          </div>
+        )}
+
+        {/* STATS */}
+        <div className="grid md:grid-cols-5 gap-6 mb-10">
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-4">
               <Calendar className="w-6 h-6 text-[#0D9488]" />
@@ -213,11 +321,27 @@ const Dashboard = () => {
             </h2>
             <p className="text-gray-500 dark:text-gray-400">Account Type</p>
           </div>
+
+          {/* ✅ REVIEW STATS CARD */}
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+            <div className="w-12 h-12 rounded-2xl bg-[#F59E0B]/10 flex items-center justify-center mb-4">
+              <Star className="w-6 h-6 text-[#F59E0B]" />
+            </div>
+            <h2 className="text-3xl font-bold text-[#374151] dark:text-white">
+              {totalReviews}
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400">My Reviews</p>
+            {totalReviews > 0 && (
+              <p className="text-xs text-[#0D9488] mt-1">
+                Avg: {averageRating} ★
+              </p>
+            )}
+          </div>
         </div>
 
         {/* RECENT BOOKINGS SECTION */}
         {bookings.length > 0 && (
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-6">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-6 mb-10">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#374151] dark:text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-[#0D9488]" />
@@ -260,6 +384,53 @@ const Dashboard = () => {
             </div>
           </div>
         )}
+
+        {/* ✅ MY REVIEWS SECTION */}
+        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-[#374151] dark:text-white flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-[#0D9488]" />
+              My Reviews
+            </h2>
+            <Link to="/my-reviews" className="text-sm text-[#0D9488] hover:underline font-medium">
+              View All →
+            </Link>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+              <p>You haven't written any reviews yet.</p>
+              {bookings.filter(b => b.status === 'confirmed').length > 0 && (
+                <Link 
+                  to="/explore" 
+                  className="inline-block mt-3 text-[#0D9488] hover:underline text-sm font-medium"
+                >
+                  Browse tours to review →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviews.slice(0, 3).map((review) => (
+                <ReviewCard
+                  key={review._id}
+                  review={review}
+                  compact
+                  showTourInfo={true}
+                />
+              ))}
+              {reviews.length > 3 && (
+                <div className="text-center pt-2">
+                  <Link to="/my-reviews" className="text-sm text-[#0D9488] hover:underline font-medium">
+                    View all {reviews.length} reviews →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

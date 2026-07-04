@@ -34,6 +34,7 @@ const AddTour = () => {
     duration: "", travelers: "", description: "",
     highlights: "", included: "", excluded: "",
     meetingPoint: "", cancellationPolicy: "",
+    requirements: "", // ✅ ADDED
     coverImage: null, galleryImages: [], videos: []
   });
 
@@ -217,6 +218,7 @@ const AddTour = () => {
       data.append("excluded", formData.excluded || "");
       data.append("meetingPoint", formData.meetingPoint || "");
       data.append("cancellationPolicy", formData.cancellationPolicy || "");
+      data.append("requirements", formData.requirements || ""); // ✅ ADDED
       data.append("coverImage", formData.coverImage);
 
       formData.galleryImages.forEach(img => data.append("galleryImages", img));
@@ -241,6 +243,7 @@ const AddTour = () => {
         duration: "", travelers: "", description: "",
         highlights: "", included: "", excluded: "",
         meetingPoint: "", cancellationPolicy: "",
+        requirements: "", // ✅ ADDED
         coverImage: null, galleryImages: [], videos: []
       });
       setCoverPreview(null);
@@ -628,7 +631,7 @@ const AddTour = () => {
               />
             </div>
 
-            {/* CANCELLATION */}
+            {/* CANCELLATION POLICY */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Cancellation Policy
@@ -640,6 +643,23 @@ const AddTour = () => {
                 placeholder="Free cancellation 24 hours before trip"
                 className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
               />
+            </div>
+
+            {/* ✅ REQUIREMENTS SECTION - ADDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Requirements
+              </label>
+              <textarea
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleChange}
+                placeholder="What travelers need to know before booking (visa, health, gear, etc.)"
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                List any special requirements for this tour (e.g., visa, physical fitness, equipment)
+              </p>
             </div>
 
           </div>

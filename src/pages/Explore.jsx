@@ -31,7 +31,6 @@ import {
 
 import { getTours } from '../services/tourService';
 import VideoCard from "../components/ui/VideoCard";
-import videos from "../data/videoData";
 
 // ===============================
 // AI TOUR COLORS
@@ -59,6 +58,7 @@ const getFallbackImage = (seed) => {
 const Explore = () => {
   const navigate = useNavigate();
   const [tours, setTours] = useState([]);
+  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
@@ -67,7 +67,7 @@ const Explore = () => {
   const [favorites, setFavorites] = useState([]);
   const [sortBy, setSortBy] = useState('recommended');
   const [imageErrors, setImageErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('all'); // all | tours | videos | ai-picks
+  const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState({
     minPrice: 0,
     maxPrice: 5000,
@@ -75,31 +75,33 @@ const Explore = () => {
     minRating: 0,
   });
 
-  // ================= FETCH TOURS =================
+  // ================= FETCH DATA =================
   useEffect(() => {
-    fetchTours();
+    fetchAllData();
     const saved = localStorage.getItem('favoriteTours');
     if (saved) {
       setFavorites(JSON.parse(saved));
     }
   }, []);
 
-  const fetchTours = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const data = await getTours();
-      console.log('✅ Tours from backend:', data);
-      
-      if (data && data.tours) {
-        setTours(data.tours);
-      } else if (data && Array.isArray(data)) {
-        setTours(data);
-      } else {
-        setTours([]);
-      }
+
+      // ✅ Fetch tours
+      const toursData = await getTours();
+      const toursList = toursData?.tours || [];
+      setTours(toursList);
+
+      // ✅ Fetch videos from backend
+      const videosRes = await fetch(`${API_URL}/api/videos`);
+      const videosData = await videosRes.json();
+      setVideos(videosData?.videos || []);
+
     } catch (error) {
-      console.error('❌ Error fetching tours:', error);
+      console.error('❌ Error fetching data:', error);
       setTours([]);
+      setVideos([]);
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,6 @@ const Explore = () => {
 
   // ================= AI RECOMMENDED TOURS =================
   const aiRecommendedTours = useMemo(() => {
-    // ✅ Use averageRating from backend
     const sorted = [...tours].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
     return sorted.slice(0, 3);
   }, [tours]);
@@ -128,7 +129,7 @@ const Explore = () => {
   const filteredItems = useMemo(() => {
     let result = [];
 
-    // Add tours
+    // Filter tours
     let tourResult = [...tours];
 
     if (searchTerm) {
@@ -159,11 +160,9 @@ const Explore = () => {
         tourResult.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
-        // ✅ Use averageRating from backend
         tourResult.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
         break;
       case 'recommended':
-        // ✅ Use views + rating for recommendation
         tourResult.sort((a, b) => {
           const scoreA = (a.views || 0) + (a.averageRating || 0) * 10;
           const scoreB = (b.views || 0) + (b.averageRating || 0) * 10;
@@ -171,10 +170,10 @@ const Explore = () => {
         });
         break;
       default:
-        tourResult.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        tourResult.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    // Filter videos
+    // Filter videos from backend
     let videoResult = [...videos];
     if (searchTerm) {
       videoResult = videoResult.filter((video) =>
@@ -189,25 +188,22 @@ const Explore = () => {
     } else if (activeTab === 'videos') {
       result = videoResult.map(item => ({ ...item, type: 'video' }));
     } else if (activeTab === 'ai-picks') {
-      // ✅ Use averageRating from backend
+      // ✅ AI picks: tours with rating >= 4.0
       const aiPicks = tourResult.filter(t => (t.averageRating || 0) >= 4.0).slice(0, 6);
       result = aiPicks.map(item => ({ ...item, type: 'tour' }));
     } else {
-      // All - Mix tours and videos (Netflix style grid)
+      // All - Mix tours and videos
       const mixed = [];
       const tourItems = tourResult.map(t => ({ ...t, type: 'tour' }));
       const videoItems = videoResult.map(v => ({ ...v, type: 'video' }));
       
-      // Interleave: Tour, Tour, Video, Tour, Video, Tour...
       let tourIndex = 0;
       let videoIndex = 0;
       
       while (tourIndex < tourItems.length || videoIndex < videoItems.length) {
-        // 2 tours
         for (let i = 0; i < 2 && tourIndex < tourItems.length; i++) {
           mixed.push(tourItems[tourIndex++]);
         }
-        // 1 video
         if (videoIndex < videoItems.length) {
           mixed.push(videoItems[videoIndex++]);
         }
@@ -228,7 +224,6 @@ const Explore = () => {
   };
 
   const getTourImage = (tour) => {
-    // ✅ Check coverImage first, then galleryImages, then images
     if (tour.coverImage) return getImageUrl(tour.coverImage);
     if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
     if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
@@ -251,9 +246,10 @@ const Explore = () => {
   const TourCard = ({ tour }) => {
     const isFavorite = favorites.includes(tour._id);
     const imageUrl = getImageWithFallback(tour);
-    // ✅ Use averageRating from backend
     const rating = tour.averageRating || 0;
     const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
+    // ✅ Only show AI Pick badge if rating >= 4.0
+    const isAIPick = rating >= 4.0;
 
     return (
       <div
@@ -284,12 +280,15 @@ const Explore = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           
-          <div className="absolute top-4 left-4 flex gap-2">
-            <div className="bg-[#0D9488] text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              AI Pick
+          {/* ✅ Only show AI Pick badge if actually AI recommended */}
+          {isAIPick && (
+            <div className="absolute top-4 left-4 flex gap-2">
+              <div className="bg-[#0D9488] text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                AI Pick
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={(e) => {
@@ -358,11 +357,22 @@ const Explore = () => {
 
   // ================= RENDER VIDEO CARD =================
   const VideoCardWrapper = ({ video }) => {
+    // ✅ Map backend video data to VideoCard props
+    const videoProps = {
+      id: video._id,
+      title: video.title,
+      thumbnail: video.thumbnail || video.videoUrl,
+      views: video.views || 0,
+      likes: video.likes || 0,
+      duration: video.duration || 0,
+      location: video.location || '',
+    };
+
     return (
       <div className="h-full">
         <VideoCard
-          video={video}
-          onClick={() => navigate(`/video/${video.id}`)}
+          video={videoProps}
+          onClick={() => navigate(`/video/${video._id}`)}
         />
       </div>
     );
@@ -580,7 +590,7 @@ const Explore = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredItems.map((item, index) => {
               if (item.type === 'video') {
-                return <VideoCardWrapper key={`video-${item.id}`} video={item} />;
+                return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
               } else {
                 return <TourCard key={`tour-${item._id}`} tour={item} />;
               }
@@ -590,7 +600,7 @@ const Explore = () => {
           <div className="space-y-6">
             {filteredItems.map((item, index) => {
               if (item.type === 'video') {
-                return <VideoCardWrapper key={`video-${item.id}`} video={item} />;
+                return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
               } else {
                 return <TourCard key={`tour-${item._id}`} tour={item} />;
               }

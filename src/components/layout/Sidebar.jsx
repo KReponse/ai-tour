@@ -19,6 +19,7 @@ import {
   Settings,
   LayoutDashboard,
   TrendingUp,
+  MessageCircle, // ✅ Added for Reviews
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../contexts/AuthContext";
@@ -42,6 +43,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
   */
   const travelerLinks = [
     { path: "/", icon: Home, label: "Home" },
+    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }, // ✅ Added
     { path: "/explore", icon: Compass, label: "Explore" },
     { path: "/ai-planner", icon: Bot, label: "AI Planner" },
     { path: "/my-bookings", icon: CalendarCheck, label: "My Bookings" },
@@ -63,6 +65,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
     { path: "/provider/add-tour", icon: Briefcase, label: "Add Tour" },
     { path: "/provider/bookings", icon: CalendarCheck, label: "Bookings" },
     { path: "/provider/travelers", icon: User, label: "Travelers" },
+    { path: "/provider/reviews", icon: Star, label: "Reviews" }, // ✅ Added
     { path: "/provider/analytics", icon: TrendingUp, label: "Analytics" },
     { path: "/provider/profile", icon: User, label: "Profile" },
     { path: "/provider/settings", icon: Settings, label: "Settings" },
@@ -79,16 +82,19 @@ const Sidebar = ({ collapsed, onToggle }) => {
     { path: "/admin/providers", icon: Shield, label: "Providers" },
     { path: "/admin/provider-requests", icon: FileCheck, label: "Provider Requests" },
     { path: "/admin/tours", icon: Compass, label: "Tours" },
+    { path: "/admin/reviews", icon: Star, label: "Reviews" }, // ✅ Added
     { path: "/admin/notifications", icon: Bell, label: "Notifications" },
   ];
 
+  // Determine which nav items to show based on role
   let navItems = travelerLinks;
 
-  if (user?.role === "provider") {
+  // Check role (handle both backend and frontend formats)
+  const userRole = user?.role;
+  
+  if (userRole === "provider" || userRole === "PROVIDER") {
     navItems = providerLinks;
-  }
-
-  if (user?.role === "admin") {
+  } else if (userRole === "admin" || userRole === "ADMIN") {
     navItems = adminLinks;
   }
 

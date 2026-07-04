@@ -20,6 +20,9 @@ import { useAuth } from "../../contexts/AuthContext";
 // White : #FFFFFF
 // ===============================
 
+// ✅ FIX: Define API_URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const EditTour = () => {
   const { id } = useParams();
   const { token } = useAuth();
@@ -41,6 +44,7 @@ const EditTour = () => {
     duration: "", travelers: "", description: "",
     highlights: "", included: "", excluded: "",
     meetingPoint: "", cancellationPolicy: "",
+    requirements: "", // ✅ ADDED
     coverImage: null, galleryImages: [], videos: []
   });
 
@@ -69,6 +73,7 @@ const EditTour = () => {
         excluded: tour.excluded || "",
         meetingPoint: tour.meetingPoint || "",
         cancellationPolicy: tour.cancellationPolicy || "",
+        requirements: tour.requirements || "", // ✅ ADDED
         coverImage: null,
         galleryImages: [],
         videos: []
@@ -274,6 +279,7 @@ const EditTour = () => {
       data.append("excluded", formData.excluded || "");
       data.append("meetingPoint", formData.meetingPoint || "");
       data.append("cancellationPolicy", formData.cancellationPolicy || "");
+      data.append("requirements", formData.requirements || ""); // ✅ ADDED
 
       // New cover image
       if (formData.coverImage instanceof File) {
@@ -702,7 +708,7 @@ const EditTour = () => {
               />
             </div>
 
-            {/* CANCELLATION */}
+            {/* CANCELLATION POLICY */}
             <div>
               <label className="font-bold text-gray-700 dark:text-gray-300">
                 Cancellation Policy
@@ -714,6 +720,23 @@ const EditTour = () => {
                 placeholder="Free cancellation 24 hours before trip"
                 className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
               />
+            </div>
+
+            {/* ✅ REQUIREMENTS SECTION - ADDED */}
+            <div>
+              <label className="font-bold text-gray-700 dark:text-gray-300">
+                Requirements
+              </label>
+              <textarea
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleChange}
+                placeholder="What travelers need to know before booking (visa, health, gear, etc.)"
+                className="w-full mt-2 rounded-xl border p-4 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                List any special requirements for this tour (e.g., visa, physical fitness, equipment)
+              </p>
             </div>
 
           </div>

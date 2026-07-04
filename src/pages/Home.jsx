@@ -24,15 +24,17 @@ import {
 import Card, { CardImage, CardContent, CardBadge } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import VideoCard from "../components/ui/VideoCard";
-import videos from "../data/videoData";
 import { getTours } from '../services/tourService';
 import Heroimg from '../assets/images/heroimg.png';
 
 // ===============================
+// API CONFIGURATION
+// ===============================
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// ===============================
 // IMAGE HELPERS
 // ===============================
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500',
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=500',
@@ -49,7 +51,7 @@ const getImageUrl = (image) => {
   if (!image) return null;
   if (image.startsWith('http')) return image;
   if (image.startsWith('/')) return image;
-  return `${API_URL}/uploads/${image}`;
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/${image}`;
 };
 
 const getTourImage = (tour) => {
@@ -60,7 +62,7 @@ const getTourImage = (tour) => {
 };
 
 // ===============================
-// QUICK ACTIONS
+// QUICK ACTIONS (Static Navigation)
 // ===============================
 const quickActions = [
   { 
@@ -94,36 +96,61 @@ const quickActions = [
 // ===============================
 const Home = () => {
   const navigate = useNavigate();
+  
+  // ✅ State from Backend
   const [tours, setTours] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
+  const [stats, setStats] = useState({
+    totalTravelers: 0,
+    totalTours: 0,
+    totalReviews: 0
+  });
+  
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [imageErrors, setImageErrors] = useState({});
   const [heroError, setHeroError] = useState(false);
 
+  // ===============================
+  // FETCH ALL DATA
+  // ===============================
   useEffect(() => {
-    fetchTours();
+    fetchAllData();
   }, []);
 
-  // ===============================
-  // FETCH TOURS FROM BACKEND
-  // ===============================
-  const fetchTours = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const data = await getTours();
-      console.log('✅ Tours from backend:', data);
       
-      // Check if data has tours array
-      if (data && data.tours) {
-        setTours(data.tours);
-      } else if (data && Array.isArray(data)) {
-        setTours(data);
-      } else {
-        setTours([]);
-      }
+      // ✅ Fetch tours
+      const toursData = await getTours();
+      const toursList = toursData?.tours || [];
+      setTours(toursList);
+
+      // ✅ Fetch videos
+      const videosRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/videos`);
+      const videosData = await videosRes.json();
+      setVideos(videosData?.videos || []);
+
+      // ✅ Fetch testimonials (public reviews)
+      const reviewsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews/public?limit=6`);
+      const reviewsData = await reviewsRes.json();
+      setTestimonials(reviewsData?.reviews || []);
+
+      // ✅ Calculate stats from real data
+      setStats({
+        totalTravelers: toursList.reduce((acc, tour) => acc + (tour.totalBookings || 0), 0) || 0,
+        totalTours: toursList.length,
+        totalReviews: reviewsData?.reviews?.length || 0
+      });
+
     } catch (error) {
-      console.error('❌ Error loading tours:', error);
+      console.error('❌ Error loading home data:', error);
+      // Set empty arrays on error
       setTours([]);
+      setVideos([]);
+      setTestimonials([]);
     } finally {
       setLoading(false);
     }
@@ -133,7 +160,7 @@ const Home = () => {
     if (!search.trim()) {
       navigate('/explore');
     } else {
-      navigate(`/explore?search=${search}`);
+      navigate(`/explore?search=${encodeURIComponent(search)}`);
     }
   };
 
@@ -157,7 +184,6 @@ const Home = () => {
     const topTours = tours.slice(0, 2);
     const topVideos = videos.slice(0, 2);
 
-    // Pattern: Tour, Video, Tour, Video
     const pattern = [
       { type: 'tour', data: topTours[0] },
       { type: 'video', data: topVideos[0] },
@@ -165,7 +191,6 @@ const Home = () => {
       { type: 'video', data: topVideos[1] },
     ];
 
-    // Only add items that exist
     pattern.forEach(item => {
       if (item.data) {
         items.push(item);
@@ -178,12 +203,11 @@ const Home = () => {
   const trendingItems = getTrendingItems();
 
   // ===============================
-  // RENDER TOUR CARD (Small)
+  // RENDER TOUR CARD
   // ===============================
   const renderTourCard = (tour) => {
     const imageUrl = getImageWithFallback(tour);
     const isPending = tour.status === 'pending';
-    const isFavorite = false; // Can be connected to favorites later
 
     return (
       <Link key={tour._id} to={`/tour/${tour._id}`} className="flex-1 min-w-[240px] max-w-[280px]">
@@ -198,19 +222,16 @@ const Home = () => {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             
-            {/* Price Badge */}
             <div className="absolute bottom-3 left-3 bg-[#0D9488] text-white px-3 py-1 rounded-full text-xs font-semibold">
               ${tour.price}
             </div>
             
-            {/* Status Badge */}
             {isPending && (
               <div className="absolute top-3 left-3">
                 <CardBadge variant="warning">Pending</CardBadge>
               </div>
             )}
             
-            {/* Rating Badge */}
             {tour.averageRating > 0 && (
               <div className="absolute top-3 right-3 bg-black/60 backdrop-blur px-2 py-1 rounded-full text-xs text-white flex items-center gap-1">
                 <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
@@ -248,10 +269,16 @@ const Home = () => {
   // ===============================
   const renderVideoCard = (video) => {
     return (
-      <div key={video.id} className="flex-1 min-w-[240px] max-w-[280px]">
+      <div key={video._id} className="flex-1 min-w-[240px] max-w-[280px]">
         <VideoCard
-          video={video}
-          onClick={() => navigate(`/video/${video.id}`)}
+          video={{
+            id: video._id,
+            title: video.title,
+            thumbnail: video.thumbnail || video.videoUrl,
+            views: video.views || 0,
+            likes: video.likes || 0,
+          }}
+          onClick={() => navigate(`/video/${video._id}`)}
         />
       </div>
     );
@@ -321,10 +348,10 @@ const Home = () => {
             </div>
           </div>
 
-          {/* STATS */}
+          {/* ✅ STATS - Now from real backend data */}
           <div className="flex justify-center flex-wrap gap-6 mt-10 text-sm text-white/90">
-            <span>⭐ 10K+ Travelers</span>
-            <span>🌍 {tours.length}+ Tours</span>
+            <span>⭐ {stats.totalTravelers > 0 ? `${stats.totalTravelers}+` : '10K+'} Travelers</span>
+            <span>🌍 {stats.totalTours}+ Tours</span>
             <span>🤖 AI Recommendations</span>
           </div>
         </div>
@@ -378,7 +405,7 @@ const Home = () => {
           <div className="flex justify-center py-12">
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="w-10 h-10 animate-spin text-[#0D9488]" />
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Loading tours...</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Loading experiences...</p>
             </div>
           </div>
         ) : trendingItems.length === 0 ? (
@@ -389,7 +416,7 @@ const Home = () => {
           </div>
         ) : (
           <div className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-            {trendingItems.map((item, index) => {
+            {trendingItems.map((item) => {
               if (item.type === 'tour') {
                 return renderTourCard(item.data);
               } else {
@@ -419,39 +446,58 @@ const Home = () => {
       </section>
 
       {/* ===============================
-          TESTIMONIALS
+          TESTIMONIALS - ✅ Now from Backend
       =============================== */}
       <section>
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold text-[#374151] dark:text-white">What Travelers Say</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Real experiences from our community
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2].map((_, index) => (
-            <Card key={index} className="p-6 hover:shadow-xl transition">
-              <div className="flex items-center mb-4">
-                <img 
-                  src={`https://ui-avatars.com/api/?name=Traveler+${index+1}&background=0D9488&color=fff&size=128`}
-                  className="w-12 h-12 rounded-full mr-4 object-cover" 
-                  alt="Traveler"
-                />
-                <div>
-                  <h4 className="font-semibold text-[#374151] dark:text-white">Traveler {index + 1}</h4>
-                  <div className="flex text-[#F59E0B]">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-current" />
-                    ))}
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
+          </div>
+        ) : testimonials.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">No reviews yet. Be the first to share your experience!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {testimonials.map((review) => (
+              <Card key={review._id} className="p-6 hover:shadow-xl transition">
+                <div className="flex items-center mb-4">
+                  <img 
+                    src={review.user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || 'Traveler')}&background=0D9488&color=fff&size=128`}
+                    className="w-12 h-12 rounded-full mr-4 object-cover" 
+                    alt={review.user?.name || 'Traveler'}
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || 'Traveler')}&background=0D9488&color=fff&size=128`;
+                    }}
+                  />
+                  <div>
+                    <h4 className="font-semibold text-[#374151] dark:text-white">
+                      {review.user?.name || 'Anonymous Traveler'}
+                    </h4>
+                    <div className="flex text-[#F59E0B]">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'fill-none'}`} />
+                      ))}
+                    </div>
+                    {review.tour && (
+                      <p className="text-xs text-gray-400 mt-0.5">on {review.tour.title}</p>
+                    )}
                   </div>
                 </div>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300">
-                "{index === 0 
-                  ? 'AI Tour Rwanda made planning our trip so easy! The recommendations were spot on.' 
-                  : 'Amazing platform! Found the perfect gorilla trekking experience. Highly recommend!'}"
-              </p>
-            </Card>
-          ))}
-        </div>
+                <p className="text-gray-600 dark:text-gray-300 line-clamp-3">
+                  "{review.comment}"
+                </p>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
     </div>

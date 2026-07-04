@@ -1,5 +1,9 @@
 // src/pages/provider/Requests.jsx
 
+// ===============================
+// IMPORTS
+// ===============================
+
 import React, { useEffect, useState } from 'react';
 import {
   Loader2,
@@ -16,8 +20,23 @@ import {
   Search,
   ChevronDown,
 } from 'lucide-react';
-import { getRequests, updateRequestStatus } from '../../services/requestService';
+// ✅ FIX: Use getMyRequests instead of getRequests
+import { getMyRequests, updateRequestStatus } from '../../services/requestService';
 
+// ... rest of the code ...
+
+  const fetchRequests = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // ✅ FIX: Use getMyRequests instead of getRequests
+      const data = await getMyRequests(token);
+      setRequests(data.requests || []);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 // ===============================
 // AI TOUR COLORS
 // ===============================

@@ -8,7 +8,7 @@ import {
   Users,
   BarChart3,
   Wallet,
-  Star,
+  Star, // ✅ Added for Reviews
   User,
   Settings,
   ChevronLeft,
@@ -19,6 +19,7 @@ import {
   Sparkles,
   TrendingUp,
   Home,
+  MessageCircle, // ✅ Added for Reviews
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
@@ -32,12 +33,7 @@ import clsx from 'clsx';
 // White : #FFFFFF
 // ===============================
 
-const ProviderSidebar = ({
-  collapsed,
-  onToggle,
-  mobile,
-  onClose,
-}) => {
+const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
   const navItems = [
     { name: 'Dashboard', path: '/provider/dashboard', icon: LayoutDashboard },
     { name: 'Requests', path: '/provider/requests', icon: CalendarClock },
@@ -45,7 +41,7 @@ const ProviderSidebar = ({
     { name: 'Travelers', path: '/provider/travelers', icon: Users },
     { name: 'Analytics', path: '/provider/analytics', icon: TrendingUp },
     { name: 'Earnings', path: '/provider/earnings', icon: Wallet },
-    { name: 'Reviews', path: '/provider/reviews', icon: Star },
+    { name: 'Reviews', path: '/provider/reviews', icon: Star }, // ✅ Added
     { name: 'My Tours', path: '/provider/tours', icon: Map },
     { name: 'Add Tour', path: '/provider/add-tour', icon: PlusCircle },
     { name: 'Profile', path: '/provider/profile', icon: User },
@@ -55,31 +51,14 @@ const ProviderSidebar = ({
   return (
     <aside
       className={clsx(
-        `
-        fixed
-        left-0
-        top-0
-        md:top-16
-        h-screen
-        md:h-[calc(100vh-4rem)]
-        bg-white/95
-        dark:bg-gray-950/95
-        backdrop-blur-2xl
-        border-r
-        border-gray-200
-        dark:border-gray-800
-        shadow-2xl
-        transition-all
-        duration-300
-        z-50
-        overflow-hidden
-        flex
-        flex-col
-        `,
-        mobile ? 'w-72' : collapsed ? 'w-20' : 'w-72'
+        "fixed left-0 top-0 md:top-16 h-screen md:h-[calc(100vh-4rem)]",
+        "bg-white/95 dark:bg-gray-950/95 backdrop-blur-2xl",
+        "border-r border-gray-200 dark:border-gray-800 shadow-2xl",
+        "transition-all duration-300 z-50 overflow-hidden flex flex-col",
+        mobile ? "w-72" : collapsed ? "w-20" : "w-72"
       )}
     >
-      {/* ================= HEADER - Updated with AI Tour colors ================= */}
+      {/* HEADER */}
       <div className="px-5 py-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
         {!collapsed || mobile ? (
           <div>
@@ -114,7 +93,7 @@ const ProviderSidebar = ({
         )}
       </div>
 
-      {/* ================= NAVIGATION - Updated with AI Tour colors ================= */}
+      {/* NAVIGATION */}
       <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -127,34 +106,11 @@ const ProviderSidebar = ({
               }}
               className={({ isActive }) =>
                 clsx(
-                  `
-                  relative
-                  flex
-                  items-center
-                  rounded-2xl
-                  transition-all
-                  duration-300
-                  px-4
-                  py-3
-                  group
-                  overflow-hidden
-                  `,
+                  "relative flex items-center rounded-2xl transition-all duration-300 px-4 py-3 group overflow-hidden",
                   isActive
-                    ? `
-                      bg-[#0D9488]/10
-                      text-[#0D9488]
-                      dark:bg-[#0D9488]/20
-                      shadow-md
-                      shadow-[#0D9488]/10
-                    `
-                    : `
-                      text-gray-700
-                      dark:text-gray-300
-                      hover:bg-[#0D9488]/5
-                      dark:hover:bg-[#0D9488]/10
-                      hover:text-[#0D9488]
-                    `,
-                  collapsed && !mobile ? 'justify-center' : 'gap-4'
+                    ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
+                  collapsed && !mobile ? "justify-center" : "gap-4"
                 )
               }
             >
@@ -162,15 +118,15 @@ const ProviderSidebar = ({
                 <>
                   <Icon
                     className={clsx(
-                      'w-5 h-5 transition-all duration-300 group-hover:scale-110 flex-shrink-0',
-                      isActive ? 'text-[#0D9488]' : 'text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]'
+                      "w-5 h-5 transition-all duration-300 group-hover:scale-110 flex-shrink-0",
+                      isActive ? "text-[#0D9488]" : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
                     )}
                   />
                   {(!collapsed || mobile) && (
                     <span
                       className={clsx(
-                        'font-semibold text-sm truncate transition-colors duration-300',
-                        isActive ? 'text-[#0D9488]' : 'text-gray-700 dark:text-gray-300 group-hover:text-[#0D9488]'
+                        "font-semibold text-sm truncate transition-colors duration-300",
+                        isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#0D9488]"
                       )}
                     >
                       {item.name}
@@ -186,28 +142,12 @@ const ProviderSidebar = ({
         })}
       </div>
 
-      {/* ================= FOOTER ================= */}
+      {/* FOOTER */}
       {!mobile && (
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={onToggle}
-            className="
-              hidden
-              md:flex
-              items-center
-              justify-center
-              w-full
-              h-12
-              rounded-2xl
-              bg-gray-100
-              dark:bg-gray-800
-              hover:bg-[#0D9488]/10
-              dark:hover:bg-[#0D9488]/20
-              hover:text-[#0D9488]
-              transition-all
-              duration-300
-              group
-            "
+            className="hidden md:flex items-center justify-center w-full h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-all duration-300 group"
           >
             {collapsed ? (
               <ChevronRight className="w-5 h-5 dark:text-white group-hover:text-[#0D9488] transition" />

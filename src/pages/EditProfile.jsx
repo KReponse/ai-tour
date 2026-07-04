@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
-
 // ===============================
 // AI TOUR COLORS
 // ===============================
@@ -27,10 +26,11 @@ import { useAuth } from "../contexts/AuthContext";
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/users";
+// ✅ Use consistent API URL
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const EditProfile = () => {
-  const { user, setUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -39,6 +39,8 @@ const EditProfile = () => {
     phone: user?.phone || "",
     country: user?.country || "",
     avatar: user?.avatar || "",
+    bio: user?.bio || "",
+    location: user?.location || "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -55,13 +57,11 @@ const EditProfile = () => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       setError("Image must be less than 2MB");
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please upload an image file");
       return;
@@ -107,14 +107,13 @@ const EditProfile = () => {
   };
 
   // ======================
-  // REAL BACKEND SUBMIT
+  // SUBMIT
   // ======================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    // Validation
     if (!formData.name.trim()) {
       setError("Name is required");
       return;
@@ -131,8 +130,9 @@ const EditProfile = () => {
     try {
       setLoading(true);
 
+      // ✅ Use correct endpoint
       const res = await axios.put(
-        `${API}/me`,
+        `${API_URL}/users/me`,
         formData,
         {
           headers: {
@@ -143,17 +143,14 @@ const EditProfile = () => {
 
       const updatedUser = res.data.user;
 
-      // Update UI instantly
-      setUser(updatedUser);
-
-      // Keep localStorage in sync
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      // Update UI using updateUser
+      updateUser(updatedUser);
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 4000);
 
     } catch (err) {
-      console.log(err);
+      console.log("❌ Update error:", err);
       setError(err.response?.data?.message || "Update failed. Please try again.");
     } finally {
       setLoading(false);
@@ -164,7 +161,7 @@ const EditProfile = () => {
     <div className="max-w-3xl mx-auto animate-fade-in p-4">
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 dark:border-gray-800">
 
-        {/* HEADER - Updated with AI Tour colors */}
+        {/* HEADER */}
         <div className="mb-8 flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
             <User className="w-6 h-6 text-white" />
@@ -195,7 +192,7 @@ const EditProfile = () => {
           </div>
         )}
 
-        {/* AVATAR - Updated with AI Tour colors */}
+        {/* AVATAR */}
         <div className="flex justify-center mb-8">
           <div className="relative group">
             <div className="relative">
@@ -214,7 +211,6 @@ const EditProfile = () => {
               )}
             </div>
             
-            {/* Upload Button */}
             <label className="absolute bottom-0 right-0 bg-gradient-to-r from-[#0D9488] to-[#F59E0B] p-3 rounded-full cursor-pointer shadow-lg hover:scale-110 transition-all duration-300">
               <Camera className="w-5 h-5 text-white" />
               <input
@@ -226,7 +222,6 @@ const EditProfile = () => {
               />
             </label>
 
-            {/* Remove Avatar Button */}
             {formData.avatar && (
               <button
                 onClick={removeAvatar}
@@ -238,9 +233,8 @@ const EditProfile = () => {
           </div>
         </div>
 
-        {/* FORM - Updated with AI Tour colors */}
+        {/* FORM */}
         <form onSubmit={handleSubmit} className="space-y-6">
-
           {/* NAME */}
           <div>
             <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
@@ -315,7 +309,40 @@ const EditProfile = () => {
             </div>
           </div>
 
-          {/* SAVE - Updated with AI Tour colors */}
+          {/* BIO (Optional) */}
+          <div>
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
+              Bio
+            </label>
+            <textarea
+              name="bio"
+              value={formData.bio || ""}
+              onChange={handleChange}
+              placeholder="Tell us a little about yourself..."
+              rows="3"
+              className="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none resize-none"
+            />
+          </div>
+
+          {/* LOCATION (Optional) */}
+          <div>
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
+              Location
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                name="location"
+                value={formData.location || ""}
+                onChange={handleChange}
+                placeholder="e.g., Kigali, Rwanda"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+              />
+            </div>
+          </div>
+
+          {/* SAVE */}
           <button
             type="submit"
             disabled={loading}

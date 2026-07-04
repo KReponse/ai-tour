@@ -16,6 +16,8 @@ import {
   Home,
   Settings,
   TrendingUp,
+  Star, // ✅ Added for Reviews
+  MessageCircle, // ✅ Added for Reviews
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -34,6 +36,7 @@ const menuItems = [
   { name: "Tours", path: "/admin/tours", icon: Map },
   { name: "Requests", path: "/admin/requests", icon: Calendar },
   { name: "Provider Requests", path: "/admin/provider-requests", icon: ShieldCheck },
+  { name: "Reviews", path: "/admin/reviews", icon: Star }, // ✅ Added
   { name: "Notifications", path: "/admin/notifications", icon: Bell },
 ];
 
@@ -53,7 +56,7 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
     >
       <div className="flex flex-col h-full">
 
-        {/* LOGO - Updated with AI Tour colors */}
+        {/* LOGO */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -85,7 +88,7 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
           </div>
         </div>
 
-        {/* MENU - Updated with AI Tour colors */}
+        {/* MENU */}
         <nav className="flex-1 py-6 space-y-1.5 px-3 overflow-y-auto">
           {menuItems.map((item) => (
             <NavLink
@@ -150,7 +153,7 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
           </div>
         )}
 
-        {/* COLLAPSE - Updated with AI Tour colors */}
+        {/* COLLAPSE */}
         {!mobile && (
           <button
             onClick={onToggle}
