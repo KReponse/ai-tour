@@ -25,7 +25,8 @@ import {
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/admin";
+// ✅ FIX: Use correct endpoint - provider-requests instead of providers
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Providers = () => {
   const [providers, setProviders] = useState([]);
@@ -38,12 +39,61 @@ const Providers = () => {
 
   const fetchProviders = async () => {
     try {
-      const { data } = await axios.get(`${API}/providers`, {
+      // ✅ FIX: Use correct endpoint
+      const { data } = await axios.get(`${API}/admin/provider-requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setProviders(data.providers || []);
+      
+      // ✅ FIX: Handle the response structure from getProviderRequests
+      // The backend returns { requests: [...], total, page, limit, totalPages }
+      const requests = data.requests || [];
+      
+      // ✅ Transform provider requests into provider-like objects
+      const transformedProviders = requests.map((req) => ({
+        _id: req._id,
+        name: req.businessName || req.fullName || req.user?.name || "Unnamed",
+        email: req.businessEmail || req.user?.email || "",
+        phone: req.businessPhone || req.phone || "",
+        verificationStatus: req.status || "pending",
+        businessName: req.businessName,
+        businessType: req.businessType,
+        fullName: req.fullName,
+        country: req.country,
+        city: req.city,
+        price: req.price,
+        currency: req.currency,
+        description: req.description,
+        logo: req.logo,
+        coverImage: req.coverImage,
+        user: req.user,
+        reviewedBy: req.reviewedBy,
+        adminNotes: req.adminNotes,
+        createdAt: req.createdAt,
+        updatedAt: req.updatedAt,
+        reviewedAt: req.reviewedAt,
+        languages: req.languages || [],
+        specializations: req.specializations || [],
+        yearsOfExperience: req.yearsOfExperience,
+        website: req.website,
+        facebook: req.facebook,
+        instagram: req.instagram,
+        twitter: req.twitter,
+        linkedin: req.linkedin,
+        youtube: req.youtube,
+        tiktok: req.tiktok,
+        // ✅ Add payment fields for reference
+        paymentMethod: req.paymentMethod,
+        bankName: req.bankName,
+        accountName: req.accountName,
+        accountNumber: req.accountNumber,
+        mobileMoney: req.mobileMoney,
+      }));
+      
+      setProviders(transformedProviders);
     } catch (err) {
-      console.log(err);
+      console.error("❌ Error fetching provider requests:", err);
+      // ✅ Fallback to empty array if error
+      setProviders([]);
     } finally {
       setLoading(false);
     }
@@ -53,26 +103,43 @@ const Providers = () => {
     fetchProviders();
   }, []);
 
+  // ✅ FIX: Update status using provider-requests endpoint
   const updateStatus = async (id, action, reason = "") => {
     try {
       setActionLoading(id);
+      
+      // Map frontend actions to backend status values
+      const statusMap = {
+        approve: "approved",
+        reject: "rejected",
+        suspend: "rejected", // suspend maps to rejected with a note
+      };
+      
+      const status = statusMap[action] || action;
+      
+      // ✅ FIX: Use correct endpoint
       await axios.patch(
-        `${API}/providers/${id}/${action}`,
-        { reason },
+        `${API}/admin/provider-requests/${id}`,
+        { 
+          status,
+          adminNotes: reason || (action === "suspend" ? "Account suspended by admin" : "")
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
       await fetchProviders();
     } catch (err) {
-      console.log(err);
+      console.error("❌ Error updating provider status:", err);
+      alert(err.response?.data?.message || "Failed to update provider status");
     } finally {
       setActionLoading(null);
     }
   };
 
   const filtered = providers.filter((p) => {
-    const name = p?.name || "";
+    const name = p?.name || p?.businessName || "";
     const email = p?.email || "";
-    const status = p?.verificationStatus || "";
+    const status = p?.verificationStatus || p?.status || "";
 
     const matchStatus = filter === "all" ? true : status === filter;
     const matchSearch =
@@ -109,6 +176,11 @@ const Providers = () => {
         text: "text-[#0D9488] dark:text-[#0D9488]",
         icon: Clock,
       },
+      needs_information: {
+        bg: "bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20",
+        text: "text-[#F59E0B] dark:text-[#F59E0B]",
+        icon: Clock,
+      },
     };
     return styles[status] || styles.pending;
   };
@@ -131,6 +203,7 @@ const Providers = () => {
     approved: providers.filter(p => p.verificationStatus === 'approved').length,
     rejected: providers.filter(p => p.verificationStatus === 'rejected').length,
     suspended: providers.filter(p => p.verificationStatus === 'suspended').length,
+    needs_information: providers.filter(p => p.verificationStatus === 'needs_information').length,
   };
 
   return (
@@ -153,24 +226,24 @@ const Providers = () => {
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <Sparkles className="w-4 h-4 text-[#0D9488]" />
-          <span>{providers.length} total providers</span>
+          <span>{providers.length} total provider requests</span>
         </div>
       </div>
 
       {/* FILTER BAR - Updated with AI Tour colors */}
       <div className="flex flex-col md:flex-row gap-3 justify-between">
         <div className="flex gap-2 flex-wrap">
-          {["all", "pending", "approved", "rejected", "suspended"].map((s) => (
+          {["all", "pending", "approved", "rejected", "suspended", "needs_information"].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 capitalize ${
                 filter === s
                   ? "bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/30"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
-              {s} ({statusCounts[s] || 0})
+              {s === "needs_information" ? "Needs Info" : s} ({statusCounts[s] || 0})
             </button>
           ))}
         </div>
@@ -192,8 +265,9 @@ const Providers = () => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-              <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Provider</th>
+              <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Provider/Business</th>
               <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
+              <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Type</th>
               <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
               <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
             </tr>
@@ -202,11 +276,11 @@ const Providers = () => {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-gray-500">
+                <td colSpan="5" className="p-8 text-center text-gray-500">
                   <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-3">
                     <Users className="w-8 h-8 text-gray-400" />
                   </div>
-                  <p>No providers found</p>
+                  <p>No provider requests found</p>
                   <p className="text-sm">Try adjusting your filters or search</p>
                 </td>
               </tr>
@@ -220,20 +294,28 @@ const Providers = () => {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-xs font-bold">
-                          {p.name?.charAt(0) || 'P'}
+                          {p.name?.charAt(0) || p.businessName?.charAt(0) || 'B'}
                         </div>
-                        <span className="font-medium text-[#374151] dark:text-white">
-                          {p.name}
-                        </span>
+                        <div>
+                          <span className="font-medium text-[#374151] dark:text-white block">
+                            {p.businessName || p.name || "Unnamed"}
+                          </span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 block">
+                            {p.fullName || ""}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="p-4 text-gray-500 dark:text-gray-400 text-sm">{p.email}</td>
+                    <td className="p-4 text-sm text-gray-500 dark:text-gray-400 capitalize">
+                      {p.businessType?.replace(/_/g, " ") || "—"}
+                    </td>
 
                     {/* STATUS */}
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${badge.bg} ${badge.text}`}>
                         <StatusIcon className="w-3.5 h-3.5" />
-                        {p.verificationStatus}
+                        {p.verificationStatus === "needs_information" ? "Needs Info" : p.verificationStatus}
                       </span>
                     </td>
 
@@ -255,7 +337,7 @@ const Providers = () => {
                       <button
                         onClick={() => {
                           const reason = prompt("Rejection reason:");
-                          if (reason) updateStatus(p._id, "reject", reason);
+                          if (reason !== null) updateStatus(p._id, "reject", reason || "No reason provided");
                         }}
                         disabled={actionLoading === p._id}
                         className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all duration-300 text-sm font-medium disabled:opacity-50"
@@ -265,12 +347,15 @@ const Providers = () => {
                       </button>
 
                       <button
-                        onClick={() => updateStatus(p._id, "suspend")}
+                        onClick={() => {
+                          const reason = prompt("Reason for requesting more information:");
+                          if (reason !== null) updateStatus(p._id, "needs_information", reason || "More information required");
+                        }}
                         disabled={actionLoading === p._id}
-                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all duration-300 text-sm font-medium disabled:opacity-50"
+                        className="bg-[#F59E0B] hover:bg-[#F59E0B]/80 text-white px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all duration-300 text-sm font-medium disabled:opacity-50"
                       >
-                        <Ban className="w-4 h-4" />
-                        Suspend
+                        <Clock className="w-4 h-4" />
+                        Need Info
                       </button>
                     </td>
                   </tr>
@@ -282,7 +367,7 @@ const Providers = () => {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-          <span>Showing {filtered.length} of {providers.length} providers</span>
+          <span>Showing {filtered.length} of {providers.length} provider requests</span>
           <span>Last updated: {new Date().toLocaleString()}</span>
         </div>
       </div>

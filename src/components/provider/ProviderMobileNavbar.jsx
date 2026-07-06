@@ -32,7 +32,6 @@ const ProviderMobileNavbar = ({
         
         {/* LEFT */}
         <div className="flex items-center gap-3">
-          {/* Menu Button */}
           <button
             onClick={onMenuClick}
             className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:scale-105 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
@@ -40,29 +39,28 @@ const ProviderMobileNavbar = ({
             <Menu className="w-5 h-5 text-gray-700 dark:text-white" />
           </button>
 
-         {/* LOGO */}
-<div className="flex items-center gap-2">
-  <img
-    src={logo}
-    alt="AI Tour"
-    className="w-10 h-10 object-contain"
-  />
+          {/* LOGO */}
+          <div className="flex items-center gap-2">
+            <img
+              src={logo}
+              alt="AI Tour"
+              className="w-10 h-10 object-contain"
+            />
 
-  <div>
-    <h1 className="text-lg font-black bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent leading-none">
-      AI Tour
-    </h1>
+            <div>
+              <h1 className="text-lg font-black bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent leading-none">
+                AI Tour
+              </h1>
 
-    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-      Provider Center
-    </p>
-  </div>
-</div>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                Provider Center
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* RIGHT */}
         <div className="flex items-center gap-2">
-          {/* NOTIFICATION */}
           <button
             onClick={onNotificationClick}
             className="relative w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:scale-105 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
@@ -76,7 +74,7 @@ const ProviderMobileNavbar = ({
             )}
           </button>
 
-          {/* PROFILE - Updated with AI Tour colors */}
+          {/* PROFILE */}
           {user ? (
             <button
               onClick={() => navigate("/provider/profile")}
@@ -90,7 +88,6 @@ const ProviderMobileNavbar = ({
                   e.target.src = `https://ui-avatars.com/api/?name=${user?.name || 'Provider'}&background=0D9488&color=fff&size=44`;
                 }}
               />
-              {/* ONLINE STATUS */}
               <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-950">
                 <span className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-75" />
               </span>

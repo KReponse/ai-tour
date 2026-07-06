@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import React, { useState } from 'react';
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom'; // ✅ Added Navigate
 
 import MainLayout from './components/layout/Layout';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -25,6 +25,7 @@ import TripResults from './pages/TripResults';
 import RequestTrip from './pages/RequestTrip';
 import Payment from './pages/Payment';
 import EditProfile from './pages/EditProfile';
+// ⚠️ TourDetails - Keep for backward compatibility (will redirect)
 import TourDetails from './pages/TourDetails';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
@@ -52,6 +53,7 @@ import FAQs from './pages/FAQs';
 
 // Admin Pages
 import Users from './pages/admin/Users';
+// ⚠️ Tours - Keep for backward compatibility (will redirect)
 import Tours from './pages/admin/Tours';
 import Providers from './pages/admin/Providers';
 import AdminRequests from './pages/admin/Requests';
@@ -60,6 +62,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminProviderRequests from './pages/admin/ProviderRequests';
 import AdminReviews from './pages/admin/Reviews';
 import ProviderRequestDetails from "./pages/admin/ProviderRequestDetails";
+import ManagementListings from './pages/admin/ManagementListings';
 
 // Provider Pages
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -70,18 +73,27 @@ import Analytics from './pages/provider/Analytics';
 import Earnings from './pages/provider/Earnings';
 import ProviderProfile from './pages/provider/Profile';
 import ProviderSettings from './pages/provider/Settings';
+// ⚠️ AddTour - Keep for backward compatibility (will redirect)
 import AddTour from './pages/provider/AddTour';
+// ⚠️ MyTours - Keep for backward compatibility (will redirect)
 import MyTours from './pages/provider/MyTours';
+// ⚠️ EditTour - Keep for backward compatibility (will redirect)
 import EditTour from './pages/provider/EditTour';
 import ProviderStatus from './pages/provider/ProviderStatus';
 import ProviderPending from './pages/ProviderPending';
 import ProviderRequest from './pages/ProviderRequest';
 import ProviderReviews from './pages/provider/Reviews';
+import ProfileEdit from './pages/provider/ProfileEdit';
+
+// Listing Pages (Primary)
+import ListingDetails from './pages/ListingDetails';
+import MyListings from './pages/provider/MyListings';
+import AddListing from './pages/provider/AddListing';
+import EditListing from './pages/provider/EditListing';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 
 function App() {
-  // ✅ State for AI Widget
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
 
   return (
@@ -223,7 +235,11 @@ function App() {
             }
           />
 
+          {/* ⚠️ Legacy: TourDetails redirects to ListingDetails */}
           <Route path="/tour/:id" element={<TourDetails />} />
+          
+          {/* ✅ Primary: ListingDetails */}
+          <Route path="/listing/:id" element={<ListingDetails />} />
 
           <Route
             path="/my-bookings"
@@ -235,13 +251,13 @@ function App() {
           />
 
           <Route
-  path="/dashboard"
-  element={
-    <ProtectedRoute>
-      <Dashboard />
-    </ProtectedRoute>
-  }
-/>
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/my-reviews"
@@ -301,47 +317,57 @@ function App() {
           <Route path="earnings" element={<Earnings />} />
           <Route path="profile" element={<ProviderProfile />} />
           <Route path="settings" element={<ProviderSettings />} />
+          
+          {/* ⚠️ Legacy: Tour routes (redirect to Listing equivalents) */}
           <Route path="add-tour" element={<AddTour />} />
           <Route path="tours" element={<MyTours />} />
           <Route path="tours/edit/:id" element={<EditTour />} />
+          
           <Route path="pending" element={<ProviderPending />} />
-          {/* ✅ FIX: ProviderReviews for provider review management */}
           <Route path="reviews" element={<ProviderReviews />} />
+          <Route path="profile/edit" element={<ProfileEdit />} />
+          
+          {/* ✅ Primary: Listing Routes */}
+          <Route path="listings" element={<MyListings />} />
+          <Route path="add-listing" element={<AddListing />} />
+          <Route path="listings/edit/:id" element={<EditListing />} />
         </Route>
 
         {/* ================= ADMIN DASHBOARD ================= */}
         <Route
-  path="/admin"
-  element={
-    <ProtectedRoute allowedRoles={["admin"]}>
-      <AdminLayout />
-    </ProtectedRoute>
-  }
->
-  <Route index element={<AdminDashboard />} />
-  <Route path="dashboard" element={<AdminDashboard />} />
-  <Route path="users" element={<Users />} />
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<Users />} />
           <Route path="providers" element={<Providers />} />
+          
+          {/* ⚠️ Legacy: Tours route (redirect to Listings) */}
           <Route path="tours" element={<Tours />} />
+          
           <Route path="requests" element={<AdminRequests />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="provider-requests" element={<AdminProviderRequests />} />
-          {/* ✅ FIX: AdminReviews for admin review management */}
           <Route path="reviews" element={<AdminReviews />} />
-          <Route
-    path="/admin/provider-requests/:id"
-    element={<ProviderRequestDetails />}
-/>
+          
+          {/* ✅ Primary: Admin Listing Management */}
+          <Route path="listings" element={<ManagementListings />} />
+          
+          <Route path="provider-requests/:id" element={<ProviderRequestDetails />} />
         </Route>
       </Routes>
 
-      {/* ✅ AI Widget - Controlled by state */}
+      {/* AI Widget */}
       <AIWidget 
         isOpen={isWidgetOpen} 
         onClose={() => setIsWidgetOpen(false)} 
       />
 
-      {/* ✅ FloatingAIButton - Opens the widget */}
       <FloatingAIButton onOpen={() => setIsWidgetOpen(true)} />
     </>
   );

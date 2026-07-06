@@ -14,8 +14,10 @@ import {
   Sparkles,
   Award,
   Percent,
+  ClipboardList, // ✅ Added for Listings
 } from 'lucide-react';
 import { getProviderAnalytics } from '../../services/bookingService';
+import { getProviderListings } from '../../services/listingService'; // ✅ Added
 
 // ===============================
 // AI TOUR COLORS
@@ -28,6 +30,7 @@ import { getProviderAnalytics } from '../../services/bookingService';
 
 const Analytics = () => {
   const [analytics, setAnalytics] = useState(null);
+  const [listingsCount, setListingsCount] = useState(0); // ✅ Added
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,8 +40,21 @@ const Analytics = () => {
   const fetchAnalytics = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ Fetch analytics (bookings, revenue, travelers)
       const data = await getProviderAnalytics(token);
       setAnalytics(data.analytics);
+
+      // ✅ Fetch listings count separately
+      try {
+        const listingsData = await getProviderListings(token);
+        setListingsCount(listingsData.listings?.length || 0);
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+        // ✅ Fallback: use totalTours from analytics if available
+        setListingsCount(data.analytics?.totalTours || 0);
+      }
+
     } catch (error) {
       console.log(error);
     } finally {
@@ -53,8 +69,9 @@ const Analytics = () => {
     return { growth: Math.round(growth), isUp: growth >= 0 };
   };
 
+  // ✅ Use listingsCount instead of totalTours
   const growthData = {
-    tours: calculateGrowth(analytics?.totalTours || 0, (analytics?.totalTours || 0) * 0.8),
+    listings: calculateGrowth(listingsCount || 0, (listingsCount || 0) * 0.8),
     bookings: calculateGrowth(analytics?.totalBookings || 0, (analytics?.totalBookings || 0) * 0.7),
     revenue: calculateGrowth(analytics?.totalRevenue || 0, (analytics?.totalRevenue || 0) * 0.75),
     travelers: calculateGrowth(analytics?.totalTravelers || 0, (analytics?.totalTravelers || 0) * 0.65),
@@ -72,12 +89,13 @@ const Analytics = () => {
     );
   }
 
+  // ✅ Updated: Total Listings instead of Total Tours
   const stats = [
     {
-      label: 'Total Tours',
-      value: analytics?.totalTours || 0,
-      icon: Map,
-      growth: growthData.tours,
+      label: 'Total Listings', // ✅ Changed from 'Total Tours'
+      value: listingsCount || analytics?.totalTours || 0,
+      icon: ClipboardList, // ✅ Changed from Map
+      growth: growthData.listings,
       bgColor: 'bg-[#0D9488]/10',
       iconColor: 'text-[#0D9488]',
     },
@@ -110,7 +128,7 @@ const Analytics = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -133,7 +151,7 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* STATS CARDS - Updated with AI Tour colors */}
+      {/* STATS CARDS */}
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
@@ -170,7 +188,7 @@ const Analytics = () => {
         })}
       </div>
 
-      {/* BUSINESS SUMMARY - Updated with AI Tour colors */}
+      {/* BUSINESS SUMMARY */}
       <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-lg">
         <div className="flex items-center gap-3 mb-4">
           <Award className="w-6 h-6 text-[#F59E0B]" />
@@ -182,9 +200,9 @@ const Analytics = () => {
         <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
           You currently have{' '}
           <span className="font-bold text-[#0D9488]">
-            {analytics?.totalTours || 0}
+            {listingsCount || analytics?.totalTours || 0}
           </span>{' '}
-          active tours,{' '}
+          active listings,{' '} {/* ✅ Changed from "active tours" */}
           <span className="font-bold text-[#F59E0B]">
             {analytics?.totalBookings || 0}
           </span>{' '}
@@ -204,16 +222,16 @@ const Analytics = () => {
           <div className="p-3 rounded-xl bg-[#0D9488]/5 border border-[#0D9488]/10">
             <p className="text-xs text-gray-400">Conversion Rate</p>
             <p className="text-lg font-bold text-[#0D9488]">
-              {analytics?.totalBookings && analytics?.totalTours 
-                ? Math.round((analytics.totalBookings / analytics.totalTours) * 100) 
+              {analytics?.totalBookings && (listingsCount || analytics?.totalTours) 
+                ? Math.round((analytics.totalBookings / (listingsCount || analytics?.totalTours || 1)) * 100) 
                 : 0}%
             </p>
           </div>
           <div className="p-3 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/10">
-            <p className="text-xs text-gray-400">Avg. Revenue/Tour</p>
+            <p className="text-xs text-gray-400">Avg. Revenue/Listing</p> {/* ✅ Changed from "Avg. Revenue/Tour" */}
             <p className="text-lg font-bold text-[#F59E0B]">
-              ${analytics?.totalTours && analytics?.totalRevenue
-                ? Math.round(analytics.totalRevenue / analytics.totalTours)
+              ${(listingsCount || analytics?.totalTours) && analytics?.totalRevenue
+                ? Math.round(analytics.totalRevenue / (listingsCount || analytics?.totalTours || 1))
                 : 0}
             </p>
           </div>

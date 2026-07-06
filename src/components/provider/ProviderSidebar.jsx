@@ -8,7 +8,7 @@ import {
   Users,
   BarChart3,
   Wallet,
-  Star, // ✅ Added for Reviews
+  Star,
   User,
   Settings,
   ChevronLeft,
@@ -19,7 +19,12 @@ import {
   Sparkles,
   TrendingUp,
   Home,
-  MessageCircle, // ✅ Added for Reviews
+  MessageCircle,
+  List,
+  FileText,
+  Edit,
+  Package, // ✅ For Listings
+  ClipboardList, // ✅ For My Listings
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
@@ -34,19 +39,74 @@ import clsx from 'clsx';
 // ===============================
 
 const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
+  // ✅ Primary nav items - Listing first
   const navItems = [
+    // ── Main ──
     { name: 'Dashboard', path: '/provider/dashboard', icon: LayoutDashboard },
+    
+    // ── LISTINGS (Primary) ──
+    { name: 'My Listings', path: '/provider/listings', icon: ClipboardList, isPrimary: true },
+    { name: 'Add Listing', path: '/provider/add-listing', icon: PlusCircle, isPrimary: true },
+    
+    // ── LEGACY TOURS (Hidden from sidebar - kept for redirects) ──
+    // These are kept in the menuItems array but will be filtered out
+    // They still work via redirects in App.jsx
+    { name: 'My Tours', path: '/provider/tours', icon: Map, isLegacy: true, hidden: true },
+    { name: 'Add Tour', path: '/provider/add-tour', icon: PlusCircle, isLegacy: true, hidden: true },
+    
+    // ── Business ──
     { name: 'Requests', path: '/provider/requests', icon: CalendarClock },
     { name: 'Bookings', path: '/provider/bookings', icon: CalendarCheck },
     { name: 'Travelers', path: '/provider/travelers', icon: Users },
     { name: 'Analytics', path: '/provider/analytics', icon: TrendingUp },
     { name: 'Earnings', path: '/provider/earnings', icon: Wallet },
-    { name: 'Reviews', path: '/provider/reviews', icon: Star }, // ✅ Added
-    { name: 'My Tours', path: '/provider/tours', icon: Map },
-    { name: 'Add Tour', path: '/provider/add-tour', icon: PlusCircle },
+    { name: 'Reviews', path: '/provider/reviews', icon: Star },
+    
+    // ── Profile ──
     { name: 'Profile', path: '/provider/profile', icon: User },
     { name: 'Settings', path: '/provider/settings', icon: Settings },
   ];
+
+  // ✅ Filter out hidden/legacy items from sidebar display
+  const visibleNavItems = navItems.filter(item => !item.hidden);
+
+  // ── Optional: Grouped nav items ──
+  // Uncomment if you want to use grouped navigation
+  /*
+  const navGroups = [
+    {
+      label: 'Overview',
+      items: [
+        { name: 'Dashboard', path: '/provider/dashboard', icon: LayoutDashboard },
+      ]
+    },
+    {
+      label: 'Listings',
+      items: [
+        { name: 'My Listings', path: '/provider/listings', icon: ClipboardList, isPrimary: true },
+        { name: 'Add Listing', path: '/provider/add-listing', icon: PlusCircle, isPrimary: true },
+      ]
+    },
+    {
+      label: 'Business',
+      items: [
+        { name: 'Requests', path: '/provider/requests', icon: CalendarClock },
+        { name: 'Bookings', path: '/provider/bookings', icon: CalendarCheck },
+        { name: 'Travelers', path: '/provider/travelers', icon: Users },
+        { name: 'Analytics', path: '/provider/analytics', icon: TrendingUp },
+        { name: 'Earnings', path: '/provider/earnings', icon: Wallet },
+        { name: 'Reviews', path: '/provider/reviews', icon: Star },
+      ]
+    },
+    {
+      label: 'Account',
+      items: [
+        { name: 'Profile', path: '/provider/profile', icon: User },
+        { name: 'Settings', path: '/provider/settings', icon: Settings },
+      ]
+    },
+  ];
+  */
 
   return (
     <aside
@@ -58,7 +118,7 @@ const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
         mobile ? "w-72" : collapsed ? "w-20" : "w-72"
       )}
     >
-      {/* HEADER */}
+      {/* ── HEADER ── */}
       <div className="px-5 py-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
         {!collapsed || mobile ? (
           <div>
@@ -93,10 +153,14 @@ const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
         )}
       </div>
 
-      {/* NAVIGATION */}
+      {/* ── NAVIGATION ── */}
       <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
+          // ✅ Check if this is a Listing page (for active state)
+          const isListingPath = item.path === '/provider/listings' || item.path === '/provider/add-listing';
+          const isPrimary = item.isPrimary || false;
+          
           return (
             <NavLink
               key={item.path}
@@ -110,30 +174,53 @@ const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
                   isActive
                     ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
                     : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
-                  collapsed && !mobile ? "justify-center" : "gap-4"
+                  collapsed && !mobile ? "justify-center" : "gap-4",
+                  // ✅ Primary items get slightly different styling
+                  isPrimary && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
+                  isPrimary && isActive && "border-l-2 border-[#0D9488]"
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon
-                    className={clsx(
-                      "w-5 h-5 transition-all duration-300 group-hover:scale-110 flex-shrink-0",
-                      isActive ? "text-[#0D9488]" : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
+                  {/* Icon with optional badge */}
+                  <div className="relative">
+                    <Icon
+                      className={clsx(
+                        "w-5 h-5 transition-all duration-300 group-hover:scale-110 flex-shrink-0",
+                        isActive ? "text-[#0D9488]" : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
+                      )}
+                    />
+                    {/* ✅ Primary badge for Listing items */}
+                    {isPrimary && !collapsed && (
+                      <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" />
                     )}
-                  />
+                  </div>
+                  
+                  {/* Label */}
                   {(!collapsed || mobile) && (
                     <span
                       className={clsx(
                         "font-semibold text-sm truncate transition-colors duration-300",
-                        isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#0D9488]"
+                        isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#0D9488]",
+                        // ✅ Primary items slightly bolder
+                        isPrimary && "font-extrabold"
                       )}
                     >
                       {item.name}
                     </span>
                   )}
+                  
+                  {/* Active indicator */}
                   {isActive && !collapsed && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
+                  )}
+
+                  {/* ✅ "NEW" badge for primary items */}
+                  {isPrimary && !collapsed && !isActive && (
+                    <span className="ml-auto text-[8px] font-bold text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
+                      NEW
+                    </span>
                   )}
                 </>
               )}
@@ -142,7 +229,7 @@ const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
         })}
       </div>
 
-      {/* FOOTER */}
+      {/* ── FOOTER ── */}
       {!mobile && (
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
           <button

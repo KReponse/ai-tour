@@ -16,8 +16,16 @@ import {
   Home,
   Settings,
   TrendingUp,
-  Star, // ✅ Added for Reviews
-  MessageCircle, // ✅ Added for Reviews
+  Star,
+  MessageCircle,
+  List,
+  Package,
+  Briefcase,
+  // ✅ ADD: Import UserCheck icon for Providers
+  UserCheck,
+  UserCog,
+  ClipboardList, // ✅ Added for Listings
+  PlusCircle, // ✅ Added for additional icon
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -30,15 +38,25 @@ import clsx from "clsx";
 // White : #FFFFFF
 // ===============================
 
+// ✅ UPDATED: Listings as primary, Tours as legacy (hidden)
 const menuItems = [
-  { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
+  // ── Primary ──
+  { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard, isPrimary: true },
   { name: "Users", path: "/admin/users", icon: Users },
-  { name: "Tours", path: "/admin/tours", icon: Map },
+  // ✅ Primary: Listings (replaces Tours)
+  { name: "Listings", path: "/admin/listings", icon: ClipboardList, isPrimary: true },
+  // ⚠️ Legacy: Tours (hidden from sidebar, kept for redirects)
+  { name: "Tours", path: "/admin/tours", icon: Map, hidden: true, isLegacy: true },
+  // ✅ Providers
+  { name: "Providers", path: "/admin/providers", icon: UserCheck },
   { name: "Requests", path: "/admin/requests", icon: Calendar },
   { name: "Provider Requests", path: "/admin/provider-requests", icon: ShieldCheck },
-  { name: "Reviews", path: "/admin/reviews", icon: Star }, // ✅ Added
+  { name: "Reviews", path: "/admin/reviews", icon: Star },
   { name: "Notifications", path: "/admin/notifications", icon: Bell },
 ];
+
+// ✅ Filter out hidden/legacy items from sidebar display
+const visibleMenuItems = menuItems.filter(item => !item.hidden);
 
 const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
   return (
@@ -90,50 +108,67 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
 
         {/* MENU */}
         <nav className="flex-1 py-6 space-y-1.5 px-3 overflow-y-auto">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => {
-                if (mobile) onClose();
-              }}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group",
-                  collapsed && "justify-center",
-                  isActive
-                    ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon
-                    className={clsx(
-                      "w-5 h-5 transition-all duration-200",
-                      isActive
-                        ? "text-[#0D9488]"
-                        : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
-                    )}
-                  />
-                  {!collapsed && (
-                    <span
+          {visibleMenuItems.map((item) => {
+            // Check if this is a primary Listing item
+            const isPrimary = item.isPrimary || false;
+            const isListingItem = item.path === '/admin/listings';
+            
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => {
+                  if (mobile) onClose();
+                }}
+                className={({ isActive }) =>
+                  clsx(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group",
+                    collapsed && "justify-center",
+                    isActive
+                      ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
+                    // ✅ Primary items get border accent
+                    isPrimary && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
+                    isPrimary && isActive && "border-l-2 border-[#0D9488]"
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon
                       className={clsx(
-                        "font-medium transition-colors duration-200",
-                        isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300"
+                        "w-5 h-5 transition-all duration-200",
+                        isActive
+                          ? "text-[#0D9488]"
+                          : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
                       )}
-                    >
-                      {item.name}
-                    </span>
-                  )}
-                  {isActive && !collapsed && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
+                    />
+                    {!collapsed && (
+                      <span
+                        className={clsx(
+                          "font-medium transition-colors duration-200",
+                          isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300",
+                          // ✅ Primary items slightly bolder
+                          isPrimary && "font-semibold"
+                        )}
+                      >
+                        {item.name}
+                      </span>
+                    )}
+                    {/* ✅ "NEW" badge for primary items */}
+                    {isPrimary && !collapsed && !isActive && (
+                      <span className="ml-auto text-[8px] font-bold text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
+                        NEW
+                      </span>
+                    )}
+                    {isActive && !collapsed && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* BOTTOM - Admin Info */}
@@ -146,7 +181,7 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
                   Admin Access
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 mt-1">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                 Full system management
               </p>
             </div>

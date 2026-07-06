@@ -10,6 +10,7 @@ import {
   Home,
   Compass,
   Sparkles,
+  ClipboardList, // ✅ Added for Listings
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
@@ -25,7 +26,7 @@ import logo from "../../assets/images/logo.png";
 // ===============================
 
 const ProviderBottomNav = ({ variant = 'provider' }) => {
-  // Provider nav items
+  // Provider nav items - ✅ Updated: Tours → Listings
   const providerNavItems = [
     {
       name: 'Dashboard',
@@ -33,13 +34,13 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
       icon: LayoutDashboard,
     },
     {
-      name: 'Tours',
-      path: '/provider/tours',
-      icon: Compass,
+      name: 'Listings', // ✅ Changed from "Tours"
+      path: '/provider/listings',
+      icon: ClipboardList, // ✅ Changed from Compass
     },
     {
       name: 'Add',
-      path: '/provider/add-tour',
+      path: '/provider/add-listing', // ✅ Changed from add-tour
       icon: PlusCircle,
     },
     {
@@ -54,7 +55,7 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
     },
   ];
 
-  // Admin nav items
+  // Admin nav items - ✅ Updated: Tours → Listings
   const adminNavItems = [
     {
       name: 'Dashboard',
@@ -67,9 +68,9 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
       icon: User,
     },
     {
-      name: 'Tours',
-      path: '/admin/tours',
-      icon: Compass,
+      name: 'Listings', // ✅ Changed from "Tours"
+      path: '/admin/listings',
+      icon: ClipboardList, // ✅ Changed from Compass
     },
     {
       name: 'Requests',
@@ -105,7 +106,6 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
             >
               {({ isActive }) => (
                 <>
-                  {/* Icon with active indicator */}
                   <div className={clsx(
                     'relative p-1.5 rounded-xl transition-all duration-200',
                     isActive && 'bg-[#0D9488]/10'
@@ -115,7 +115,6 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
                       isActive && 'scale-110'
                     )} />
                     
-                    {/* Active dot indicator */}
                     {isActive && (
                       <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#0D9488] rounded-full" />
                     )}
@@ -128,7 +127,6 @@ const ProviderBottomNav = ({ variant = 'provider' }) => {
                     {item.name}
                   </span>
 
-                  {/* Tooltip on hover */}
                   <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#374151] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
                     {item.name}
                   </span>

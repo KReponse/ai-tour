@@ -24,7 +24,8 @@ import {
 import Card, { CardImage, CardContent, CardBadge } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import VideoCard from "../components/ui/VideoCard";
-import { getTours } from '../services/tourService';
+// ✅ FIXED: Use listingService instead of tourService
+import { getListings } from '../services/listingService';
 import Heroimg from '../assets/images/heroimg.png';
 
 // ===============================
@@ -54,10 +55,10 @@ const getImageUrl = (image) => {
   return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/${image}`;
 };
 
-const getTourImage = (tour) => {
-  if (tour.coverImage) return getImageUrl(tour.coverImage);
-  if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
-  if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
+const getListingImage = (listing) => {
+  if (listing.coverImage) return getImageUrl(listing.coverImage);
+  if (listing.galleryImages && listing.galleryImages.length > 0) return getImageUrl(listing.galleryImages[0]);
+  if (listing.images && listing.images.length > 0) return getImageUrl(listing.images[0]);
   return null;
 };
 
@@ -123,31 +124,30 @@ const Home = () => {
     try {
       setLoading(true);
       
-      // ✅ Fetch tours
-      const toursData = await getTours();
-      const toursList = toursData?.tours || [];
-      setTours(toursList);
+      // ✅ FIXED: Use getListings from listingService
+      const listingsData = await getListings({ limit: 10 });
+      const listingsList = listingsData?.listings || [];
+      setTours(listingsList);
 
       // ✅ Fetch videos
-      const videosRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/videos`);
+      const videosRes = await fetch(`${API_URL}/videos`);
       const videosData = await videosRes.json();
       setVideos(videosData?.videos || []);
 
       // ✅ Fetch testimonials (public reviews)
-      const reviewsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/reviews/public?limit=6`);
+      const reviewsRes = await fetch(`${API_URL}/reviews/public?limit=6`);
       const reviewsData = await reviewsRes.json();
       setTestimonials(reviewsData?.reviews || []);
 
       // ✅ Calculate stats from real data
       setStats({
-        totalTravelers: toursList.reduce((acc, tour) => acc + (tour.totalBookings || 0), 0) || 0,
-        totalTours: toursList.length,
+        totalTravelers: listingsList.reduce((acc, listing) => acc + (listing.totalBookings || 0), 0) || 0,
+        totalTours: listingsList.length,
         totalReviews: reviewsData?.reviews?.length || 0
       });
 
     } catch (error) {
       console.error('❌ Error loading home data:', error);
-      // Set empty arrays on error
       setTours([]);
       setVideos([]);
       setTestimonials([]);
@@ -164,30 +164,30 @@ const Home = () => {
     }
   };
 
-  const handleImageError = (tourId) => {
-    setImageErrors(prev => ({ ...prev, [tourId]: true }));
+  const handleImageError = (listingId) => {
+    setImageErrors(prev => ({ ...prev, [listingId]: true }));
   };
 
-  const getImageWithFallback = (tour) => {
-    if (imageErrors[tour._id]) {
-      return getFallbackImage(tour._id);
+  const getImageWithFallback = (listing) => {
+    if (imageErrors[listing._id]) {
+      return getFallbackImage(listing._id);
     }
-    const image = getTourImage(tour);
-    return image || getFallbackImage(tour._id);
+    const image = getListingImage(listing);
+    return image || getFallbackImage(listing._id);
   };
 
   // ===============================
-  // GET TRENDING ITEMS (4 items: Tour, Video, Tour, Video)
+  // GET TRENDING ITEMS (4 items: Listing, Video, Listing, Video)
   // ===============================
   const getTrendingItems = () => {
     const items = [];
-    const topTours = tours.slice(0, 2);
+    const topListings = tours.slice(0, 2);
     const topVideos = videos.slice(0, 2);
 
     const pattern = [
-      { type: 'tour', data: topTours[0] },
+      { type: 'tour', data: topListings[0] },
       { type: 'video', data: topVideos[0] },
-      { type: 'tour', data: topTours[1] },
+      { type: 'tour', data: topListings[1] },
       { type: 'video', data: topVideos[1] },
     ];
 
@@ -203,27 +203,27 @@ const Home = () => {
   const trendingItems = getTrendingItems();
 
   // ===============================
-  // RENDER TOUR CARD
+  // RENDER LISTING CARD
   // ===============================
-  const renderTourCard = (tour) => {
-    const imageUrl = getImageWithFallback(tour);
-    const isPending = tour.status === 'pending';
+  const renderTourCard = (listing) => {
+    const imageUrl = getImageWithFallback(listing);
+    const isPending = listing.status === 'pending';
 
     return (
-      <Link key={tour._id} to={`/tour/${tour._id}`} className="flex-1 min-w-[240px] max-w-[280px]">
+      <Link key={listing._id} to={`/listing/${listing._id}`} className="flex-1 min-w-[240px] max-w-[280px]">
         <Card hover className="overflow-hidden rounded-2xl h-full flex flex-col border border-gray-100 dark:border-gray-800">
           <div className="relative overflow-hidden bg-gray-100 dark:bg-gray-800 h-48">
             <img
               src={imageUrl}
-              alt={tour.title}
+              alt={listing.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={() => handleImageError(tour._id)}
+              onError={() => handleImageError(listing._id)}
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             
             <div className="absolute bottom-3 left-3 bg-[#0D9488] text-white px-3 py-1 rounded-full text-xs font-semibold">
-              ${tour.price}
+              ${listing.price}
             </div>
             
             {isPending && (
@@ -232,30 +232,30 @@ const Home = () => {
               </div>
             )}
             
-            {tour.averageRating > 0 && (
+            {listing.averageRating > 0 && (
               <div className="absolute top-3 right-3 bg-black/60 backdrop-blur px-2 py-1 rounded-full text-xs text-white flex items-center gap-1">
                 <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
-                {tour.averageRating.toFixed(1)}
+                {listing.averageRating.toFixed(1)}
               </div>
             )}
           </div>
           
           <CardContent className="p-4 flex flex-col flex-1">
             <h3 className="text-base font-bold text-[#374151] dark:text-white line-clamp-1">
-              {tour.title}
+              {listing.title}
             </h3>
             <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
               <MapPin className="w-3 h-3 text-[#0D9488]" />
-              <span>{tour.location || 'Location not specified'}</span>
+              <span>{listing.location || 'Location not specified'}</span>
             </div>
             <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Clock className="w-3 h-3 text-[#0D9488]" />
-                <span>{tour.duration || 'N/A'}</span>
+                <span>{listing.duration || 'N/A'}</span>
               </div>
               <div className="flex items-center gap-1 text-[#F59E0B]">
                 <Star className="w-3 h-3 fill-current" />
-                <span className="text-xs font-semibold">{tour.averageRating || 'New'}</span>
+                <span className="text-xs font-semibold">{listing.averageRating || 'New'}</span>
               </div>
             </div>
           </CardContent>
@@ -379,7 +379,7 @@ const Home = () => {
       </section>
 
       {/* ===============================
-          TRENDING EXPERIENCES - 4 Cards (Tour, Video, Tour, Video)
+          TRENDING EXPERIENCES - 4 Cards (Listing, Video, Listing, Video)
       =============================== */}
       <section>
         <div className="flex justify-between items-center mb-6">

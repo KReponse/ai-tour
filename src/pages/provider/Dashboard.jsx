@@ -19,10 +19,12 @@ import {
   XCircle,
   Star,
   MessageCircle,
+  ClipboardList, // ✅ Added for Listings
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProviderBookings, getProviderAnalytics, getProviderEarnings } from '../../services/bookingService';
 import { getProviderReviews, getProviderReviewStats } from '../../services/reviewService';
+import { getProviderListings } from '../../services/listingService'; // ✅ Added
 import ReviewCard from '../../components/ReviewCard';
 
 // ===============================
@@ -41,6 +43,8 @@ const Dashboard = () => {
   const [recentRequests, setRecentRequests] = useState([]);
   const [reviewStats, setReviewStats] = useState(null);
   const [recentReviews, setRecentReviews] = useState([]);
+  const [recentListings, setRecentListings] = useState([]); // ✅ Added
+  const [listingCount, setListingCount] = useState(0); // ✅ Added
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -64,6 +68,18 @@ const Dashboard = () => {
         const bookingsData = await getProviderBookings(token);
         const bookings = bookingsData.bookings || [];
         console.log('✅ Bookings:', bookings.length);
+
+        // ✅ Fetch listings (NEW)
+        try {
+          const listingsData = await getProviderListings(token);
+          const listings = listingsData.listings || [];
+          setRecentListings(listings.slice(0, 3));
+          setListingCount(listings.length);
+        } catch (error) {
+          console.error('Error fetching listings:', error);
+          setRecentListings([]);
+          setListingCount(0);
+        }
 
         // ✅ Fetch review stats
         try {
@@ -94,9 +110,9 @@ const Dashboard = () => {
             growth: `${analytics?.travelerGrowth || 0}%` 
           },
           { 
-            title: "Tours", 
-            value: analytics?.totalTours || 0, 
-            growth: `${analytics?.tourGrowth || 0}%` 
+            title: "Listings", // ✅ Changed from "Tours"
+            value: listingCount || analytics?.totalListings || analytics?.totalTours || 0, 
+            growth: `${analytics?.listingGrowth || analytics?.tourGrowth || 0}%` 
           },
           { 
             title: "Revenue", 
@@ -106,6 +122,8 @@ const Dashboard = () => {
         ];
 
         setProviderStats(stats);
+
+        // ✅ Use bookings as recent requests
         setRecentRequests(bookings.slice(0, 5));
 
       } catch (error) {
@@ -122,7 +140,7 @@ const Dashboard = () => {
   const iconMap = {
     "Total Bookings": CalendarCheck,
     "Travelers": Users,
-    "Tours": MapPin,
+    "Listings": ClipboardList, // ✅ Changed from "Tours": MapPin
     "Revenue": Wallet,
   };
 
@@ -206,12 +224,13 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* ✅ Updated: Add Listing instead of Add Tour */}
         <button
-          onClick={() => navigate('/provider/add-tour')}
+          onClick={() => navigate('/provider/add-listing')}
           className="h-12 px-6 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-semibold shadow-lg shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
-          Create New Tour
+          Create New Listing {/* ✅ Changed from "Create New Tour" */}
         </button>
       </div>
 
@@ -247,7 +266,74 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* REVIEW STATS - NEW */}
+      {/* RECENT LISTINGS - NEW */}
+      {recentListings.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-[#0D9488]/10 flex items-center justify-center">
+                <ClipboardList className="w-5 h-5 text-[#0D9488]" />
+              </div>
+              <h2 className="text-2xl font-black text-[#374151] dark:text-white">
+                Recent Listings
+              </h2>
+            </div>
+            <button
+              onClick={() => navigate('/provider/listings')}
+              className="text-sm text-[#0D9488] hover:text-[#0D9488]/80 font-medium flex items-center gap-1 transition"
+            >
+              View All
+              <ArrowUpRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {recentListings.map((listing) => (
+              <div
+                key={listing._id}
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-[#374151] dark:text-white">
+                      {listing.title}
+                    </h3>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      listing.status === 'approved' ? 'bg-[#0D9488]/10 text-[#0D9488]' :
+                      listing.status === 'pending' ? 'bg-[#F59E0B]/10 text-[#F59E0B]' :
+                      'bg-red-100 text-red-600'
+                    }`}>
+                      {listing.status || 'pending'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {listing.location || 'No location'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {listing.businessType?.replace('_', ' ') || 'Service'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="px-4 py-1.5 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-sm font-bold">
+                    ${listing.price || 0}
+                  </span>
+                  <button
+                    onClick={() => navigate(`/listing/${listing._id}`)}
+                    className="p-2 rounded-xl hover:bg-[#0D9488]/10 transition"
+                  >
+                    <Eye className="w-4 h-4 text-gray-400 hover:text-[#0D9488]" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* REVIEW STATS */}
       {reviewStats && (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
@@ -330,7 +416,7 @@ const Dashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-[#374151] dark:text-white">
-                        {item.tour?.title || item.tourTitle || "Tour"}
+                        {item.tour?.title || item.listing?.title || item.tourTitle || "Service"}
                       </h3>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
                         <StatusIcon className="w-3 h-3" />
@@ -367,7 +453,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* RECENT REVIEWS - NEW */}
+      {/* RECENT REVIEWS */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center gap-2">
@@ -419,21 +505,21 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - ✅ Updated */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button
-          onClick={() => navigate('/provider/tours')}
+          onClick={() => navigate('/provider/listings')} // ✅ Changed from /provider/tours
           className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg group"
         >
-          <MapPin className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" />
-          <p className="text-sm font-semibold text-[#374151] dark:text-white">My Tours</p>
+          <ClipboardList className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" /> {/* ✅ Changed from MapPin */}
+          <p className="text-sm font-semibold text-[#374151] dark:text-white">My Listings</p> {/* ✅ Changed from "My Tours" */}
         </button>
         <button
-          onClick={() => navigate('/provider/add-tour')}
+          onClick={() => navigate('/provider/add-listing')} // ✅ Changed from /provider/add-tour
           className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg group"
         >
           <Plus className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
-          <p className="text-sm font-semibold text-[#374151] dark:text-white">Add Tour</p>
+          <p className="text-sm font-semibold text-[#374151] dark:text-white">Add Listing</p> {/* ✅ Changed from "Add Tour" */}
         </button>
         <button
           onClick={() => navigate('/provider/analytics')}

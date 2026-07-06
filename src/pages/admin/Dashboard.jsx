@@ -22,6 +22,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  ClipboardList, // ✅ Added for Listings
 } from "lucide-react";
 
 import {
@@ -51,6 +52,15 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
+    // ✅ Updated: tours → listings
+    listings: {
+      total: 0,
+      approved: 0,
+      pending: 0,
+      rejected: 0,
+      suspended: 0, // ✅ Added suspended
+    },
+    // ⚠️ Legacy: Keep tours for backward compatibility
     tours: {
       total: 0,
       approved: 0,
@@ -98,11 +108,47 @@ const AdminDashboard = () => {
       console.log("✅ Admin stats:", data);
       
       if (data && data.stats) {
-        setStats(data.stats);
+        // ✅ Map tours to listings for display
+        const statsData = data.stats;
+        setStats({
+          ...statsData,
+          // ✅ Primary: Listings (use tours data as fallback)
+          listings: statsData.listings || statsData.tours || {
+            total: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+            suspended: 0,
+          },
+          // ⚠️ Legacy: Keep tours for backward compatibility
+          tours: statsData.tours || {
+            total: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+          },
+        });
       } else if (data && data.success) {
-        setStats(data.stats || {});
+        const statsData = data.stats || {};
+        setStats({
+          ...statsData,
+          listings: statsData.listings || statsData.tours || {
+            total: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+            suspended: 0,
+          },
+          tours: statsData.tours || {
+            total: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+          },
+        });
       } else {
         setStats({
+          listings: { total: 0, approved: 0, pending: 0, rejected: 0, suspended: 0 },
           tours: { total: 0, approved: 0, pending: 0, rejected: 0 },
           users: { providers: 0, travelers: 0, admins: 0 },
           providerRequests: { pending: 0, approved: 0, rejected: 0 },
@@ -123,7 +169,7 @@ const AdminDashboard = () => {
   }, []);
 
   // ===============================
-  // CARDS DATA
+  // CARDS DATA - ✅ Updated for Listings
   // ===============================
   const cards = [
     {
@@ -141,9 +187,9 @@ const AdminDashboard = () => {
       textColor: "text-[#F59E0B]",
     },
     {
-      title: "Total Tours",
-      value: stats.tours?.total || 0,
-      icon: MapPin,
+      title: "Total Listings", // ✅ Changed from "Total Tours"
+      value: stats.listings?.total || 0,
+      icon: ClipboardList, // ✅ Changed from MapPin
       gradient: "from-[#0D9488] to-[#0f766e]",
       textColor: "text-[#0D9488]",
     },
@@ -171,18 +217,26 @@ const AdminDashboard = () => {
   ];
 
   // ===============================
-  // CHART DATA
+  // CHART DATA - ✅ Updated for Listings
   // ===============================
   const chartData = [
     { name: "Users", value: stats.users?.travelers || 0 },
     { name: "Providers", value: stats.users?.providers || 0 },
-    { name: "Tours", value: stats.tours?.total || 0 },
+    { name: "Listings", value: stats.listings?.total || 0 }, // ✅ Changed from "Tours"
     { name: "Bookings", value: stats.bookings?.total || 0 },
   ];
 
   // ===============================
-  // TOUR STATUS DATA
+  // LISTING STATUS DATA - ✅ Updated
   // ===============================
+  const listingStatusData = [
+    { name: "Approved", value: stats.listings?.approved || 0, color: "#0D9488" },
+    { name: "Pending", value: stats.listings?.pending || 0, color: "#F59E0B" },
+    { name: "Rejected", value: stats.listings?.rejected || 0, color: "#EF4444" },
+    { name: "Suspended", value: stats.listings?.suspended || 0, color: "#6B7280" }, // ✅ Added
+  ];
+
+  // ⚠️ Legacy: Keep tour status data for backward compatibility
   const tourStatusData = [
     { name: "Approved", value: stats.tours?.approved || 0, color: "#0D9488" },
     { name: "Pending", value: stats.tours?.pending || 0, color: "#F59E0B" },
@@ -373,14 +427,14 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Tour Status Chart */}
+      {/* Listing Status Chart - ✅ Updated */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-bold text-xl text-[#374151] dark:text-white">
-            Tour Status
+            Listing Status {/* ✅ Changed from "Tour Status" */}
           </h2>
-          <div className="flex items-center gap-4">
-            {tourStatusData.map((item) => (
+          <div className="flex items-center gap-4 flex-wrap">
+            {listingStatusData.map((item) => (
               <div key={item.name} className="flex items-center gap-1 text-xs">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-gray-500">{item.name}</span>
@@ -390,13 +444,13 @@ const AdminDashboard = () => {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={tourStatusData} layout="vertical">
+          <BarChart data={listingStatusData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
             <XAxis type="number" stroke="#9ca3af" />
             <YAxis type="category" dataKey="name" stroke="#9ca3af" width={80} />
             <Tooltip />
             <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-              {tourStatusData.map((entry, index) => (
+              {listingStatusData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Bar>

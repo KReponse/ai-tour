@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { deleteTour } from '../../services/tourService';
+import { deleteListing } from '../../services/listingService'; // ✅ Added for Listing support
 import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
@@ -21,35 +22,61 @@ import { useAuth } from '../../contexts/AuthContext';
 // White : #FFFFFF
 // ===============================
 
-const DeleteTourModal = ({ tour, isOpen, onClose, onSuccess }) => {
+const DeleteTourModal = ({ 
+  tour, 
+  listing, // ✅ Added for Listing support
+  isOpen, 
+  onClose, 
+  onSuccess,
+  entityType = 'tour', // ✅ 'tour' or 'listing'
+}) => {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  if (!isOpen || !tour) return null;
+  if (!isOpen) return null;
+
+  // Determine which entity to delete
+  const entity = listing || tour;
+  const isListing = entityType === 'listing' || !!listing;
+  
+  // Get entity data
+  const entityId = entity?._id;
+  const entityTitle = entity?.title || 'Untitled';
+  const entityLocation = entity?.location || '';
+  const entityPrice = entity?.price || 0;
+  const displayType = isListing ? 'Listing' : 'Tour';
+
+  if (!entity) return null;
 
   const handleDelete = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      await deleteTour(tour._id, token);
+      if (isListing) {
+        // ✅ Delete using Listing service
+        await deleteListing(entityId, token);
+      } else {
+        // ⚠️ Legacy: Delete using Tour service (backward compatibility)
+        await deleteTour(entityId, token);
+      }
       
       // Close modal
       onClose();
       
-      // Call success callback (refresh tours)
+      // Call success callback (refresh listings/tours)
       if (onSuccess) {
         onSuccess();
       }
       
       // Show success message
-      alert(`✅ "${tour.title}" deleted successfully`);
+      alert(`✅ "${entityTitle}" deleted successfully`);
 
     } catch (error) {
       console.error('❌ Delete error:', error);
-      setError(error.response?.data?.message || 'Failed to delete tour');
+      setError(error.response?.data?.message || `Failed to delete ${displayType.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -67,7 +94,7 @@ const DeleteTourModal = ({ tour, isOpen, onClose, onSuccess }) => {
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
             <h2 className="text-2xl font-black text-[#374151] dark:text-white">
-              Delete Tour
+              Delete {displayType}
             </h2>
           </div>
           <button
@@ -81,20 +108,20 @@ const DeleteTourModal = ({ tour, isOpen, onClose, onSuccess }) => {
         {/* Content */}
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-300">
-            Are you sure you want to delete:
+            Are you sure you want to delete this {displayType.toLowerCase()}:
           </p>
           
           <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white font-bold text-lg">
-                {tour.title?.charAt(0) || 'T'}
+                {entityTitle?.charAt(0) || 'L'}
               </div>
               <div>
                 <h3 className="font-bold text-[#374151] dark:text-white">
-                  {tour.title}
+                  {entityTitle}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {tour.location} • ${tour.price}
+                  {entityLocation} • ${entityPrice}
                 </p>
               </div>
             </div>
@@ -108,7 +135,7 @@ const DeleteTourModal = ({ tour, isOpen, onClose, onSuccess }) => {
                 This action cannot be undone!
               </p>
               <p className="text-sm text-red-500 dark:text-red-300">
-                All bookings and data associated with this tour will be permanently removed.
+                All bookings and data associated with this {displayType.toLowerCase()} will be permanently removed.
               </p>
             </div>
           </div>

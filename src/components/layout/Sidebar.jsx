@@ -19,7 +19,9 @@ import {
   Settings,
   LayoutDashboard,
   TrendingUp,
-  MessageCircle, // ✅ Added for Reviews
+  MessageCircle,
+  ClipboardList, // ✅ Added for Listings
+  PlusCircle, // ✅ Added for Add Listing
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../contexts/AuthContext";
@@ -43,7 +45,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
   */
   const travelerLinks = [
     { path: "/", icon: Home, label: "Home" },
-    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }, // ✅ Added
+    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { path: "/explore", icon: Compass, label: "Explore" },
     { path: "/ai-planner", icon: Bot, label: "AI Planner" },
     { path: "/my-bookings", icon: CalendarCheck, label: "My Bookings" },
@@ -56,16 +58,20 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   /*
   =========================
-  PROVIDER LINKS
+  PROVIDER LINKS - ✅ UPDATED
   =========================
   */
   const providerLinks = [
     { path: "/provider", icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/provider/tours", icon: Compass, label: "My Tours" },
-    { path: "/provider/add-tour", icon: Briefcase, label: "Add Tour" },
+    // ✅ Primary: Listings
+    { path: "/provider/listings", icon: ClipboardList, label: "My Listings" },
+    { path: "/provider/add-listing", icon: PlusCircle, label: "Add Listing" },
+    // ⚠️ Legacy: Tours (kept for backward compatibility - hidden from sidebar)
+    // { path: "/provider/tours", icon: Compass, label: "My Tours" },
+    // { path: "/provider/add-tour", icon: Briefcase, label: "Add Tour" },
     { path: "/provider/bookings", icon: CalendarCheck, label: "Bookings" },
     { path: "/provider/travelers", icon: User, label: "Travelers" },
-    { path: "/provider/reviews", icon: Star, label: "Reviews" }, // ✅ Added
+    { path: "/provider/reviews", icon: Star, label: "Reviews" },
     { path: "/provider/analytics", icon: TrendingUp, label: "Analytics" },
     { path: "/provider/profile", icon: User, label: "Profile" },
     { path: "/provider/settings", icon: Settings, label: "Settings" },
@@ -73,7 +79,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   /*
   =========================
-  ADMIN LINKS
+  ADMIN LINKS - ✅ UPDATED
   =========================
   */
   const adminLinks = [
@@ -81,8 +87,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
     { path: "/admin/users", icon: User, label: "Users" },
     { path: "/admin/providers", icon: Shield, label: "Providers" },
     { path: "/admin/provider-requests", icon: FileCheck, label: "Provider Requests" },
-    { path: "/admin/tours", icon: Compass, label: "Tours" },
-    { path: "/admin/reviews", icon: Star, label: "Reviews" }, // ✅ Added
+    // ✅ Updated: Tours → Listings
+    { path: "/admin/listings", icon: ClipboardList, label: "Listings" },
+    // ⚠️ Legacy: Tours (kept for backward compatibility - hidden from sidebar)
+    // { path: "/admin/tours", icon: Compass, label: "Tours" },
+    { path: "/admin/reviews", icon: Star, label: "Reviews" },
     { path: "/admin/notifications", icon: Bell, label: "Notifications" },
   ];
 
@@ -112,48 +121,66 @@ const Sidebar = ({ collapsed, onToggle }) => {
     >
       <div className="flex flex-col h-full">
         <div className="flex-1 py-6">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  "flex items-center px-4 py-3 mx-2 my-1 rounded-xl",
-                  "transition-all duration-200",
-                  "hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20",
-                  isActive
-                    ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] dark:text-[#0D9488]"
-                    : "text-gray-700 dark:text-gray-300 hover:text-[#0D9488]",
-                  collapsed ? "justify-center" : "space-x-3"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <item.icon
-                    className={clsx(
-                      "w-5 h-5 transition-colors",
-                      isActive
-                        ? "text-[#0D9488]"
-                        : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
-                    )}
-                  />
-                  {!collapsed && (
-                    <span
+          {navItems.map((item) => {
+            // Check if this is a primary Listing item
+            const isListingItem = item.path === '/provider/listings' || 
+                                 item.path === '/provider/add-listing' ||
+                                 item.path === '/admin/listings';
+            
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  clsx(
+                    "flex items-center px-4 py-3 mx-2 my-1 rounded-xl",
+                    "transition-all duration-200",
+                    "hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20",
+                    isActive
+                      ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] dark:text-[#0D9488]"
+                      : "text-gray-700 dark:text-gray-300 hover:text-[#0D9488]",
+                    collapsed ? "justify-center" : "space-x-3",
+                    // ✅ Primary items get slight accent
+                    isListingItem && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
+                    isListingItem && isActive && "border-l-2 border-[#0D9488]"
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon
                       className={clsx(
-                        "font-medium transition-colors",
+                        "w-5 h-5 transition-colors",
                         isActive
                           ? "text-[#0D9488]"
-                          : "text-gray-700 dark:text-gray-300"
+                          : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
                       )}
-                    >
-                      {item.label}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
+                    />
+                    {!collapsed && (
+                      <span
+                        className={clsx(
+                          "font-medium transition-colors",
+                          isActive
+                            ? "text-[#0D9488]"
+                            : "text-gray-700 dark:text-gray-300",
+                          // ✅ Primary items slightly bolder
+                          isListingItem && "font-semibold"
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                    )}
+                    {/* ✅ "NEW" badge for primary items */}
+                    {isListingItem && !collapsed && !isActive && (
+                      <span className="ml-auto text-[8px] font-bold text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
+                        NEW
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
         </div>
 
         {/* Collapse Toggle Button */}

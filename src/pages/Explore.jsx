@@ -29,7 +29,8 @@ import {
   Play,
 } from 'lucide-react';
 
-import { getTours } from '../services/tourService';
+// ✅ FIXED: Use listingService instead of tourService
+import { getListings } from '../services/listingService';
 import VideoCard from "../components/ui/VideoCard";
 
 // ===============================
@@ -88,10 +89,10 @@ const Explore = () => {
     try {
       setLoading(true);
 
-      // ✅ Fetch tours
-      const toursData = await getTours();
-      const toursList = toursData?.tours || [];
-      setTours(toursList);
+      // ✅ FIXED: Use getListings from listingService
+      const listingsData = await getListings({ limit: 50 });
+      const listingsList = listingsData?.listings || [];
+      setTours(listingsList);
 
       // ✅ Fetch videos from backend
       const videosRes = await fetch(`${API_URL}/api/videos`);
@@ -336,7 +337,7 @@ const Explore = () => {
               </div>
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4 text-[#F59E0B]" />
-                <span>{tour.travelers || 0}</span>
+                <span>{tour.capacity || tour.travelers || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Eye className="w-4 h-4 text-gray-400" />

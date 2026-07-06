@@ -46,6 +46,27 @@ export const getMyProviderRequest = async () => {
 };
 
 // ===============================
+// ✅ GET MY PROVIDER PROFILE (NEW - For Listing Engine)
+// ===============================
+export const getMyProviderProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${API_URL}/provider-profiles/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get my provider profile error:', error);
+    throw error;
+  }
+};
+
+// ===============================
 // ✅ GET PROVIDER STATS
 // ===============================
 export const getProviderStats = async () => {

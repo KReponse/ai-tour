@@ -20,6 +20,7 @@ import {
   PlusCircle,
   Sparkles,
   LayoutDashboard,
+  ClipboardList, // ✅ Added for Listings
 } from "lucide-react";
 
 import {
@@ -95,27 +96,27 @@ const ProviderNavbar = ({
             <Menu className="w-5 h-5 dark:text-white" />
           </button>
 
-          {/* LOGO - Updated with AI Tour colors */}
+          {/* LOGO */}
           <div
-  className="flex items-center gap-3 cursor-pointer"
-  onClick={() => navigate("/provider/dashboard")}
->
-  <img
-    src={logo}
-    alt="AI Tour"
-    className="w-11 h-11 object-contain"
-  />
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate("/provider/dashboard")}
+          >
+            <img
+              src={logo}
+              alt="AI Tour"
+              className="w-11 h-11 object-contain"
+            />
 
-  <div>
-    <h1 className="text-xl font-black bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent">
-      AI Tour
-    </h1>
+            <div>
+              <h1 className="text-xl font-black bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent">
+                AI Tour
+              </h1>
 
-    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-      Provider Center
-    </p>
-  </div>
-</div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                Provider Center
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ================= SEARCH ================= */}
@@ -123,7 +124,8 @@ const ProviderNavbar = ({
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
-              placeholder="Search tours, bookings, travelers..."
+              // ✅ Updated placeholder - Tours → Listings
+              placeholder="Search listings, bookings, travelers..."
               className="w-full h-12 pl-12 rounded-2xl bg-gray-100 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-[#0D9488] dark:text-white transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
             />
           </div>
@@ -144,7 +146,7 @@ const ProviderNavbar = ({
             )}
           </button>
 
-          {/* MESSAGE - Updated colors */}
+          {/* MESSAGE */}
           <button
             onClick={() => navigate("/provider/messages")}
             className="relative w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:scale-105 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
@@ -157,7 +159,7 @@ const ProviderNavbar = ({
             )}
           </button>
 
-          {/* NOTIFICATIONS - Updated colors */}
+          {/* NOTIFICATIONS */}
           <button
             onClick={() => navigate("/provider/notifications")}
             className="relative w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:scale-105 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
@@ -195,14 +197,14 @@ const ProviderNavbar = ({
                   {user?.name || "Provider"}
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Tour Provider
+                  Service Provider {/* ✅ Updated from "Tour Provider" */}
                 </p>
               </div>
 
               <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${profileOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* DROPDOWN - Updated colors */}
+            {/* DROPDOWN */}
             {profileOpen && (
               <div className="absolute right-0 mt-3 w-64 rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
                 <div className="p-5 border-b border-gray-100 dark:border-gray-800">
@@ -223,6 +225,24 @@ const ProviderNavbar = ({
                     Dashboard
                   </button>
 
+                  {/* ✅ NEW: My Listings */}
+                  <button
+                    onClick={() => navigate("/provider/listings")}
+                    className="w-full h-12 rounded-2xl flex items-center gap-3 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 px-4 text-[#374151] dark:text-white transition-all duration-200"
+                  >
+                    <ClipboardList className="w-4 h-4 text-[#0D9488]" />
+                    My Listings
+                  </button>
+
+                  {/* ✅ UPDATED: Add Listing (replaces Add Tour) */}
+                  <button
+                    onClick={() => navigate("/provider/add-listing")}
+                    className="w-full h-12 rounded-2xl flex items-center gap-3 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 px-4 text-[#374151] dark:text-white transition-all duration-200"
+                  >
+                    <PlusCircle className="w-4 h-4 text-[#F59E0B]" />
+                    Add Listing
+                  </button>
+
                   <button
                     onClick={() => navigate("/provider/profile")}
                     className="w-full h-12 rounded-2xl flex items-center gap-3 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 px-4 text-[#374151] dark:text-white transition-all duration-200"
@@ -232,20 +252,15 @@ const ProviderNavbar = ({
                   </button>
 
                   <button
-                    onClick={() => navigate("/provider/add-tour")}
-                    className="w-full h-12 rounded-2xl flex items-center gap-3 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 px-4 text-[#374151] dark:text-white transition-all duration-200"
-                  >
-                    <PlusCircle className="w-4 h-4 text-[#F59E0B]" />
-                    Add Tour
-                  </button>
-
-                  <button
                     onClick={() => navigate("/provider/settings")}
                     className="w-full h-12 rounded-2xl flex items-center gap-3 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/20 px-4 text-[#374151] dark:text-white transition-all duration-200"
                   >
                     <Settings className="w-4 h-4 text-gray-400" />
                     Settings
                   </button>
+
+                  {/* ⚠️ LEGACY: Add Tour (kept for backward compatibility) */}
+                  {/* Hidden from dropdown - users should use Add Listing */}
 
                   <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
 

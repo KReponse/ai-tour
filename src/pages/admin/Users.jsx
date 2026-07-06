@@ -1,4 +1,4 @@
-// src/pages/admin/Users.jsx
+// frontend/src/pages/admin/Users.jsx
 
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -24,7 +24,7 @@ import {
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/admin";
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -32,12 +32,20 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   const token = localStorage.getItem("token");
 
+  // ── Notification ──
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
   const fetchUsers = async () => {
     try {
-      const { data } = await axios.get(`${API}/users`, {
+      setLoading(true);
+      const { data } = await axios.get(`${API}/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const list = data.users || [];
@@ -45,6 +53,7 @@ const Users = () => {
       setFiltered(list);
     } catch (error) {
       console.log("Fetch users error:", error);
+      showNotification("Failed to load users", "error");
     } finally {
       setLoading(false);
     }
@@ -67,17 +76,23 @@ const Users = () => {
     setFiltered(result);
   }, [search, users]);
 
+  // ✅ FIXED: Update role with correct endpoint
   const updateRole = async (id, role) => {
     try {
       setActionLoading(id);
       await axios.put(
-        `${API}/users/${id}`,
+        `${API}/admin/users/${id}/role`,  // ✅ Correct endpoint
         { role },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       await fetchUsers();
+      showNotification(`User role updated to ${role}`, 'success');
     } catch (error) {
       console.log("Role update error:", error);
+      showNotification(
+        error.response?.data?.message || "Failed to update role",
+        "error"
+      );
     } finally {
       setActionLoading(null);
     }
@@ -119,6 +134,21 @@ const Users = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in">
+
+      {/* ── Notification ── */}
+      {notification && (
+        <div
+          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl text-white flex items-center gap-3 ${
+            notification.type === 'success' ? 'bg-[#0D9488]' :
+            notification.type === 'error' ? 'bg-red-500' :
+            'bg-[#F59E0B]'
+          }`}
+        >
+          {notification.type === 'success' && <CheckCircle className="w-5 h-5" />}
+          {notification.type === 'error' && <XCircle className="w-5 h-5" />}
+          {notification.message}
+        </div>
+      )}
 
       {/* HEADER - Updated with AI Tour colors */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -177,6 +207,7 @@ const Users = () => {
               {filtered.map((u) => {
                 const roleBadge = getRoleBadge(u?.role);
                 const RoleIcon = roleBadge.icon;
+                const currentRole = u?.role || "traveler";
 
                 return (
                   <tr
@@ -207,17 +238,22 @@ const Users = () => {
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${roleBadge.bg} ${roleBadge.text}`}>
                         <RoleIcon className="w-3.5 h-3.5" />
-                        {u?.role || "traveler"}
+                        {currentRole}
                       </span>
                     </td>
 
                     {/* ACTIONS - Updated with AI Tour colors */}
                     <td className="p-4">
                       <div className="flex gap-2 flex-wrap">
+                        {/* Traveler Button */}
                         <button
                           onClick={() => updateRole(u._id, "traveler")}
-                          disabled={actionLoading === u._id}
-                          className="px-3 py-1.5 rounded-xl bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium transition-all duration-300 disabled:opacity-50"
+                          disabled={actionLoading === u._id || currentRole === "traveler"}
+                          className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            currentRole === "traveler"
+                              ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                              : "bg-gray-600 hover:bg-gray-700 text-white"
+                          }`}
                         >
                           {actionLoading === u._id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -226,18 +262,28 @@ const Users = () => {
                           )}
                         </button>
 
+                        {/* Provider Button */}
                         <button
                           onClick={() => updateRole(u._id, "provider")}
-                          disabled={actionLoading === u._id}
-                          className="px-3 py-1.5 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/80 text-white text-sm font-medium transition-all duration-300 disabled:opacity-50"
+                          disabled={actionLoading === u._id || currentRole === "provider"}
+                          className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            currentRole === "provider"
+                              ? "bg-[#F59E0B]/20 dark:bg-[#F59E0B]/30 text-[#F59E0B] dark:text-[#F59E0B]"
+                              : "bg-[#F59E0B] hover:bg-[#F59E0B]/80 text-white"
+                          }`}
                         >
                           Provider
                         </button>
 
+                        {/* Admin Button */}
                         <button
                           onClick={() => updateRole(u._id, "admin")}
-                          disabled={actionLoading === u._id}
-                          className="px-3 py-1.5 rounded-xl bg-[#0D9488] hover:bg-[#0D9488]/80 text-white text-sm font-medium transition-all duration-300 flex items-center gap-1 disabled:opacity-50"
+                          disabled={actionLoading === u._id || currentRole === "admin"}
+                          className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            currentRole === "admin"
+                              ? "bg-[#0D9488]/20 dark:bg-[#0D9488]/30 text-[#0D9488] dark:text-[#0D9488]"
+                              : "bg-[#0D9488] hover:bg-[#0D9488]/80 text-white"
+                          }`}
                         >
                           <Shield size={14} />
                           Admin

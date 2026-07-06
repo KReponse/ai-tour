@@ -1,37 +1,64 @@
-// src/pages/TourDetails.jsx
+// src/pages/ListingDetails.jsx
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  MapPin, Clock, Users, Star, Loader2, Sparkles, Calendar,
-  CheckCircle, X, ChevronLeft, ChevronRight, Play, Shield,
-  Award, Mail, Phone, Building2, ThumbsUp, Heart, Share2,
-  Video, Info, List, Check, Camera, CreditCard,
-  UserCheck, ZoomIn, Maximize, Minimize, Verified,
+  MapPin,
+  Clock,
+  Users,
+  Star,
+  Loader2,
+  Sparkles,
+  Calendar,
+  CheckCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Shield,
+  Award,
+  Mail,
+  Phone,
+  Building2,
+  ThumbsUp,
+  Heart,
+  Share2,
+  Video,
+  Info,
+  List,
+  Check,
+  Camera,
+  CreditCard,
+  UserCheck,
+  ZoomIn,
+  Maximize,
+  Minimize,
+  Verified,
   Globe,
-  Image as ImageIcon, MessageCircle, Send,
-   Eye,
+  Image as ImageIcon,
+  MessageCircle,
+  Send,
+  Eye,
   Pause,
+  Utensils,
+  Bed,
+  Car,
+  Music,
+  ShoppingBag,
+  DollarSign,
 } from 'lucide-react';
 
-import { getPublicProviderProfile } from "../services/providerService";
-import { getTourById } from '../services/tourService';
+import { getListingById, toggleLike } from '../services/listingService';
+import { getPublicProviderProfile } from '../services/providerService';
 import { createCheckout } from '../services/paymentService';
 import { useAuth } from '../contexts/AuthContext';
-import { getTourReviews, createReview, toggleHelpful } from "../services/reviewService";
-import { toggleLike } from '../services/tourService';
-
+import { getTourReviews, createReview, toggleHelpful } from '../services/reviewService';
+import { BIZ_CONFIG, getBusinessConfig } from '../config/listingConfigs';
 import ReviewCard from '../components/ReviewCard';
 import ReviewForm from '../components/ReviewForm';
 
-// ─── Brand tokens ───────────────────────────────────────────────
-const C = {
-  teal:  '#0D9488',
-  gold:  '#F59E0B',
-  slate: '#374151',
-  white: '#FFFFFF',
-};
 
+// ─── Brand tokens ───────────────────────────────────────────────
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -41,22 +68,21 @@ const toUrl = (img) => {
   return `${API_URL}/uploads/${img}`;
 };
 
-const buildGallery = (tour) => {
+const buildGallery = (listing) => {
   const seen = new Set();
   const push = (src) => {
     if (src && !seen.has(src)) { seen.add(src); return true; }
     return false;
   };
   const out = [];
-  if (push(tour.coverImage)) out.push(tour.coverImage);
-  (tour.galleryImages || []).forEach(i => push(i) && out.push(i));
-  (tour.images || []).forEach(i => push(i) && out.push(i));
+  if (push(listing.coverImage)) out.push(listing.coverImage);
+  (listing.galleryImages || []).forEach(i => push(i) && out.push(i));
   return out;
 };
 
-const buildVideos = (tour) => {
-  if (Array.isArray(tour.videos) && tour.videos.length) return tour.videos;
-  if (tour.video) return [tour.video];
+const buildVideos = (listing) => {
+  if (Array.isArray(listing.videos) && listing.videos.length) return listing.videos;
+  if (listing.video) return [listing.video];
   return [];
 };
 
@@ -64,6 +90,17 @@ const toVideoUrl = (v) => {
   if (!v) return '';
   if (v.startsWith('http') || v.startsWith('/')) return v;
   return `${API_URL}/uploads/${v}`;
+};
+
+// ─── Get Business Config ────────────────────────────────────────
+const getBusinessIcon = (businessType) => {
+  const config = getBusinessConfig(businessType);
+  return config?.icon || Building2;
+};
+
+const getBusinessLabel = (businessType) => {
+  const config = getBusinessConfig(businessType);
+  return config?.label || 'Service Provider';
 };
 
 // ================================================================
@@ -119,12 +156,6 @@ const HeroMediaArea = ({
             autoPlay
             playsInline
           />
-          <button
-            onClick={() => setIsVideoPlaying(!isVideoPlaying)}
-            className="absolute bottom-4 right-4 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition"
-          >
-            {isVideoPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-          </button>
         </div>
       );
     }
@@ -272,7 +303,7 @@ const VideoGallery = ({ videos = [], onSelect }) => {
 };
 
 // ================================================================
-// PROVIDER CARD - ENHANCED with Contact Modal ✅ COMPLETE
+// PROVIDER CARD - ENHANCED with Contact Modal
 // ================================================================
 const ProviderCard = ({ provider }) => {
   const [showContact, setShowContact] = useState(false);
@@ -282,7 +313,6 @@ const ProviderCard = ({ provider }) => {
 
   if (!provider) return null;
 
-  // Fetch public profile when modal opens
   const fetchPublicProfile = async () => {
     try {
       setLoadingProfile(true);
@@ -302,7 +332,6 @@ const ProviderCard = ({ provider }) => {
     fetchPublicProfile();
   };
 
-  // Use provider data directly for display
   const displayName = provider.businessName || provider.name || 'Provider';
   const isVerified = provider.verificationStatus === 'approved' || provider.verified === true;
   const rating = provider.averageRating || 0;
@@ -311,30 +340,20 @@ const ProviderCard = ({ provider }) => {
 
   return (
     <>
-      {/* Compact Provider Card */}
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300">
         <div className="flex items-center justify-between gap-4">
-
           <div className="flex items-center gap-4 min-w-0">
-            {/* Logo / Avatar */}
             <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
               {provider.avatar ? (
                 <img
                   src={provider.avatar}
                   alt={displayName}
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.style.display = 'none';
-                    e.target.parentElement.textContent = displayName.charAt(0).toUpperCase();
-                  }}
                 />
               ) : (
                 displayName.charAt(0).toUpperCase()
               )}
             </div>
-
-            {/* Info */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-bold text-[#374151] dark:text-white truncate">
@@ -347,10 +366,8 @@ const ProviderCard = ({ provider }) => {
                   </span>
                 )}
               </div>
-
               <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                <span>Tour Provider</span>
-
+                <span>Provider</span>
                 {rating > 0 && (
                   <span className="flex items-center gap-1 text-[#F59E0B]">
                     <Star className="w-3.5 h-3.5 fill-[#F59E0B]" />
@@ -365,8 +382,6 @@ const ProviderCard = ({ provider }) => {
               </div>
             </div>
           </div>
-
-          {/* Contact Button */}
           <button
             onClick={handleOpenModal}
             className="px-5 py-2.5 rounded-xl bg-[#0D9488] text-white text-sm font-medium hover:bg-[#0f766e] transition flex-shrink-0 flex items-center gap-2 shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
@@ -377,22 +392,15 @@ const ProviderCard = ({ provider }) => {
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* PROVIDER CONTACT MODAL */}
-      {/* ========================================================= */}
-
+      {/* Contact Modal */}
       {showContact && (
         <>
-          {/* Backdrop */}
           <div
             onClick={() => setShowContact(false)}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
-
-          {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto pointer-events-auto">
-
               {loadingProfile ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
@@ -400,33 +408,21 @@ const ProviderCard = ({ provider }) => {
                 </div>
               ) : publicProfile ? (
                 <>
-                  {/* ── HEADER ── */}
+                  {/* Header */}
                   <div className="p-6 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-4">
-                        {/* Logo */}
                         <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
                           {publicProfile.avatar ? (
-                            <img
-                              src={publicProfile.avatar}
-                              alt={publicProfile.businessName || publicProfile.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.style.display = 'none';
-                                e.target.parentElement.textContent = (publicProfile.businessName || publicProfile.name || "P").charAt(0).toUpperCase();
-                              }}
-                            />
+                            <img src={publicProfile.avatar} alt={publicProfile.businessName} className="w-full h-full object-cover" />
                           ) : (
-                            (publicProfile.businessName || publicProfile.name || "P").charAt(0).toUpperCase()
+                            (publicProfile.businessName || "P").charAt(0).toUpperCase()
                           )}
                         </div>
-
                         <div>
                           <h2 className="text-xl font-bold text-[#374151] dark:text-white">
                             {publicProfile.businessName || publicProfile.name}
                           </h2>
-
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {publicProfile.verified && (
                               <span className="flex items-center gap-1 text-[#0D9488] text-sm">
@@ -434,7 +430,6 @@ const ProviderCard = ({ provider }) => {
                                 Verified Provider
                               </span>
                             )}
-
                             {publicProfile.averageRating > 0 && (
                               <span className="flex items-center gap-1 text-sm">
                                 <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
@@ -447,7 +442,6 @@ const ProviderCard = ({ provider }) => {
                               </span>
                             )}
                           </div>
-
                           <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
                             {publicProfile.city && (
                               <span className="flex items-center gap-1">
@@ -462,7 +456,6 @@ const ProviderCard = ({ provider }) => {
                           </div>
                         </div>
                       </div>
-
                       <button
                         onClick={() => setShowContact(false)}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition flex-shrink-0"
@@ -472,7 +465,7 @@ const ProviderCard = ({ provider }) => {
                     </div>
                   </div>
 
-                  {/* ── DESCRIPTION ── */}
+                  {/* Description */}
                   {publicProfile.description && (
                     <div className="px-6 pt-4">
                       <h4 className="text-sm font-semibold text-[#374151] dark:text-white mb-2">About</h4>
@@ -482,13 +475,10 @@ const ProviderCard = ({ provider }) => {
                     </div>
                   )}
 
-                  {/* ── CONTACT INFO ── */}
+                  {/* Contact Info */}
                   <div className="p-6 space-y-3">
                     {publicProfile.email && (
-                      <a
-                        href={`mailto:${publicProfile.email}`}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
-                      >
+                      <a href={`mailto:${publicProfile.email}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
                         <div className="w-9 h-9 rounded-xl bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
                           <Mail className="w-4 h-4 text-[#0D9488]" />
                         </div>
@@ -497,12 +487,8 @@ const ProviderCard = ({ provider }) => {
                         </span>
                       </a>
                     )}
-
                     {publicProfile.phone && (
-                      <a
-                        href={`tel:${publicProfile.phone}`}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
-                      >
+                      <a href={`tel:${publicProfile.phone}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
                         <div className="w-9 h-9 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center flex-shrink-0">
                           <Phone className="w-4 h-4 text-[#F59E0B]" />
                         </div>
@@ -511,14 +497,8 @@ const ProviderCard = ({ provider }) => {
                         </span>
                       </a>
                     )}
-
                     {publicProfile.website && (
-                      <a
-                        href={publicProfile.website.startsWith('http') ? publicProfile.website : `https://${publicProfile.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group"
-                      >
+                      <a href={publicProfile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
                         <div className="w-9 h-9 rounded-xl bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
                           <Globe className="w-4 h-4 text-[#0D9488]" />
                         </div>
@@ -529,7 +509,7 @@ const ProviderCard = ({ provider }) => {
                     )}
                   </div>
 
-                  {/* ── STATS ── */}
+                  {/* Stats */}
                   <div className="px-6 pb-2">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-center">
@@ -547,7 +527,7 @@ const ProviderCard = ({ provider }) => {
                     </div>
                   </div>
 
-                  {/* ── FOOTER BUTTONS ── */}
+                  {/* Footer Buttons */}
                   <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex gap-3">
                     <button
                       onClick={() => {
@@ -560,7 +540,6 @@ const ProviderCard = ({ provider }) => {
                       <Mail className="w-4 h-4" />
                       Contact Provider
                     </button>
-
                     <button
                       onClick={() => {
                         setShowContact(false);
@@ -576,10 +555,7 @@ const ProviderCard = ({ provider }) => {
               ) : (
                 <div className="p-6 text-center text-gray-500 dark:text-gray-400">
                   <p>Unable to load provider information</p>
-                  <button
-                    onClick={() => setShowContact(false)}
-                    className="mt-4 px-6 py-2 rounded-xl bg-[#0D9488] text-white"
-                  >
+                  <button onClick={() => setShowContact(false)} className="mt-4 px-6 py-2 rounded-xl bg-[#0D9488] text-white">
                     Close
                   </button>
                 </div>
@@ -593,47 +569,14 @@ const ProviderCard = ({ provider }) => {
 };
 
 // ================================================================
-// TRUST BADGES
+// REVIEWS SECTION
 // ================================================================
-const TrustBadges = () => {
-  const badges = [
-    { icon: Shield, label: 'Secure Booking', desc: 'SSL encrypted' },
-    { icon: Award, label: 'Verified Provider', desc: 'Trusted partners' },
-    { icon: CheckCircle, label: 'Best Price Guarantee', desc: 'Price match' },
-  ];
-
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-4 border border-gray-100 dark:border-gray-800">
-      <div className="space-y-2">
-        {badges.map((badge, index) => {
-          const Icon = badge.icon;
-          return (
-            <div key={index} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <div className="w-8 h-8 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
-                <Icon className="w-4 h-4 text-[#0D9488]" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#374151] dark:text-white">{badge.label}</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">{badge.desc}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ================================================================
-// REVIEWS SECTION - UPDATED with ReviewCard and ReviewForm
-// ================================================================
-const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
+const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Calculate rating distribution
   const getRatingDistribution = () => {
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     reviews.forEach(r => {
@@ -650,7 +593,6 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
     : 0;
 
-  // Check if user can write a review
   const canWriteReview = user && !reviews.some(r => r.user?._id === user._id);
 
   const handleSubmitReview = async (data) => {
@@ -658,14 +600,12 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
       setSubmitting(true);
       
       if (editingReview) {
-        // Update existing review
         const { updateReview } = await import('../services/reviewService');
         await updateReview(editingReview._id, {
           rating: data.rating,
           comment: data.comment,
         });
       } else {
-        // Create new review
         const { createReview } = await import('../services/reviewService');
         await createReview({
           tourId: data.tourId,
@@ -703,10 +643,6 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
     }
   };
 
-  const handleHelpfulToggle = () => {
-    onReviewAdded();
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -717,8 +653,6 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-800">
-      
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <MessageCircle className="w-6 h-6 text-[#0D9488]" />
@@ -752,7 +686,6 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
         )}
       </div>
 
-      {/* Rating Distribution */}
       {totalReviews > 0 && (
         <div className="mb-6 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-6 flex-wrap">
@@ -797,11 +730,10 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
         </div>
       )}
 
-      {/* Review Form - Using ReviewForm component */}
       {showForm && (
         <div className="mb-6">
           <ReviewForm
-            tourId={tourId}
+            tourId={listingId}
             initialData={editingReview}
             isEditing={!!editingReview}
             onSubmit={handleSubmitReview}
@@ -814,7 +746,6 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
         </div>
       )}
 
-      {/* Reviews List - Using ReviewCard component */}
       {reviews.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <MessageCircle className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
@@ -829,7 +760,7 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
               showTourInfo={false}
               onEdit={() => handleEditReview(review)}
               onDelete={handleDeleteReview}
-              onHelpfulToggle={handleHelpfulToggle}
+              onHelpfulToggle={onReviewAdded}
             />
           ))}
         </div>
@@ -841,7 +772,7 @@ const ReviewsSection = ({ tourId, reviews, onReviewAdded, loading }) => {
 // ================================================================
 // BOOKING MODAL
 // ================================================================
-const BookingModal = ({ tour, onClose }) => {
+const BookingModal = ({ listing, onClose }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -850,31 +781,29 @@ const BookingModal = ({ tour, onClose }) => {
 
   const handleBooking = async () => {
     if (!user) {
-      alert('Please login to book this tour');
+      alert('Please login to book this listing');
       navigate('/login');
       return;
     }
 
     if (!selectedDate) {
-      alert('Please select a travel date');
+      alert('Please select a date');
       return;
     }
 
     try {
       setLoading(true);
 
-      // ✅ Step 1: Create booking first
       const bookingData = {
-        tour: tour._id,
+        tour: listing._id,
         startDate: selectedDate,
-        endDate: selectedDate, // Single-day tour
+        endDate: selectedDate,
         numberOfPeople: travelers,
       };
 
       const { createBooking } = await import('../services/bookingService');
       const bookingResult = await createBooking(bookingData, localStorage.getItem('token'));
 
-      // ✅ Step 2: Create checkout with the booking ID
       const { createCheckout } = await import('../services/paymentService');
       const checkout = await createCheckout(bookingResult.booking._id);
 
@@ -898,7 +827,7 @@ const BookingModal = ({ tour, onClose }) => {
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-            Book This Tour
+            Book This Experience
           </h2>
           <button
             onClick={onClose}
@@ -909,14 +838,12 @@ const BookingModal = ({ tour, onClose }) => {
         </div>
 
         <div className="space-y-4">
-          {/* Tour summary */}
           <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
-            <h3 className="font-bold text-[#374151] dark:text-white">{tour.title}</h3>
-            <p className="text-sm text-gray-500">{tour.location}</p>
-            <p className="text-2xl font-bold text-[#0D9488] mt-2">${tour.price}</p>
+            <h3 className="font-bold text-[#374151] dark:text-white">{listing.title}</h3>
+            <p className="text-sm text-gray-500">{listing.location}</p>
+            <p className="text-2xl font-bold text-[#0D9488] mt-2">${listing.price}</p>
           </div>
 
-          {/* Travelers */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Number of Travelers
@@ -932,19 +859,18 @@ const BookingModal = ({ tour, onClose }) => {
                 {travelers}
               </span>
               <button
-                onClick={() => setTravelers(Math.min(tour.travelers || 10, travelers + 1))}
+                onClick={() => setTravelers(Math.min(listing.capacity || 10, travelers + 1))}
                 className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition"
               >
                 +
               </button>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Max {tour.travelers || 10} travelers</p>
+            <p className="text-xs text-gray-400 mt-1">Max {listing.capacity || 10} travelers</p>
           </div>
 
-          {/* Travel Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Travel Date
+              Date
             </label>
             <input
               type="date"
@@ -955,17 +881,15 @@ const BookingModal = ({ tour, onClose }) => {
             />
           </div>
 
-          {/* Total */}
           <div className="p-4 rounded-2xl bg-[#0D9488]/5 border border-[#0D9488]/20">
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Total</span>
               <span className="text-xl font-bold text-[#0D9488]">
-                ${(tour.price * travelers).toFixed(2)}
+                ${(listing.price * travelers).toFixed(2)}
               </span>
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
@@ -995,20 +919,52 @@ const BookingModal = ({ tour, onClose }) => {
 };
 
 // ================================================================
+// TRUST BADGES
+// ================================================================
+const ListingTrustBadges = () => {
+  const badges = [
+    { icon: Shield, label: 'Secure Booking', desc: 'SSL encrypted' },
+    { icon: Award, label: 'Verified Provider', desc: 'Trusted partners' },
+    { icon: CheckCircle, label: 'Best Price Guarantee', desc: 'Price match' },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-4 border border-gray-100 dark:border-gray-800">
+      <div className="space-y-2">
+        {badges.map((badge, index) => {
+          const Icon = badge.icon;
+          return (
+            <div key={index} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+              <div className="w-8 h-8 rounded-full bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
+                <Icon className="w-4 h-4 text-[#0D9488]" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#374151] dark:text-white">{badge.label}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{badge.desc}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ================================================================
 // MAIN PAGE
 // ================================================================
 const TABS = [
-  { id: 'about',        label: 'About',        Icon: Info     },
-  { id: 'highlights',   label: 'Highlights',   Icon: Sparkles },
-  { id: 'included',     label: 'Included',     Icon: Check    },
-  { id: 'requirements', label: 'Requirements', Icon: List     },
+  { id: 'about', label: 'About', Icon: Info },
+  { id: 'highlights', label: 'Highlights', Icon: Sparkles },
+  { id: 'included', label: 'What\'s Included', Icon: Check },
+  { id: 'requirements', label: 'Requirements', Icon: List },
 ];
 
-const TourDetails = () => {
+const ListingDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [tour, setTour] = useState(null);
+  const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('about');
   const [showBooking, setShowBooking] = useState(false);
@@ -1018,14 +974,14 @@ const TourDetails = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    fetchTourData();
+    fetchListingData();
   }, [id]);
 
-  const fetchTourData = async () => {
+  const fetchListingData = async () => {
     try {
       setLoading(true);
-      const data = await getTourById(id);
-      setTour(data.tour);
+      const data = await getListingById(id);
+      setListing(data.listing);
       await fetchReviews();
     } catch (e) {
       console.error(e);
@@ -1055,7 +1011,7 @@ const TourDetails = () => {
   };
 
   const handleVideoSelect = (index) => {
-    const galleryLength = tour ? buildGallery(tour).length : 0;
+    const galleryLength = listing ? buildGallery(listing).length : 0;
     setHeroIndex(galleryLength + index);
     const heroElement = document.querySelector('.hero-media-container');
     if (heroElement) {
@@ -1069,34 +1025,37 @@ const TourDetails = () => {
         <div className="w-20 h-20 rounded-full border-4 border-[#0D9488]/20" />
         <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
       </div>
-      <p className="mt-6 text-lg font-semibold text-[#374151] dark:text-white">Loading Tour...</p>
+      <p className="mt-6 text-lg font-semibold text-[#374151] dark:text-white">Loading Listing...</p>
     </div>
   );
 
-  if (!tour) return (
+  if (!listing) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 text-center p-6">
       <div className="w-24 h-24 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-6">
         <MapPin className="w-12 h-12 text-[#0D9488]" />
       </div>
-      <h1 className="text-3xl font-bold text-[#374151] dark:text-white mb-2">Tour Not Found</h1>
-      <p className="text-gray-500 dark:text-gray-400">The tour you're looking for doesn't exist.</p>
+      <h1 className="text-3xl font-bold text-[#374151] dark:text-white mb-2">Listing Not Found</h1>
+      <p className="text-gray-500 dark:text-gray-400">The listing you're looking for doesn't exist.</p>
       <button onClick={() => navigate('/explore')} className="mt-6 px-6 py-3 rounded-xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/90 transition">
-        Browse Tours
+        Browse Listings
       </button>
     </div>
   );
 
-  const gallery = buildGallery(tour);
-  const videos = buildVideos(tour);
-  const isPending = tour.status === 'pending';
-  const rating = tour.averageRating || 0;
+  const gallery = buildGallery(listing);
+  const videos = buildVideos(listing);
+  const isPending = listing.status === 'pending';
+  const rating = listing.averageRating || 0;
   const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
 
+  const BusinessIcon = getBusinessIcon(listing.businessType);
+  const businessLabel = getBusinessLabel(listing.businessType);
+
   const tabContent = {
-    about:        { title: 'About This Tour', body: tour.description || 'No description available.' },
-    highlights:   { title: 'Tour Highlights', body: tour.highlights || 'No highlights listed.' },
-    included:     { title: 'Included Services', body: tour.included || 'No included services listed.' },
-    requirements: { title: 'Tour Requirements', body: tour.requirements || 'No specific requirements.' },
+    about: { title: 'About This Listing', body: listing.description || 'No description available.' },
+    highlights: { title: 'Highlights', body: listing.highlights || 'No highlights listed.' },
+    included: { title: 'What\'s Included', body: listing.included || 'No included services listed.' },
+    requirements: { title: 'Requirements', body: listing.requirements || 'No specific requirements.' },
   };
 
   return (
@@ -1109,7 +1068,7 @@ const TourDetails = () => {
             <HeroMediaArea
               images={gallery}
               videos={videos}
-              title={tour.title}
+              title={listing.title}
               initialIndex={heroIndex}
               onIndexChange={setHeroIndex}
             />
@@ -1123,11 +1082,31 @@ const TourDetails = () => {
             {/* LEFT COLUMN */}
             <div className="lg:col-span-2 space-y-8">
 
+              {/* Business Type Badge */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center">
+                  <BusinessIcon className="w-5 h-5 text-[#0D9488]" />
+                </div>
+                <span className="text-sm font-medium text-[#0D9488] bg-[#0D9488]/10 px-4 py-1.5 rounded-full">
+                  {businessLabel}
+                </span>
+                {listing.listingType && (
+                  <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-4 py-1.5 rounded-full">
+                    {listing.listingType}
+                  </span>
+                )}
+                {isPending && (
+                  <span className="text-sm font-medium text-[#F59E0B] bg-[#F59E0B]/10 px-4 py-1.5 rounded-full">
+                    Pending Approval
+                  </span>
+                )}
+              </div>
+
               {/* Gallery Thumbnails */}
               {gallery.length > 1 && (
                 <GalleryThumbnails
                   images={gallery}
-                  title={tour.title}
+                  title={listing.title}
                   onSelect={handleGallerySelect}
                 />
               )}
@@ -1140,8 +1119,8 @@ const TourDetails = () => {
                 />
               )}
 
-              {/* Provider Profile */}
-              {tour.provider && <ProviderCard provider={tour.provider} />}
+              {/* Provider Profile - Using enhanced ProviderCard */}
+              {listing.provider && <ProviderCard provider={listing.provider} />}
 
               {/* Tabs */}
               <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-800 pb-2">
@@ -1169,7 +1148,7 @@ const TourDetails = () => {
 
               {/* Reviews Section */}
               <ReviewsSection
-                tourId={tour._id}
+                listingId={listing._id}
                 reviews={reviews}
                 onReviewAdded={fetchReviews}
                 loading={reviewLoading}
@@ -1184,7 +1163,7 @@ const TourDetails = () => {
                   {/* Price Header */}
                   <div className="bg-gradient-to-r from-[#0D9488] to-[#0f766e] p-6">
                     <div className="flex items-end gap-2 mb-1">
-                      <span className="text-4xl font-bold text-white">${tour.price}</span>
+                      <span className="text-4xl font-bold text-white">${listing.price}</span>
                       <span className="text-white/70 text-sm mb-1">per person</span>
                     </div>
                     <div className="flex items-center gap-2 text-white/60 text-xs">
@@ -1196,20 +1175,21 @@ const TourDetails = () => {
                   </div>
 
                   <div className="p-6 space-y-4">
-                    {/* Tour Meta */}
+                    {/* Listing Meta */}
                     <div className="space-y-3 text-sm">
                       {[
-                        { label: 'Location', value: tour.location },
-                        { label: 'Duration', value: tour.duration },
-                        { label: 'Max Travelers', value: `${tour.travelers} people` },
-                        { label: 'Status', value: tour.status || 'approved', isStatus: true },
+                        { label: 'Location', value: listing.location },
+                        { label: 'Duration', value: listing.duration },
+                        { label: 'Capacity', value: `${listing.capacity || 1} people` },
+                        { label: 'Type', value: businessLabel },
+                        { label: 'Status', value: listing.status || 'approved', isStatus: true },
                       ].map(({ label, value, isStatus }) => value && (
                         <div key={label} className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
                           <span className="text-gray-500">{label}</span>
                           {isStatus ? (
                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              tour.status === 'approved' || !tour.status ? 'bg-[#0D9488]/10 text-[#0D9488]'
-                              : tour.status === 'pending' ? 'bg-[#F59E0B]/10 text-[#F59E0B]'
+                              listing.status === 'approved' || !listing.status ? 'bg-[#0D9488]/10 text-[#0D9488]'
+                              : listing.status === 'pending' ? 'bg-[#F59E0B]/10 text-[#F59E0B]'
                               : 'bg-red-100 text-red-600'
                             }`}>{value}</span>
                           ) : (
@@ -1232,7 +1212,7 @@ const TourDetails = () => {
                   </div>
                 </div>
 
-                <TrustBadges />
+                <ListingTrustBadges />
               </div>
             </div>
 
@@ -1241,9 +1221,9 @@ const TourDetails = () => {
       </div>
 
       {/* Booking Modal */}
-      {showBooking && <BookingModal tour={tour} onClose={() => setShowBooking(false)} />}
+      {showBooking && <BookingModal listing={listing} onClose={() => setShowBooking(false)} />}
     </>
   );
 };
 
-export default TourDetails;
+export default ListingDetails;
