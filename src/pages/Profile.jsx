@@ -3,10 +3,12 @@
 import {
   useEffect,
   useState,
+  useRef,
 } from "react";
 
 import {
   Link,
+  useNavigate,
 } from "react-router-dom";
 
 import axios from "axios";
@@ -26,6 +28,8 @@ import {
   ArrowRight,
   User,
   Sparkles,
+  Camera,
+  CheckCircle,
 } from "lucide-react";
 
 import Card, {
@@ -47,16 +51,30 @@ import {
 // White : #FFFFFF
 // ===============================
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { logout, user: authUser } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // ✅ Helper for image URLs
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('/uploads/')) return `${API_URL}${path}`;
+    if (path.startsWith('data:image')) return path;
+    return `${API_URL}/uploads/${path}`;
+  };
 
   const fetchProfile = async () => {
     try {
@@ -65,51 +83,68 @@ const Profile = () => {
 
       const token = localStorage.getItem("token");
       console.log("🔍 Token exists:", !!token);
+      console.log("🔍 Token preview:", token?.substring(0, 30) + "...");
 
       if (!token) {
+        console.warn("⚠️ No token found");
         setError("Please login to view your profile");
         setLoading(false);
+        // Redirect to login after 2 seconds
+        setTimeout(() => navigate('/login'), 2000);
         return;
       }
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      console.log("🔍 Fetching profile data...");
+      console.log("🔍 Fetching profile from:", `${API}/users/me`);
       
-      // ✅ Use individual try-catch for each request to prevent one failure from breaking everything
       let userData = null;
       let bookingsData = [];
       let reviewsData = [];
 
       // ✅ Fetch user data (required)
       try {
-        const u = await axios.get(`${API}/users/me`, { headers });
+        const u = await axios.get(`${API}/users/me`, { 
+          headers,
+          timeout: 10000 
+        });
+        console.log("✅ User data fetched:", u.data);
         userData = u.data.user;
-        console.log("✅ User data fetched");
       } catch (err) {
-        console.error("❌ User fetch error:", err.response?.status, err.message);
+        console.error("❌ User fetch error:", err.message);
+        console.error("❌ Response status:", err.response?.status);
+        console.error("❌ Response data:", err.response?.data);
+        
+        if (err.response?.status === 401) {
+          setError("Session expired. Please login again.");
+          localStorage.removeItem('token');
+          setTimeout(() => navigate('/login'), 2000);
+          setLoading(false);
+          return;
+        }
+        
         setError(err.response?.data?.message || "Failed to load user data");
         setLoading(false);
         return;
       }
 
-      // ✅ Fetch bookings (optional - won't break the page if it fails)
+      // ✅ Fetch bookings (optional)
       try {
         const b = await axios.get(`${API}/bookings/my-bookings`, { headers });
         bookingsData = b.data.bookings || [];
         console.log("✅ Bookings fetched:", bookingsData.length);
       } catch (err) {
-        console.error("❌ Bookings fetch error:", err.response?.status, err.message);
+        console.error("❌ Bookings fetch error:", err.message);
         bookingsData = [];
       }
 
-      // ✅ Fetch reviews (optional - won't break the page if it fails)
+      // ✅ Fetch reviews (optional)
       try {
         const r = await axios.get(`${API}/reviews/my-reviews`, { headers });
         reviewsData = r.data.reviews || [];
         console.log("✅ Reviews fetched:", reviewsData.length);
       } catch (err) {
-        console.error("❌ Reviews fetch error:", err.response?.status, err.message);
+        console.error("❌ Reviews fetch error:", err.message);
         reviewsData = [];
       }
 
@@ -117,11 +152,11 @@ const Profile = () => {
       setBookings(bookingsData);
       setReviews(reviewsData);
       setError(null);
+      
+      console.log("✅ Profile loaded successfully");
     } catch (err) {
       console.error("❌ Profile fetch error:", err);
-      console.error("Response status:", err.response?.status);
-      console.error("Response data:", err.response?.data);
-      setError(err.response?.data?.message || "Failed to load profile data");
+      setError(err.message || "Failed to load profile data");
     } finally {
       setLoading(false);
     }
@@ -131,9 +166,65 @@ const Profile = () => {
     fetchProfile();
   }, []);
 
+  // ✅ Handle profile image upload
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      setUploading(true);
+      setUploadSuccess(false);
+
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `${API}/users/avatar`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setUploadSuccess(true);
+        setUser(prev => ({
+          ...prev,
+          avatar: response.data.avatar || response.data.user?.avatar
+        }));
+        await fetchProfile();
+        setTimeout(() => setUploadSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      alert(error.response?.data?.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const avgRating = reviews.length > 0
     ? (reviews.reduce((a, b) => a + (b.rating || 0), 0) / reviews.length).toFixed(1)
     : 0;
+
+  const avatarUrl = user?.avatar ? getImageUrl(user.avatar) : null;
 
   if (loading) {
     return (
@@ -165,13 +256,55 @@ const Profile = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-4">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <Card className="border border-gray-100 dark:border-gray-800 shadow-xl rounded-3xl overflow-hidden">
         <div className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B] h-2" />
         <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center text-4xl font-black shadow-lg shadow-[#0D9488]/30">
-              {user?.name?.charAt(0) || "U"}
+            {/* Profile Image */}
+            <div className="relative group">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={user?.name || 'Profile'}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-[#0D9488] shadow-lg"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center text-4xl font-black shadow-lg shadow-[#0D9488]/30">
+                  {user?.name?.charAt(0) || 'U'}
+                </div>
+              )}
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute bottom-0 right-0 p-2 rounded-full bg-[#0D9488] text-white shadow-lg hover:bg-[#0D9488]/80 transition disabled:opacity-50"
+                title="Upload profile picture"
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+
+              {uploadSuccess && (
+                <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-1 border-2 border-white dark:border-gray-800">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              )}
             </div>
 
             <div>
@@ -214,7 +347,7 @@ const Profile = () => {
         </CardContent>
       </Card>
 
-      {/* PROVIDER ACTION - Updated colors */}
+      {/* PROVIDER ACTION */}
       {authUser?.role === "traveler" && (
         <Card className="border border-gray-100 dark:border-gray-800 shadow-lg rounded-3xl overflow-hidden">
           <CardContent className="p-6">
@@ -263,7 +396,7 @@ const Profile = () => {
         </Card>
       )}
 
-      {/* STATS - Updated colors */}
+      {/* STATS */}
       <div className="grid md:grid-cols-3 gap-5">
         <Card className="border border-gray-100 dark:border-gray-800 shadow-lg rounded-2xl hover:shadow-xl transition">
           <CardContent className="p-6 flex justify-between items-center">
@@ -308,7 +441,7 @@ const Profile = () => {
         </Card>
       </div>
 
-      {/* INFO - Updated colors */}
+      {/* INFO */}
       <Card className="border border-gray-100 dark:border-gray-800 shadow-lg rounded-3xl">
         <CardContent className="p-6 space-y-4">
           <h2 className="text-xl font-black text-[#374151] dark:text-white flex items-center gap-2">
@@ -326,6 +459,17 @@ const Profile = () => {
               <MapPin size={18} className="text-[#F59E0B]" />
               {user?.country || "No country set"}
             </div>
+
+            <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300 p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+              <Calendar size={18} className="text-[#0D9488]" />
+              Member since {user?.createdAt 
+                ? new Date(user.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                : 'N/A'}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -339,7 +483,7 @@ const Profile = () => {
               💡 Profile Tips
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Keep your profile updated to get the best travel recommendations and booking experiences.
+              Add a profile photo to help providers recognize you. Keep your contact information up to date for booking confirmations.
             </p>
           </div>
         </div>

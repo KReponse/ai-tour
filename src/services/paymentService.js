@@ -10,10 +10,19 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 export const createCheckout = async (bookingId) => {
   try {
     const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
+    }
+
     const response = await axios.post(
       `${API_URL}/payments/checkout`,
       { bookingId },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        } 
+      }
     );
     return response.data;
   } catch (error) {
@@ -28,12 +37,29 @@ export const createCheckout = async (bookingId) => {
 export const verifyPayment = async (sessionId) => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/payments/verify/${sessionId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
+    }
+
+    console.log('📤 Verifying payment:', sessionId);
+
+    const response = await axios.get(
+      `${API_URL}/payments/verify/${sessionId}`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('✅ Verification response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ Verify payment error:', error);
+    console.error('❌ Verify payment error:');
+    console.error('  - Status:', error.response?.status);
+    console.error('  - Message:', error.response?.data?.message);
+    console.error('  - Data:', error.response?.data);
     throw error;
   }
 };
@@ -44,9 +70,18 @@ export const verifyPayment = async (sessionId) => {
 export const getPaymentById = async (id) => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/payments/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
+    }
+
+    const response = await axios.get(
+      `${API_URL}/payments/${id}`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error('❌ Get payment error:', error);
@@ -57,15 +92,49 @@ export const getPaymentById = async (id) => {
 // ===============================
 // ✅ GET MY PAYMENTS
 // ===============================
-export const getMyPayments = async () => {
+export const getMyPayments = async (page = 1, limit = 20) => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/payments/my`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
+    }
+
+    const response = await axios.get(
+      `${API_URL}/payments/my?page=${page}&limit=${limit}`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error('❌ Get my payments error:', error);
+    throw error;
+  }
+};
+
+// ===============================
+// ✅ GET PROVIDER PAYMENTS
+// ===============================
+export const getProviderPayments = async (page = 1, limit = 20) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
+    }
+
+    const response = await axios.get(
+      `${API_URL}/payments/provider?page=${page}&limit=${limit}`,
+      {
+        headers: { 
+          Authorization: `Bearer ${token}` 
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('❌ Get provider payments error:', error);
     throw error;
   }
 };

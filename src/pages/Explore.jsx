@@ -27,11 +27,14 @@ import {
   Eye,
   Award,
   Play,
+  LayoutGrid,
 } from 'lucide-react';
 
-// ✅ FIXED: Use listingService instead of tourService
+// ✅ Use listingService instead of tourService
 import { getListings } from '../services/listingService';
 import VideoCard from "../components/ui/VideoCard";
+import MediaCard from '../components/ui/MediaCard';
+import SectionTitle from '../components/ui/SectionTitle';
 
 // ===============================
 // AI TOUR COLORS
@@ -56,9 +59,23 @@ const getFallbackImage = (seed) => {
   return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
 };
 
+const getImageUrl = (image) => {
+  if (!image) return null;
+  if (image.startsWith('http')) return image;
+  if (image.startsWith('/')) return image;
+  return `${API_URL}/uploads/${image}`;
+};
+
+const getExperienceImage = (experience) => {
+  if (experience.coverImage) return getImageUrl(experience.coverImage);
+  if (experience.galleryImages && experience.galleryImages.length > 0) return getImageUrl(experience.galleryImages[0]);
+  if (experience.images && experience.images.length > 0) return getImageUrl(experience.images[0]);
+  return null;
+};
+
 const Explore = () => {
   const navigate = useNavigate();
-  const [tours, setTours] = useState([]);
+  const [experiences, setExperiences] = useState([]);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,19 +106,17 @@ const Explore = () => {
     try {
       setLoading(true);
 
-      // ✅ FIXED: Use getListings from listingService
       const listingsData = await getListings({ limit: 50 });
       const listingsList = listingsData?.listings || [];
-      setTours(listingsList);
+      setExperiences(listingsList);
 
-      // ✅ Fetch videos from backend
       const videosRes = await fetch(`${API_URL}/api/videos`);
       const videosData = await videosRes.json();
       setVideos(videosData?.videos || []);
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
-      setTours([]);
+      setExperiences([]);
       setVideos([]);
     } finally {
       setLoading(false);
@@ -109,72 +124,69 @@ const Explore = () => {
   };
 
   // ================= FAVORITES =================
-  const toggleFavorite = (tourId) => {
+  const toggleFavorite = (experienceId) => {
     let updated = [];
-    if (favorites.includes(tourId)) {
-      updated = favorites.filter((id) => id !== tourId);
+    if (favorites.includes(experienceId)) {
+      updated = favorites.filter((id) => id !== experienceId);
     } else {
-      updated = [...favorites, tourId];
+      updated = [...favorites, experienceId];
     }
     setFavorites(updated);
     localStorage.setItem('favoriteTours', JSON.stringify(updated));
   };
 
-  // ================= AI RECOMMENDED TOURS =================
-  const aiRecommendedTours = useMemo(() => {
-    const sorted = [...tours].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+  // ================= AI RECOMMENDED EXPERIENCES =================
+  const aiRecommendedExperiences = useMemo(() => {
+    const sorted = [...experiences].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
     return sorted.slice(0, 3);
-  }, [tours]);
+  }, [experiences]);
 
-  // ================= FILTERED ITEMS (Tours + Videos) =================
+  // ================= FILTERED ITEMS =================
   const filteredItems = useMemo(() => {
     let result = [];
 
-    // Filter tours
-    let tourResult = [...tours];
+    let experienceResult = [...experiences];
 
     if (searchTerm) {
-      tourResult = tourResult.filter(
-        (tour) =>
-          tour.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          tour.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          tour.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      experienceResult = experienceResult.filter(
+        (exp) =>
+          exp.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          exp.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          exp.description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    tourResult = tourResult.filter(
-      (tour) => tour.price >= filters.minPrice && tour.price <= filters.maxPrice
+    experienceResult = experienceResult.filter(
+      (exp) => exp.price >= filters.minPrice && exp.price <= filters.maxPrice
     );
 
     if (filters.location) {
-      tourResult = tourResult.filter((tour) =>
-        tour.location?.toLowerCase().includes(filters.location.toLowerCase())
+      experienceResult = experienceResult.filter((exp) =>
+        exp.location?.toLowerCase().includes(filters.location.toLowerCase())
       );
     }
 
-    // Sort tours
     switch (sortBy) {
       case 'price-low':
-        tourResult.sort((a, b) => a.price - b.price);
+        experienceResult.sort((a, b) => a.price - b.price);
         break;
       case 'price-high':
-        tourResult.sort((a, b) => b.price - a.price);
+        experienceResult.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
-        tourResult.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+        experienceResult.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
         break;
       case 'recommended':
-        tourResult.sort((a, b) => {
+        experienceResult.sort((a, b) => {
           const scoreA = (a.views || 0) + (a.averageRating || 0) * 10;
           const scoreB = (b.views || 0) + (b.averageRating || 0) * 10;
           return scoreB - scoreA;
         });
         break;
       default:
-        tourResult.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        experienceResult.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    // Filter videos from backend
     let videoResult = [...videos];
     if (searchTerm) {
       videoResult = videoResult.filter((video) =>
@@ -183,27 +195,24 @@ const Explore = () => {
       );
     }
 
-    // Apply tab filter
-    if (activeTab === 'tours') {
-      result = tourResult.map(item => ({ ...item, type: 'tour' }));
+    if (activeTab === 'experiences') {
+      result = experienceResult.map(item => ({ ...item, type: 'experience' }));
     } else if (activeTab === 'videos') {
       result = videoResult.map(item => ({ ...item, type: 'video' }));
     } else if (activeTab === 'ai-picks') {
-      // ✅ AI picks: tours with rating >= 4.0
-      const aiPicks = tourResult.filter(t => (t.averageRating || 0) >= 4.0).slice(0, 6);
-      result = aiPicks.map(item => ({ ...item, type: 'tour' }));
+      const aiPicks = experienceResult.filter(exp => (exp.averageRating || 0) >= 4.0).slice(0, 6);
+      result = aiPicks.map(item => ({ ...item, type: 'experience' }));
     } else {
-      // All - Mix tours and videos
       const mixed = [];
-      const tourItems = tourResult.map(t => ({ ...t, type: 'tour' }));
+      const experienceItems = experienceResult.map(exp => ({ ...exp, type: 'experience' }));
       const videoItems = videoResult.map(v => ({ ...v, type: 'video' }));
       
-      let tourIndex = 0;
+      let experienceIndex = 0;
       let videoIndex = 0;
       
-      while (tourIndex < tourItems.length || videoIndex < videoItems.length) {
-        for (let i = 0; i < 2 && tourIndex < tourItems.length; i++) {
-          mixed.push(tourItems[tourIndex++]);
+      while (experienceIndex < experienceItems.length || videoIndex < videoItems.length) {
+        for (let i = 0; i < 2 && experienceIndex < experienceItems.length; i++) {
+          mixed.push(experienceItems[experienceIndex++]);
         }
         if (videoIndex < videoItems.length) {
           mixed.push(videoItems[videoIndex++]);
@@ -214,87 +223,53 @@ const Explore = () => {
     }
 
     return result;
-  }, [tours, videos, searchTerm, filters, sortBy, activeTab]);
+  }, [experiences, videos, searchTerm, filters, sortBy, activeTab]);
 
-  // ================= IMAGE URL =================
-  const getImageUrl = (image) => {
-    if (!image) return null;
-    if (image.startsWith('http')) return image;
-    if (image.startsWith('/')) return image;
-    return `${API_URL}/uploads/${image}`;
+  const handleImageError = (experienceId) => {
+    setImageErrors((prev) => ({ ...prev, [experienceId]: true }));
   };
 
-  const getTourImage = (tour) => {
-    if (tour.coverImage) return getImageUrl(tour.coverImage);
-    if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
-    if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
-    return null;
-  };
-
-  const handleImageError = (tourId) => {
-    setImageErrors((prev) => ({ ...prev, [tourId]: true }));
-  };
-
-  const getImageWithFallback = (tour) => {
-    if (imageErrors[tour._id]) {
-      return getFallbackImage(tour._id);
+  const getImageWithFallback = (experience) => {
+    if (imageErrors[experience._id]) {
+      return getFallbackImage(experience._id);
     }
-    const image = getTourImage(tour);
-    return image || getFallbackImage(tour._id);
+    const image = getExperienceImage(experience);
+    return image || getFallbackImage(experience._id);
   };
 
-  // ================= RENDER TOUR CARD =================
-  const TourCard = ({ tour }) => {
-    const isFavorite = favorites.includes(tour._id);
-    const imageUrl = getImageWithFallback(tour);
-    const rating = tour.averageRating || 0;
+  // ================= RENDER EXPERIENCE CARD (Compact/Gallery Style) =================
+  const ExperienceCardCompact = ({ experience }) => {
+    const isFavorite = favorites.includes(experience._id);
+    const imageUrl = getImageWithFallback(experience);
+    const rating = experience.averageRating || 0;
     const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
-    // ✅ Only show AI Pick badge if rating >= 4.0
-    const isAIPick = rating >= 4.0;
 
     return (
       <div
-        onClick={() => navigate(`/tour/${tour._id}`)}
-        className="
-          group
-          bg-white
-          dark:bg-gray-900
-          rounded-3xl
-          overflow-hidden
-          shadow-lg
-          hover:shadow-2xl
-          transition-all
-          duration-500
-          cursor-pointer
-          border
-          border-gray-100
-          dark:border-gray-800
-        "
+        onClick={() => navigate(`/listing/${experience._id}`)}
+        className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer border border-gray-100 dark:border-gray-800"
       >
-        <div className="relative overflow-hidden h-64 bg-gray-100 dark:bg-gray-800">
+        <div className="relative overflow-hidden h-56 bg-gray-100 dark:bg-gray-800">
           <img
             src={imageUrl}
-            alt={tour.title}
+            alt={experience.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-            onError={() => handleImageError(tour._id)}
+            onError={() => handleImageError(experience._id)}
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           
-          {/* ✅ Only show AI Pick badge if actually AI recommended */}
-          {isAIPick && (
-            <div className="absolute top-4 left-4 flex gap-2">
-              <div className="bg-[#0D9488] text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                AI Pick
-              </div>
+          {rating >= 4.0 && (
+            <div className="absolute top-4 left-4 bg-[#0D9488] text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              AI Pick
             </div>
           )}
 
           <button
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(tour._id);
+              toggleFavorite(experience._id);
             }}
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg hover:scale-110 transition"
           >
@@ -305,12 +280,12 @@ const Explore = () => {
             />
           </button>
 
-          <div className="absolute bottom-4 left-4 bg-white text-[#0D9488] px-4 py-2 rounded-xl font-bold shadow-lg">
-            ${tour.price}
+          <div className="absolute bottom-4 left-4 bg-white text-[#0D9488] px-3 py-1.5 rounded-xl font-bold shadow-lg text-sm">
+            ${experience.price}
           </div>
 
-          {tour.status === 'pending' && (
-            <div className="absolute top-4 left-20">
+          {experience.status === 'pending' && (
+            <div className="absolute top-4 left-24">
               <span className="bg-[#F59E0B] text-white text-xs px-3 py-1 rounded-full font-semibold">
                 Pending
               </span>
@@ -318,35 +293,28 @@ const Explore = () => {
           )}
         </div>
 
-        <div className="p-5">
-          <h2 className="text-xl font-bold text-[#374151] dark:text-white mb-2 line-clamp-1">
-            {tour.title}
-          </h2>
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-3">
-            <MapPin className="w-4 h-4 text-[#0D9488]" />
-            <span>{tour.location || 'Location not specified'}</span>
+        <div className="p-4">
+          <h3 className="text-base font-bold text-[#374151] dark:text-white line-clamp-1">
+            {experience.title}
+          </h3>
+          <div className="flex items-center gap-1 text-gray-500 text-xs mt-1">
+            <MapPin className="w-3 h-3 text-[#0D9488]" />
+            <span className="line-clamp-1">{experience.location || 'Location not specified'}</span>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-4">
-            {tour.description || 'No description available'}
-          </p>
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4 text-[#0D9488]" />
-                <span>{tour.duration || 'N/A'}</span>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex items-center gap-0.5">
+                <Clock className="w-3 h-3 text-[#0D9488]" />
+                <span>{experience.duration || 'N/A'}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Users className="w-4 h-4 text-[#F59E0B]" />
-                <span>{tour.capacity || tour.travelers || 0}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Eye className="w-4 h-4 text-gray-400" />
-                <span>{tour.views || 0}</span>
+              <div className="flex items-center gap-0.5">
+                <Users className="w-3 h-3 text-[#F59E0B]" />
+                <span>{experience.capacity || experience.travelers || 0}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20 px-2 py-1 rounded-lg">
-              <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
-              <span className="text-sm font-semibold text-[#374151] dark:text-white">
+            <div className="flex items-center gap-1 bg-[#F59E0B]/10 px-2 py-0.5 rounded-lg">
+              <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
+              <span className="text-xs font-semibold text-[#374151] dark:text-white">
                 {ratingDisplay}
               </span>
             </div>
@@ -358,7 +326,6 @@ const Explore = () => {
 
   // ================= RENDER VIDEO CARD =================
   const VideoCardWrapper = ({ video }) => {
-    // ✅ Map backend video data to VideoCard props
     const videoProps = {
       id: video._id,
       title: video.title,
@@ -386,7 +353,7 @@ const Explore = () => {
         <div className="text-center">
           <div className="w-20 h-20 border-4 border-[#0D9488]/20 border-t-[#0D9488] rounded-full animate-spin mx-auto" />
           <h2 className="mt-6 text-xl font-bold text-[#374151] dark:text-white">
-            Loading Amazing Tours...
+            Loading Amazing Experiences...
           </h2>
         </div>
       </div>
@@ -411,13 +378,12 @@ const Explore = () => {
             </p>
           </div>
 
-          {/* SEARCH */}
           <div className="max-w-3xl mx-auto mt-10">
             <div className="relative bg-white rounded-2xl shadow-2xl">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search tours, locations, adventures..."
+                placeholder="Discover experiences, adventures, and hidden gems..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-16 pl-14 pr-6 rounded-2xl outline-none text-gray-900 font-medium focus:ring-2 focus:ring-[#0D9488]"
@@ -433,8 +399,8 @@ const Explore = () => {
         {/* TABS */}
         <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2">
           {[
-            { id: 'all', label: 'All', icon: Compass },
-            { id: 'tours', label: 'Tours', icon: MapPin },
+            { id: 'all', label: 'All Experiences', icon: Compass },
+            { id: 'experiences', label: 'Adventures', icon: MapPin },
             { id: 'videos', label: 'Videos', icon: Play },
             { id: 'ai-picks', label: 'AI Picks', icon: Sparkles },
           ].map((tab) => {
@@ -526,7 +492,7 @@ const Explore = () => {
           </div>
 
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredItems.length} items found
+            {filteredItems.length} experiences found
           </div>
         </div>
 
@@ -574,36 +540,36 @@ const Explore = () => {
           </div>
         )}
 
-        {/* GRID - Tours + Videos mixed */}
+        {/* RESULTS */}
         {filteredItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center shadow-lg">
             <div className="w-24 h-24 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-4">
               <Compass className="w-12 h-12 text-[#0D9488]" />
             </div>
             <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
-              No Results Found
+              No Experiences Found
             </h2>
             <p className="text-gray-500 dark:text-gray-400">
               Try adjusting your search, filters, or tab selection.
             </p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredItems.map((item, index) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map((item) => {
               if (item.type === 'video') {
                 return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
               } else {
-                return <TourCard key={`tour-${item._id}`} tour={item} />;
+                return <ExperienceCardCompact key={`experience-${item._id}`} experience={item} />;
               }
             })}
           </div>
         ) : (
           <div className="space-y-6">
-            {filteredItems.map((item, index) => {
+            {filteredItems.map((item) => {
               if (item.type === 'video') {
                 return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
               } else {
-                return <TourCard key={`tour-${item._id}`} tour={item} />;
+                return <ExperienceCardCompact key={`experience-${item._id}`} experience={item} />;
               }
             })}
           </div>

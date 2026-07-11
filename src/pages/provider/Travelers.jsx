@@ -1,24 +1,27 @@
 // src/pages/provider/Travelers.jsx
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
-  Loader2,
+  User,
   Mail,
   Phone,
   Calendar,
-  Search,
-  Filter,
-  ChevronDown,
-  Sparkles,
-  User,
   MapPin,
-  CheckCircle,
-  Clock,
-  XCircle,
+  Search,
+  Loader2,
   Eye,
+  Sparkles,
+  ArrowUpRight,
+  ChevronDown,
+  Filter,
+  Clock,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { getProviderTravelers } from '../../services/bookingService';
+import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
 // AI TOUR COLORS
@@ -30,98 +33,73 @@ import { getProviderTravelers } from '../../services/bookingService';
 // ===============================
 
 const Travelers = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [travelers, setTravelers] = useState([]);
-  const [filteredTravelers, setFilteredTravelers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTraveler, setSelectedTraveler] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    completed: 0,
+    pending: 0,
+  });
 
   useEffect(() => {
     fetchTravelers();
   }, []);
 
-  useEffect(() => {
-    filterTravelers();
-  }, [travelers, searchTerm]);
-
   const fetchTravelers = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
       const data = await getProviderTravelers(token);
-      setTravelers(data.travelers || []);
+      
+      const travelersList = data.travelers || [];
+      setTravelers(travelersList);
+
+      // Calculate stats
+      const total = travelersList.length;
+      const active = travelersList.filter(t => t.status === 'confirmed' || t.status === 'in_progress').length;
+      const completed = travelersList.filter(t => t.status === 'completed').length;
+      const pending = travelersList.filter(t => t.status === 'pending_payment' || t.status === 'pending').length;
+
+      setStats({ total, active, completed, pending });
     } catch (error) {
-      console.log(error);
+      console.error('Error fetching travelers:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterTravelers = () => {
-    if (!searchTerm) {
-      setFilteredTravelers(travelers);
-      return;
-    }
-    const filtered = travelers.filter(
-      (t) =>
-        t.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.tour?.title?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredTravelers(filtered);
-  };
-
-  const getPaymentBadge = (status) => {
-    const styles = {
-      paid: {
-        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
-        text: 'text-[#0D9488] dark:text-[#0D9488]',
-        icon: CheckCircle,
-        label: 'Paid',
-      },
-      pending: {
-        bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
-        text: 'text-[#F59E0B] dark:text-[#F59E0B]',
-        icon: Clock,
-        label: 'Pending',
-      },
-      failed: {
-        bg: 'bg-red-100 dark:bg-red-900/20',
-        text: 'text-red-600 dark:text-red-400',
-        icon: XCircle,
-        label: 'Failed',
-      },
-    };
-    return styles[status] || styles.pending;
-  };
-
   const getStatusBadge = (status) => {
     const styles = {
-      confirmed: {
-        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
-        text: 'text-[#0D9488] dark:text-[#0D9488]',
-        icon: CheckCircle,
-        label: 'Confirmed',
-      },
-      pending: {
-        bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
-        text: 'text-[#F59E0B] dark:text-[#F59E0B]',
-        icon: Clock,
-        label: 'Pending',
-      },
-      cancelled: {
-        bg: 'bg-red-100 dark:bg-red-900/20',
-        text: 'text-red-600 dark:text-red-400',
-        icon: XCircle,
-        label: 'Cancelled',
-      },
+      confirmed: { bg: 'bg-[#0D9488]/10 text-[#0D9488]', icon: CheckCircle, label: 'Confirmed' },
+      pending: { bg: 'bg-[#F59E0B]/10 text-[#F59E0B]', icon: Clock, label: 'Pending' },
+      pending_payment: { bg: 'bg-[#F59E0B]/10 text-[#F59E0B]', icon: Clock, label: 'Pending Payment' },
+      completed: { bg: 'bg-green-100 text-green-600', icon: CheckCircle, label: 'Completed' },
+      cancelled: { bg: 'bg-red-100 text-red-600', icon: XCircle, label: 'Cancelled' },
+      in_progress: { bg: 'bg-blue-100 text-blue-600', icon: Clock, label: 'In Progress' },
     };
     return styles[status] || styles.pending;
   };
+
+  const filteredTravelers = travelers.filter((traveler) => {
+    const search = searchTerm.toLowerCase();
+    const name = (traveler.fullName || traveler.user?.name || '').toLowerCase();
+    const email = (traveler.email || traveler.user?.email || '').toLowerCase();
+    const phone = (traveler.phone || traveler.user?.phone || '').toLowerCase();
+    
+    const matchesSearch = name.includes(search) || email.includes(search) || phone.includes(search);
+    const matchesFilter = filter === 'all' || traveler.status === filter;
+    
+    return matchesSearch && matchesFilter;
+  });
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center h-96">
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
@@ -133,9 +111,8 @@ const Travelers = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-
-      {/* HEADER - Updated with AI Tour colors */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* HEADER */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
@@ -146,7 +123,7 @@ const Travelers = () => {
                 Travelers
               </h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1">
-                All travelers who booked tours
+                Manage your travelers and their bookings
               </p>
             </div>
           </div>
@@ -157,123 +134,151 @@ const Travelers = () => {
         </div>
       </div>
 
-      {/* SEARCH - Updated with AI Tour colors */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by name, email, phone, or tour..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full h-12 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
-        />
+      {/* STATS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total Travelers</p>
+          <p className="text-2xl font-bold text-[#374151] dark:text-white">{stats.total}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Active</p>
+          <p className="text-2xl font-bold text-[#0D9488]">{stats.active}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Completed</p>
+          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
+          <p className="text-2xl font-bold text-[#F59E0B]">{stats.pending}</p>
+        </div>
       </div>
 
-      {/* TABLE - Updated with AI Tour colors */}
+      {/* SEARCH & FILTER */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-12 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+          />
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="h-12 px-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+        >
+          <option value="all">All Status</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="pending_payment">Pending Payment</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      {/* TRAVELERS TABLE */}
       {filteredTravelers.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center border border-gray-200 dark:border-gray-800 shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
             <Users className="w-10 h-10 text-[#0D9488]" />
           </div>
-          <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-            No Travelers Found
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            {searchTerm ? 'No Travelers Found' : 'No Travelers Yet'}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            {searchTerm ? 'Try adjusting your search' : 'Travelers will appear here once bookings are made'}
+          <p className="text-gray-500 dark:text-gray-400">
+            {searchTerm
+              ? 'Try adjusting your search'
+              : 'Travelers will appear here once they book your experiences'}
           </p>
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Traveler
                   </th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Tour
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Contact
                   </th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Travel Date
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Trip Date
                   </th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Payment
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Travelers
                   </th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    Action
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                 {filteredTravelers.map((traveler) => {
-                  const paymentStyle = getPaymentBadge(traveler.paymentStatus);
                   const statusStyle = getStatusBadge(traveler.status);
-                  const PaymentIcon = paymentStyle.icon;
                   const StatusIcon = statusStyle.icon;
+                  const name = traveler.fullName || traveler.user?.name || 'Unknown';
+                  const email = traveler.email || traveler.user?.email || 'N/A';
+                  const phone = traveler.phone || traveler.user?.phone || 'N/A';
+                  const travelDate = traveler.travelDate || traveler.tripDate;
+                  const travelersCount = traveler.travelers || 1;
+                  const bookingId = traveler.bookingId || traveler._id;
 
                   return (
-                    <tr
-                      key={traveler._id}
-                      className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
-                    >
-                      <td className="p-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-sm font-bold">
-                              {traveler.fullName?.charAt(0) || 'T'}
-                            </div>
-                            <h3 className="font-bold text-[#374151] dark:text-white">
-                              {traveler.fullName || 'Unknown'}
-                            </h3>
+                    <tr key={bookingId || traveler._id || Math.random().toString()} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white font-bold">
+                            {name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-10">
-                            <div className="flex items-center gap-2">
-                              <Mail size={14} className="text-[#0D9488]" />
-                              {traveler.email || 'N/A'}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Phone size={14} className="text-[#F59E0B]" />
-                              {traveler.phone || 'N/A'}
-                            </div>
+                          <div>
+                            <p className="font-medium text-[#374151] dark:text-white">
+                              {name}
+                            </p>
+                            <p className="text-xs text-gray-500">ID: {traveler._id?.slice(-8) || 'N/A'}</p>
                           </div>
                         </div>
                       </td>
-
-                      <td className="p-4 text-[#374151] dark:text-white">
-                        {traveler.tour?.title || 'N/A'}
-                      </td>
-
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-[#374151] dark:text-white">
-                          <Calendar size={16} className="text-[#0D9488]" />
-                          {traveler.travelDate
-                            ? new Date(traveler.travelDate).toLocaleDateString()
-                            : 'N/A'}
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-gray-400" />
+                            {email}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-gray-400" />
+                            {phone}
+                          </p>
                         </div>
                       </td>
-
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${paymentStyle.bg} ${paymentStyle.text}`}>
-                          <PaymentIcon className="w-3.5 h-3.5" />
-                          {paymentStyle.label}
-                        </span>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                          <Calendar className="w-4 h-4 text-[#0D9488]" />
+                          {travelDate ? new Date(travelDate).toLocaleDateString() : 'N/A'}
+                        </div>
                       </td>
-
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
-                          <StatusIcon className="w-3.5 h-3.5" />
+                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                        {travelersCount} person{travelersCount > 1 ? 's' : ''}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
+                          <StatusIcon className="w-3 h-3" />
                           {statusStyle.label}
                         </span>
                       </td>
-
-                      <td className="p-4">
+                      <td className="px-6 py-4">
                         <button
-                          onClick={() => setSelectedTraveler(traveler)}
+                          onClick={() => navigate(`/trip/${bookingId}`)}
                           className="p-2 rounded-xl hover:bg-[#0D9488]/10 transition text-gray-400 hover:text-[#0D9488]"
+                          title="View Trip"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -283,88 +288,6 @@ const Travelers = () => {
                 })}
               </tbody>
             </table>
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-            <span>Showing {filteredTravelers.length} of {travelers.length} travelers</span>
-            <span>Last updated: {new Date().toLocaleString()}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Traveler Details Modal */}
-      {selectedTraveler && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-                Traveler Details
-              </h2>
-              <button
-                onClick={() => setSelectedTraveler(null)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
-              >
-                <XCircle className="w-6 h-6 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-2xl font-bold">
-                  {selectedTraveler.fullName?.charAt(0) || 'T'}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-[#374151] dark:text-white">
-                    {selectedTraveler.fullName}
-                  </h3>
-                  <p className="text-sm text-gray-500">{selectedTraveler.email}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedTraveler.phone || 'N/A'}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Tour</p>
-                  <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedTraveler.tour?.title || 'N/A'}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Travel Date</p>
-                  <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedTraveler.travelDate
-                      ? new Date(selectedTraveler.travelDate).toLocaleDateString()
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Travelers</p>
-                  <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedTraveler.travelers || 1}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                <p className="text-sm text-gray-500">Booking ID</p>
-                <p className="font-mono font-semibold text-[#0D9488] text-xs">
-                  {selectedTraveler._id}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSelectedTraveler(null)}
-              className="mt-6 w-full py-3 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

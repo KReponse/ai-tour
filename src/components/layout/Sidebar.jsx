@@ -20,8 +20,9 @@ import {
   LayoutDashboard,
   TrendingUp,
   MessageCircle,
-  ClipboardList, // ✅ Added for Listings
-  PlusCircle, // ✅ Added for Add Listing
+  ClipboardList,
+  PlusCircle,
+  BookOpen, // ✅ ADDED for My Reviews
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../contexts/AuthContext";
@@ -40,17 +41,20 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   /*
   =========================
-  TRAVELER LINKS
+  TRAVELER LINKS - ✅ Updated
   =========================
   */
   const travelerLinks = [
     { path: "/", icon: Home, label: "Home" },
-    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { path: "/explore", icon: Compass, label: "Explore" },
     { path: "/ai-planner", icon: Bot, label: "AI Planner" },
+    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { path: "/my-bookings", icon: CalendarCheck, label: "My Bookings" },
     { path: "/trips", icon: Plane, label: "Trips" },
-    { path: "/reviews", icon: Star, label: "Reviews" },
+    // ✅ ADDED: My Reviews
+    { path: "/my-reviews", icon: BookOpen, label: "My Reviews" },
+    // ✅ Keep the public reviews link as well
+    { path: "/reviews", icon: Star, label: "Community Reviews" },
     { path: "/profile", icon: User, label: "Profile" },
     { path: "/notifications", icon: Bell, label: "Notifications" },
     { path: "/provider/request", icon: Briefcase, label: "Become Provider" },
@@ -63,12 +67,8 @@ const Sidebar = ({ collapsed, onToggle }) => {
   */
   const providerLinks = [
     { path: "/provider", icon: LayoutDashboard, label: "Dashboard" },
-    // ✅ Primary: Listings
     { path: "/provider/listings", icon: ClipboardList, label: "My Listings" },
     { path: "/provider/add-listing", icon: PlusCircle, label: "Add Listing" },
-    // ⚠️ Legacy: Tours (kept for backward compatibility - hidden from sidebar)
-    // { path: "/provider/tours", icon: Compass, label: "My Tours" },
-    // { path: "/provider/add-tour", icon: Briefcase, label: "Add Tour" },
     { path: "/provider/bookings", icon: CalendarCheck, label: "Bookings" },
     { path: "/provider/travelers", icon: User, label: "Travelers" },
     { path: "/provider/reviews", icon: Star, label: "Reviews" },
@@ -87,10 +87,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
     { path: "/admin/users", icon: User, label: "Users" },
     { path: "/admin/providers", icon: Shield, label: "Providers" },
     { path: "/admin/provider-requests", icon: FileCheck, label: "Provider Requests" },
-    // ✅ Updated: Tours → Listings
     { path: "/admin/listings", icon: ClipboardList, label: "Listings" },
-    // ⚠️ Legacy: Tours (kept for backward compatibility - hidden from sidebar)
-    // { path: "/admin/tours", icon: Compass, label: "Tours" },
     { path: "/admin/reviews", icon: Star, label: "Reviews" },
     { path: "/admin/notifications", icon: Bell, label: "Notifications" },
   ];
@@ -122,10 +119,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
       <div className="flex flex-col h-full">
         <div className="flex-1 py-6">
           {navItems.map((item) => {
-            // Check if this is a primary Listing item
-            const isListingItem = item.path === '/provider/listings' || 
+            // Check if this is a primary item
+            const isPrimaryItem = item.path === '/provider/listings' || 
                                  item.path === '/provider/add-listing' ||
-                                 item.path === '/admin/listings';
+                                 item.path === '/admin/listings' ||
+                                 item.path === '/my-reviews'; // ✅ Added for My Reviews
             
             return (
               <NavLink
@@ -140,9 +138,8 @@ const Sidebar = ({ collapsed, onToggle }) => {
                       ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] dark:text-[#0D9488]"
                       : "text-gray-700 dark:text-gray-300 hover:text-[#0D9488]",
                     collapsed ? "justify-center" : "space-x-3",
-                    // ✅ Primary items get slight accent
-                    isListingItem && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
-                    isListingItem && isActive && "border-l-2 border-[#0D9488]"
+                    isPrimaryItem && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
+                    isPrimaryItem && isActive && "border-l-2 border-[#0D9488]"
                   )
                 }
               >
@@ -163,15 +160,14 @@ const Sidebar = ({ collapsed, onToggle }) => {
                           isActive
                             ? "text-[#0D9488]"
                             : "text-gray-700 dark:text-gray-300",
-                          // ✅ Primary items slightly bolder
-                          isListingItem && "font-semibold"
+                          isPrimaryItem && "font-semibold"
                         )}
                       >
                         {item.label}
                       </span>
                     )}
-                    {/* ✅ "NEW" badge for primary items */}
-                    {isListingItem && !collapsed && !isActive && (
+                    {/* "NEW" badge for primary items */}
+                    {isPrimaryItem && !collapsed && !isActive && (
                       <span className="ml-auto text-[8px] font-bold text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
                         NEW
                       </span>

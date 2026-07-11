@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ArrowRight,
   DollarSign,
+  CreditCard,
 } from 'lucide-react';
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -79,7 +80,6 @@ const Trips = () => {
       const token = localStorage.getItem('token');
       await cancelBooking(bookingId, token);
 
-      // Update local state
       setBookings(
         bookings.map((booking) =>
           booking._id === bookingId
@@ -101,15 +101,62 @@ const Trips = () => {
     if (!image) return null;
     if (image.startsWith('http')) return image;
     if (image.startsWith('/')) return image;
+    if (image.startsWith('blob:')) return image;
     return `${API_URL}/uploads/${image}`;
   };
 
-  const getTourImage = (tour) => {
-    if (tour?.coverImage) return getImageUrl(tour.coverImage);
-    if (tour?.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
-    if (tour?.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
-    if (tour?.image) return getImageUrl(tour.image);
+  // ✅ FIXED: Get entity image with better error handling
+  const getEntityImage = (entity) => {
+    if (!entity) return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    
+    // If entity is a string (ID), use fallback
+    if (typeof entity === 'string') {
+      return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    }
+
+    // Check for coverImage
+    if (entity.coverImage) {
+      const url = getImageUrl(entity.coverImage);
+      if (url) return url;
+    }
+
+    // Check for galleryImages
+    if (entity.galleryImages && entity.galleryImages.length > 0) {
+      const url = getImageUrl(entity.galleryImages[0]);
+      if (url) return url;
+    }
+
+    // Check for images array
+    if (entity.images && entity.images.length > 0) {
+      const url = getImageUrl(entity.images[0]);
+      if (url) return url;
+    }
+
+    // Check for image field
+    if (entity.image) {
+      const url = getImageUrl(entity.image);
+      if (url) return url;
+    }
+
+    // Fallback
     return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+  };
+
+  // Get entity (listing or tour)
+  const getEntity = (booking) => {
+    // Check if listing or tour is populated (object) or just an ID
+    const listing = booking.listing;
+    const tour = booking.tour;
+    
+    if (listing && typeof listing === 'object' && listing.title) {
+      return listing;
+    }
+    if (tour && typeof tour === 'object' && tour.title) {
+      return tour;
+    }
+    
+    // If not populated, return empty object
+    return {};
   };
 
   // Get travel date from booking
@@ -126,48 +173,90 @@ const Trips = () => {
 
   // Get total price
   const getTotalPrice = (booking) => {
-    return booking.totalPrice || booking.tour?.price || 0;
+    return booking.totalPrice || 0;
+  };
+
+  // Check if booking can be cancelled
+  const canCancel = (status) => {
+    return ['pending_payment', 'paid', 'confirmed'].includes(status);
+  };
+
+  // Check if booking can be paid
+  const canPay = (status) => {
+    return status === 'pending_payment';
+  };
+
+  // Check if booking can be reviewed
+  const canReview = (status) => {
+    return status === 'completed' || status === 'reviewed';
   };
 
   // Filter bookings by status
   const upcomingBookings = bookings.filter(
-    b => b.status === 'confirmed' || b.status === 'pending'
+    b => b.status === 'paid' || b.status === 'confirmed' || b.status === 'pending_payment' || b.status === 'in_progress'
   );
   
   const pastBookings = bookings.filter(
-    b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'rejected'
+    b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'rejected' || b.status === 'refunded'
   );
 
   const getStatusColor = (status) => {
     const colors = {
+      pending_payment: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20',
+      paid: 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20',
       confirmed: 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20',
-      pending: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20',
+      in_progress: 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20',
+      completed: 'bg-green-100 text-green-600 border-green-200',
       cancelled: 'bg-red-100 text-red-600 border-red-200',
-      completed: 'bg-[#0D9488]/10 text-[#0D9488] border-[#0D9488]/20',
       rejected: 'bg-red-100 text-red-600 border-red-200',
+      refunded: 'bg-gray-100 text-gray-600 border-gray-200',
     };
-    return colors[status] || colors.pending;
+    return colors[status] || colors.pending_payment;
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      pending_payment: 'Pending Payment',
+      paid: 'Paid',
+      confirmed: 'Confirmed',
+      in_progress: 'In Progress',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      rejected: 'Rejected',
+      refunded: 'Refunded',
+    };
+    return labels[status] || status;
   };
 
   const getStatusIcon = (status) => {
     const icons = {
+      pending_payment: Clock,
+      paid: CheckCircle,
       confirmed: CheckCircle,
-      pending: Clock,
-      cancelled: XCircle,
+      in_progress: Clock,
       completed: CheckCircle,
+      cancelled: XCircle,
       rejected: XCircle,
+      refunded: CheckCircle,
     };
     return icons[status] || Clock;
   };
 
   const TripCard = ({ booking }) => {
-    const tour = booking.tour || {};
+    const entity = getEntity(booking);
     const StatusIcon = getStatusIcon(booking.status);
     const isExpanded = expandedTrip === booking._id;
     const travelDate = getTravelDate(booking);
     const travelers = getTravelers(booking);
     const totalPrice = getTotalPrice(booking);
-    const isCancellable = booking.status === 'confirmed' || booking.status === 'pending';
+    const isCancellable = canCancel(booking.status);
+    const isPayable = canPay(booking.status);
+    const isReviewable = canReview(booking.status);
+    
+    // ✅ Get image with proper URL
+    const imageUrl = getEntityImage(entity);
+    const entityTitle = entity.title || 'Experience';
+    const entityLocation = entity.location || 'Location not specified';
 
     return (
       <Card hover className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-3xl">
@@ -175,8 +264,8 @@ const Trips = () => {
           {/* Image */}
           <div className="relative md:col-span-1">
             <img
-              src={getTourImage(tour)}
-              alt={tour.title || 'Tour'}
+              src={imageUrl}
+              alt={entityTitle}
               className="w-full h-48 md:h-full object-cover"
               onError={(e) => {
                 e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
@@ -185,7 +274,7 @@ const Trips = () => {
             <div className="absolute top-3 left-3">
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(booking.status)}`}>
                 <StatusIcon className="w-3 h-3" />
-                {booking.status}
+                {getStatusLabel(booking.status)}
               </span>
             </div>
             
@@ -193,7 +282,7 @@ const Trips = () => {
             {totalPrice > 0 && (
               <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
                 <DollarSign className="w-3 h-3" />
-                {totalPrice}
+                ${totalPrice}
               </div>
             )}
           </div>
@@ -203,11 +292,11 @@ const Trips = () => {
             <div className="flex justify-between items-start mb-3">
               <div>
                 <h3 className="text-xl font-bold text-[#374151] dark:text-white line-clamp-1">
-                  {tour.title || 'Tour'}
+                  {entityTitle}
                 </h3>
                 <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mt-1">
                   <MapPin className="w-4 h-4 mr-1 text-[#0D9488]" />
-                  <span>{tour.location || 'Location not specified'}</span>
+                  <span>{entityLocation}</span>
                 </div>
                 {booking.bookingCode && (
                   <p className="text-xs text-gray-400 mt-1">
@@ -253,9 +342,7 @@ const Trips = () => {
                   <div>
                     <p className="text-gray-500">Payment Status</p>
                     <p className={`font-semibold ${
-                      booking.paymentStatus === 'paid' || booking.paymentStatus === 'Paid'
-                        ? 'text-[#0D9488]'
-                        : 'text-[#F59E0B]'
+                      booking.paymentStatus === 'paid' ? 'text-[#0D9488]' : 'text-[#F59E0B]'
                     }`}>
                       {booking.paymentStatus || 'Pending'}
                     </p>
@@ -268,8 +355,8 @@ const Trips = () => {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Link to={`/tour/${tour._id}`} className="flex-1">
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/trip/${booking._id}`} className="flex-1">
                 <Button 
                   variant="primary" 
                   size="sm" 
@@ -279,6 +366,20 @@ const Trips = () => {
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </Link>
+              
+              {isPayable && (
+                <Link to={`/payment/${booking._id}`} className="flex-1">
+                  <Button 
+                    variant="primary" 
+                    size="sm"
+                    className="w-full bg-[#F59E0B] text-white hover:bg-[#F59E0B]/80 transition text-sm"
+                  >
+                    <CreditCard className="w-4 h-4 mr-1" />
+                    Pay Now
+                  </Button>
+                </Link>
+              )}
+              
               {isCancellable && (
                 <Button 
                   variant="outline" 
@@ -293,6 +394,19 @@ const Trips = () => {
                     'Cancel'
                   )}
                 </Button>
+              )}
+
+              {isReviewable && !booking.reviewSubmitted && (
+                <Link to={`/review/${booking._id}`}>
+                  <Button 
+                    variant="primary" 
+                    size="sm"
+                    className="bg-[#0D9488] text-white hover:bg-[#0D9488]/80 transition text-sm"
+                  >
+                    <Star className="w-4 h-4 mr-1" />
+                    Review
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
@@ -405,7 +519,7 @@ const Trips = () => {
               </p>
               <Link to="/explore">
                 <Button className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition">
-                  Explore Destinations
+                  Explore Experiences
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>

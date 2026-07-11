@@ -1,5 +1,7 @@
+// src/pages/PaymentSuccess.jsx
+
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Sparkles, Calendar, ArrowRight, Home, Loader2 } from 'lucide-react';
 import { verifyPayment } from '../services/paymentService';
 import axios from 'axios';
@@ -17,69 +19,81 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(null);
   const [bookingRef, setBookingRef] = useState('');
   const [error, setError] = useState('');
 
-  // Get session ID from URL or state
-  const sessionId = new URLSearchParams(window.location.search).get('session_id') 
-    || location.state?.sessionId;
+  // ✅ Get session ID from URL using useSearchParams
+  const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    if (sessionId) {
-      verifyPaymentStatus();
-    } else {
-      setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+    if (!sessionId) {
+      setError('No payment session found. Please contact support.');
       setLoading(false);
+      return;
     }
+
+    verifyPaymentStatus();
   }, [sessionId]);
 
   // ✅ Verify payment with backend
   const verifyPaymentStatus = async () => {
     try {
       setLoading(true);
+      setError('');
       
-      // Step 1: Verify payment
+      console.log('🔍 Verifying payment for session:', sessionId);
+      
       const response = await verifyPayment(sessionId);
       console.log('✅ Payment verified:', response);
       
-      if (response.success && response.booking) {
-        setBooking(response.booking);
-        setBookingRef(response.booking.bookingCode || response.booking._id?.slice(0, 8));
+      if (response.success) {
+        // Handle different response structures
+        const bookingData = response.booking || response.data?.booking || response.data;
         
-        // Step 2: Fetch full booking details
-        await fetchBookingDetails(response.booking._id);
+        if (bookingData) {
+          setBooking(bookingData);
+          setBookingRef(bookingData.bookingCode || bookingData._id?.slice(-6) || 'N/A');
+        } else {
+          // If no booking data, generate a reference
+          setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+        }
       } else {
+        setError(response.message || 'Payment verification failed');
         setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
       }
     } catch (error) {
       console.error('❌ Payment verification error:', error);
-      setError('Could not verify payment status. Please check your email for confirmation.');
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Check if it's a network error
+      if (error.message === 'Network Error') {
+        setError('Cannot connect to server. Please check your internet connection and try again.');
+      } else {
+        setError(error.response?.data?.message || 'Could not verify payment status. Please check your email for confirmation.');
+      }
       setBookingRef('AI-' + Math.random().toString(36).substring(2, 8).toUpperCase());
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Fetch full booking details
-  const fetchBookingDetails = async (bookingId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/bookings/my-bookings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      const bookings = response.data.bookings || [];
-      const foundBooking = bookings.find(b => b._id === bookingId);
-      
-      if (foundBooking) {
-        setBooking(foundBooking);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching booking details:', error);
-    }
+  // ✅ Get entity title (listing or tour)
+  const getEntityTitle = () => {
+    if (!booking) return 'Your Experience';
+    return booking.listing?.title || booking.tour?.title || booking.title || 'Your Experience';
+  };
+
+  // ✅ Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   if (loading) {
@@ -89,7 +103,8 @@ const PaymentSuccess = () => {
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
         </div>
-        <p className="mt-4 text-gray-500 dark:text-gray-400">Verifying payment...</p>
+        <p className="mt-4 text-lg font-medium text-gray-600 dark:text-gray-400">Verifying your payment...</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Please wait while we confirm your booking</p>
       </div>
     );
   }
@@ -129,20 +144,28 @@ const PaymentSuccess = () => {
         {booking && (
           <div className="mt-4 text-left bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between text-sm py-1">
-              <span className="text-gray-500">Tour</span>
-              <span className="font-medium text-[#374151] dark:text-white">
-                {booking.tour?.title || 'N/A'}
+              <span className="text-gray-500">Experience</span>
+              <span className="font-medium text-[#374151] dark:text-white truncate max-w-[150px]">
+                {getEntityTitle()}
               </span>
             </div>
             <div className="flex justify-between text-sm py-1">
               <span className="text-gray-500">Travelers</span>
               <span className="font-medium text-[#374151] dark:text-white">
-                {booking.numberOfPeople || 1}
+                {booking.numberOfPeople || booking.travelers || 1}
               </span>
             </div>
-            <div className="flex justify-between text-sm py-1">
-              <span className="text-gray-500">Total</span>
-              <span className="font-medium text-[#0D9488]">
+            {booking.startDate && (
+              <div className="flex justify-between text-sm py-1">
+                <span className="text-gray-500">Date</span>
+                <span className="font-medium text-[#374151] dark:text-white">
+                  {formatDate(booking.startDate)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm py-1 border-t border-gray-200 dark:border-gray-700 pt-2 mt-1">
+              <span className="text-gray-500">Total Paid</span>
+              <span className="font-bold text-[#0D9488] text-lg">
                 ${booking.totalPrice || 0}
               </span>
             </div>
@@ -159,6 +182,12 @@ const PaymentSuccess = () => {
         {error && (
           <div className="mt-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 text-left">
             <p className="text-xs text-amber-700 dark:text-amber-400">{error}</p>
+            <button
+              onClick={verifyPaymentStatus}
+              className="mt-2 text-xs text-[#0D9488] hover:underline font-medium"
+            >
+              Try verifying again
+            </button>
           </div>
         )}
 

@@ -22,7 +22,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ClipboardList, // ✅ Added for Listings
+  ClipboardList,
 } from "lucide-react";
 
 import {
@@ -38,6 +38,9 @@ import {
   Cell,
 } from "recharts";
 
+// ✅ Import Payment Analytics
+import PaymentAnalytics from '../../components/admin/PaymentAnalytics';
+
 // ===============================
 // AI TOUR COLORS
 // ===============================
@@ -47,20 +50,17 @@ import {
 // White : #FFFFFF
 // ===============================
 
-// ✅ FIX: Use /api as base, not /api/admin
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
-    // ✅ Updated: tours → listings
     listings: {
       total: 0,
       approved: 0,
       pending: 0,
       rejected: 0,
-      suspended: 0, // ✅ Added suspended
+      suspended: 0,
     },
-    // ⚠️ Legacy: Keep tours for backward compatibility
     tours: {
       total: 0,
       approved: 0,
@@ -100,7 +100,6 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
       
-      // ✅ FIX: Use /admin/dashboard endpoint
       const { data } = await axios.get(`${API}/admin/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -108,11 +107,9 @@ const AdminDashboard = () => {
       console.log("✅ Admin stats:", data);
       
       if (data && data.stats) {
-        // ✅ Map tours to listings for display
         const statsData = data.stats;
         setStats({
           ...statsData,
-          // ✅ Primary: Listings (use tours data as fallback)
           listings: statsData.listings || statsData.tours || {
             total: 0,
             approved: 0,
@@ -120,7 +117,6 @@ const AdminDashboard = () => {
             rejected: 0,
             suspended: 0,
           },
-          // ⚠️ Legacy: Keep tours for backward compatibility
           tours: statsData.tours || {
             total: 0,
             approved: 0,
@@ -169,7 +165,7 @@ const AdminDashboard = () => {
   }, []);
 
   // ===============================
-  // CARDS DATA - ✅ Updated for Listings
+  // CARDS DATA
   // ===============================
   const cards = [
     {
@@ -187,9 +183,9 @@ const AdminDashboard = () => {
       textColor: "text-[#F59E0B]",
     },
     {
-      title: "Total Listings", // ✅ Changed from "Total Tours"
+      title: "Total Listings",
       value: stats.listings?.total || 0,
-      icon: ClipboardList, // ✅ Changed from MapPin
+      icon: ClipboardList,
       gradient: "from-[#0D9488] to-[#0f766e]",
       textColor: "text-[#0D9488]",
     },
@@ -217,30 +213,23 @@ const AdminDashboard = () => {
   ];
 
   // ===============================
-  // CHART DATA - ✅ Updated for Listings
+  // CHART DATA
   // ===============================
   const chartData = [
     { name: "Users", value: stats.users?.travelers || 0 },
     { name: "Providers", value: stats.users?.providers || 0 },
-    { name: "Listings", value: stats.listings?.total || 0 }, // ✅ Changed from "Tours"
+    { name: "Listings", value: stats.listings?.total || 0 },
     { name: "Bookings", value: stats.bookings?.total || 0 },
   ];
 
   // ===============================
-  // LISTING STATUS DATA - ✅ Updated
+  // LISTING STATUS DATA
   // ===============================
   const listingStatusData = [
     { name: "Approved", value: stats.listings?.approved || 0, color: "#0D9488" },
     { name: "Pending", value: stats.listings?.pending || 0, color: "#F59E0B" },
     { name: "Rejected", value: stats.listings?.rejected || 0, color: "#EF4444" },
-    { name: "Suspended", value: stats.listings?.suspended || 0, color: "#6B7280" }, // ✅ Added
-  ];
-
-  // ⚠️ Legacy: Keep tour status data for backward compatibility
-  const tourStatusData = [
-    { name: "Approved", value: stats.tours?.approved || 0, color: "#0D9488" },
-    { name: "Pending", value: stats.tours?.pending || 0, color: "#F59E0B" },
-    { name: "Rejected", value: stats.tours?.rejected || 0, color: "#EF4444" },
+    { name: "Suspended", value: stats.listings?.suspended || 0, color: "#6B7280" },
   ];
 
   // ===============================
@@ -427,11 +416,11 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Listing Status Chart - ✅ Updated */}
+      {/* Listing Status Chart */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-bold text-xl text-[#374151] dark:text-white">
-            Listing Status {/* ✅ Changed from "Tour Status" */}
+            Listing Status
           </h2>
           <div className="flex items-center gap-4 flex-wrap">
             {listingStatusData.map((item) => (
@@ -458,6 +447,8 @@ const AdminDashboard = () => {
         </ResponsiveContainer>
       </div>
 
+      {/* ✅ Payment Analytics Section */}
+      <PaymentAnalytics />
     </div>
   );
 };

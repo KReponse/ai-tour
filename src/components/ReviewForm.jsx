@@ -28,6 +28,7 @@ const ReviewForm = ({
   initialData = null,
   tourId,
   tourTitle,
+  bookingId, // ✅ ADDED: bookingId prop
   onSubmit,
   onCancel,
   isLoading = false,
@@ -35,6 +36,7 @@ const ReviewForm = ({
 }) => {
   const [formData, setFormData] = useState({
     rating: 5,
+    title: '', // ✅ ADDED: title field
     comment: '',
     images: [],
   });
@@ -47,6 +49,7 @@ const ReviewForm = ({
     if (initialData) {
       setFormData({
         rating: initialData.rating || 5,
+        title: initialData.title || '', // ✅ ADDED: load title
         comment: initialData.comment || '',
         images: initialData.images || [],
       });
@@ -62,15 +65,23 @@ const ReviewForm = ({
   const validateForm = () => {
     const newErrors = {};
     
+    // ✅ Validate title
+    if (!formData.title.trim()) {
+      newErrors.title = 'Please enter a review title';
+    } else if (formData.title.length < 3) {
+      newErrors.title = 'Title must be at least 3 characters';
+    } else if (formData.title.length > 100) {
+      newErrors.title = 'Title must be less than 100 characters';
+    }
+    
     if (!formData.comment.trim()) {
       newErrors.comment = 'Please write a review';
-    }
-    if (formData.comment.length < 10) {
+    } else if (formData.comment.length < 10) {
       newErrors.comment = 'Review must be at least 10 characters';
+    } else if (formData.comment.length > 2000) {
+      newErrors.comment = 'Review must be less than 2000 characters';
     }
-    if (formData.comment.length > 1000) {
-      newErrors.comment = 'Review must be less than 1000 characters';
-    }
+    
     if (formData.rating < 1 || formData.rating > 5) {
       newErrors.rating = 'Please select a rating';
     }
@@ -154,28 +165,29 @@ const ReviewForm = ({
   // ===============================
   // HANDLE SUBMIT
   // ===============================
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      // Scroll to first error
-      const firstError = document.querySelector('.text-red-500');
-      if (firstError) {
-        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return;
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    const firstError = document.querySelector('.text-red-500');
+    if (firstError) {
+      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+    return;
+  }
 
-    // Prepare data for submission
-    const submitData = {
-      rating: formData.rating,
-      comment: formData.comment.trim(),
-      tourId: tourId,
-      images: formData.images,
-    };
-
-    await onSubmit(submitData);
+  // ✅ Prepare data for submission
+  const submitData = {
+    rating: formData.rating,
+    title: formData.title.trim(),
+    comment: formData.comment.trim(),
   };
+
+  console.log('📤 Submitting form data:', submitData);
+  
+  await onSubmit(submitData);
+};
 
   // ===============================
   // RENDER STARS
@@ -247,6 +259,39 @@ const ReviewForm = ({
           </p>
         </div>
 
+        {/* ✅ ADDED: Title Input */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Review Title *
+          </label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => {
+              setFormData({ ...formData, title: e.target.value });
+              if (errors.title) {
+                setErrors({ ...errors, title: '' });
+              }
+            }}
+            placeholder="Summarize your experience (e.g., 'Amazing Adventure!')"
+            className={`w-full px-4 py-3 rounded-2xl border ${
+              errors.title ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'
+            } bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white`}
+            maxLength={100}
+          />
+          <div className="flex justify-between mt-1.5">
+            {errors.title && (
+              <p className="text-sm text-red-500 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {errors.title}
+              </p>
+            )}
+            <p className={`text-xs ml-auto ${formData.title.length > 90 ? 'text-[#F59E0B]' : 'text-gray-400'}`}>
+              {formData.title.length}/100
+            </p>
+          </div>
+        </div>
+
         {/* Comment */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -273,8 +318,8 @@ const ReviewForm = ({
                 {errors.comment}
               </p>
             )}
-            <p className={`text-xs ml-auto ${formData.comment.length > 900 ? 'text-[#F59E0B]' : 'text-gray-400'}`}>
-              {formData.comment.length}/1000
+            <p className={`text-xs ml-auto ${formData.comment.length > 1800 ? 'text-[#F59E0B]' : 'text-gray-400'}`}>
+              {formData.comment.length}/2000
             </p>
           </div>
         </div>

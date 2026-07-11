@@ -21,11 +21,16 @@ import {
   List,
   Package,
   Briefcase,
-  // ✅ ADD: Import UserCheck icon for Providers
   UserCheck,
   UserCog,
-  ClipboardList, // ✅ Added for Listings
-  PlusCircle, // ✅ Added for additional icon
+  ClipboardList,
+  PlusCircle,
+  // ✅ ADD: Payment and Booking icons
+  CreditCard,
+  DollarSign,
+  BookOpen,
+  CalendarDays,
+  Receipt,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -38,21 +43,87 @@ import clsx from "clsx";
 // White : #FFFFFF
 // ===============================
 
-// ✅ UPDATED: Listings as primary, Tours as legacy (hidden)
+// ✅ UPDATED: Added Payment and Booking menu items
 const menuItems = [
   // ── Primary ──
-  { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard, isPrimary: true },
-  { name: "Users", path: "/admin/users", icon: Users },
-  // ✅ Primary: Listings (replaces Tours)
-  { name: "Listings", path: "/admin/listings", icon: ClipboardList, isPrimary: true },
+  { 
+    name: "Dashboard", 
+    path: "/admin/dashboard", 
+    icon: LayoutDashboard, 
+    isPrimary: true 
+  },
+  
+  // ── Users ──
+  { 
+    name: "Users", 
+    path: "/admin/users", 
+    icon: Users 
+  },
+  
+  // ── Listings ──
+  { 
+    name: "Listings", 
+    path: "/admin/listings", 
+    icon: ClipboardList, 
+    isPrimary: true 
+  },
+  
   // ⚠️ Legacy: Tours (hidden from sidebar, kept for redirects)
-  { name: "Tours", path: "/admin/tours", icon: Map, hidden: true, isLegacy: true },
-  // ✅ Providers
-  { name: "Providers", path: "/admin/providers", icon: UserCheck },
-  { name: "Requests", path: "/admin/requests", icon: Calendar },
-  { name: "Provider Requests", path: "/admin/provider-requests", icon: ShieldCheck },
-  { name: "Reviews", path: "/admin/reviews", icon: Star },
-  { name: "Notifications", path: "/admin/notifications", icon: Bell },
+  { 
+    name: "Tours", 
+    path: "/admin/tours", 
+    icon: Map, 
+    hidden: true, 
+    isLegacy: true 
+  },
+  
+  // ── Bookings (NEW) ──
+  { 
+    name: "Bookings", 
+    path: "/admin/bookings", 
+    icon: CalendarDays,
+    isPrimary: true,
+    badge: "All"
+  },
+  
+  // ── Payments (NEW) ──
+  { 
+    name: "Payments", 
+    path: "/admin/payments", 
+    icon: CreditCard,
+    isPrimary: true,
+    badge: "Analytics"
+  },
+  
+  // ── Providers ──
+  { 
+    name: "Providers", 
+    path: "/admin/providers", 
+    icon: UserCheck 
+  },
+  
+  
+  
+  // ── Provider Requests ──
+  { 
+    name: "Provider Requests", 
+    path: "/admin/provider-requests", 
+    icon: ShieldCheck 
+  },
+  
+  // ── Reviews ──
+  { 
+    name: "Reviews", 
+    path: "/admin/reviews", 
+    icon: Star 
+  },
+  
+  // ── Notifications ──
+  { 
+    name: "Notifications", 
+    path: "/admin/notifications", 
+    icon: Bell 
+  },
 ];
 
 // ✅ Filter out hidden/legacy items from sidebar display
@@ -109,9 +180,8 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
         {/* MENU */}
         <nav className="flex-1 py-6 space-y-1.5 px-3 overflow-y-auto">
           {visibleMenuItems.map((item) => {
-            // Check if this is a primary Listing item
             const isPrimary = item.isPrimary || false;
-            const isListingItem = item.path === '/admin/listings';
+            const hasBadge = item.badge || false;
             
             return (
               <NavLink
@@ -127,7 +197,6 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
                     isActive
                       ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
                       : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
-                    // ✅ Primary items get border accent
                     isPrimary && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
                     isPrimary && isActive && "border-l-2 border-[#0D9488]"
                   )
@@ -146,19 +215,18 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
                     {!collapsed && (
                       <span
                         className={clsx(
-                          "font-medium transition-colors duration-200",
+                          "font-medium transition-colors duration-200 flex-1",
                           isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300",
-                          // ✅ Primary items slightly bolder
                           isPrimary && "font-semibold"
                         )}
                       >
                         {item.name}
                       </span>
                     )}
-                    {/* ✅ "NEW" badge for primary items */}
-                    {isPrimary && !collapsed && !isActive && (
-                      <span className="ml-auto text-[8px] font-bold text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
-                        NEW
+                    {/* ✅ Badge for items like Bookings, Payments */}
+                    {hasBadge && !collapsed && !isActive && (
+                      <span className="ml-auto text-[9px] font-bold text-white bg-[#0D9488] px-2 py-0.5 rounded-full">
+                        {item.badge}
                       </span>
                     )}
                     {isActive && !collapsed && (

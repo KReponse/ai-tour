@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import React, { useState } from 'react';
-import { Routes, Route, Outlet, Navigate } from 'react-router-dom'; // ✅ Added Navigate
+import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
 
 import MainLayout from './components/layout/Layout';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -34,6 +34,15 @@ import AIChat from './pages/AIChat';
 import CustomRequest from './pages/CustomRequest';
 import MyReviews from './pages/MyReviews';
 import BookingDetails from './pages/BookingDetails';
+import TripDetails from './pages/TripDetails';
+import PaymentPage from './pages/PaymentPage';
+import ReviewDetails from './pages/ReviewDetails';
+
+// ✅ IMPORT Review Page
+import Review from './pages/Review';
+
+// ✅ Provider Notifications
+import ProviderNotifications from './pages/provider/ProviderNotifications';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -63,6 +72,10 @@ import AdminProviderRequests from './pages/admin/ProviderRequests';
 import AdminReviews from './pages/admin/Reviews';
 import ProviderRequestDetails from "./pages/admin/ProviderRequestDetails";
 import ManagementListings from './pages/admin/ManagementListings';
+
+// ✅ NEW: Admin Booking & Payment Pages
+import AdminBookings from './pages/admin/AdminBookings';
+import AdminPayments from './pages/admin/AdminPayments';
 
 // Provider Pages
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -125,8 +138,13 @@ function App() {
           <Route path="/careers" element={<Careers />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/faqs" element={<FAQs />} />
+          <Route path="/reviews/:reviewId" element={<ReviewDetails />} />
 
-          {/* PROTECTED ROUTES */}
+          {/* ========================= */}
+          {/* ✅ PROTECTED ROUTES      */}
+          {/* ========================= */}
+
+          {/* AI Planner */}
           <Route
             path="/ai-planner"
             element={
@@ -136,8 +154,19 @@ function App() {
             }
           />
 
+          {/* ✅ BOOKING FORM (uses listing ID) */}
           <Route
-            path="/booking/:id"
+            path="/booking/:listingId"
+            element={
+              <ProtectedRoute>
+                <Booking />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ BOOKING DETAILS (uses booking ID) */}
+          <Route
+            path="/booking-details/:bookingId"
             element={
               <ProtectedRoute>
                 <BookingDetails />
@@ -145,6 +174,27 @@ function App() {
             }
           />
 
+          {/* ✅ TRIP DETAILS (uses booking ID) */}
+          <Route
+            path="/trip/:bookingId"
+            element={
+              <ProtectedRoute>
+                <TripDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ PAYMENT PAGE (uses booking ID) */}
+          <Route
+            path="/payment/:bookingId"
+            element={
+              <ProtectedRoute>
+                <PaymentPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ⚠️ Legacy: Keep for backward compatibility */}
           <Route
             path="/trips"
             element={
@@ -200,15 +250,6 @@ function App() {
           />
 
           <Route
-            path="/payment"
-            element={
-              <ProtectedRoute>
-                <Payment />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
             path="/edit-profile"
             element={
               <ProtectedRoute>
@@ -235,12 +276,23 @@ function App() {
             }
           />
 
+          {/* ✅ REVIEW ROUTE (Add this) */}
+          <Route
+            path="/review/:bookingId"
+            element={
+              <ProtectedRoute>
+                <Review />
+              </ProtectedRoute>
+            }
+          />
+
           {/* ⚠️ Legacy: TourDetails redirects to ListingDetails */}
           <Route path="/tour/:id" element={<TourDetails />} />
           
           {/* ✅ Primary: ListingDetails */}
           <Route path="/listing/:id" element={<ListingDetails />} />
 
+          {/* ⚠️ Legacy: My Bookings (keep for backward compatibility) */}
           <Route
             path="/my-bookings"
             element={
@@ -277,6 +329,7 @@ function App() {
             }
           />
 
+          {/* ⚠️ Legacy: Payment pages (keep for backward compatibility) */}
           <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/payment-cancel" element={<PaymentCancel />} />
         </Route>
@@ -318,6 +371,9 @@ function App() {
           <Route path="profile" element={<ProviderProfile />} />
           <Route path="settings" element={<ProviderSettings />} />
           
+          {/* ✅ Provider Notifications */}
+          <Route path="notifications" element={<ProviderNotifications />} />
+          
           {/* ⚠️ Legacy: Tour routes (redirect to Listing equivalents) */}
           <Route path="add-tour" element={<AddTour />} />
           <Route path="tours" element={<MyTours />} />
@@ -331,6 +387,7 @@ function App() {
           <Route path="listings" element={<MyListings />} />
           <Route path="add-listing" element={<AddListing />} />
           <Route path="listings/edit/:id" element={<EditListing />} />
+          
         </Route>
 
         {/* ================= ADMIN DASHBOARD ================= */}
@@ -346,6 +403,12 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="providers" element={<Providers />} />
+          
+          {/* ✅ NEW: Admin Bookings */}
+          <Route path="bookings" element={<AdminBookings />} />
+          
+          {/* ✅ NEW: Admin Payments */}
+          <Route path="payments" element={<AdminPayments />} />
           
           {/* ⚠️ Legacy: Tours route (redirect to Listings) */}
           <Route path="tours" element={<Tours />} />

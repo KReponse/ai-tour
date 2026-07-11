@@ -19,8 +19,18 @@ import {
   MapPin,
   Mail,
   Phone,
+  ClipboardList,
+  Play,
+  Check,
+  Star, // ✅ ADDED
 } from 'lucide-react';
 import { getProviderBookings } from '../../services/bookingService';
+import { 
+  confirmBooking, 
+  rejectBooking, 
+  completeBooking,
+  markInProgress,
+} from '../../services/bookingService';
 
 // ===============================
 // AI TOUR COLORS
@@ -37,6 +47,7 @@ const Bookings = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
     fetchBookings();
@@ -53,21 +64,166 @@ const Bookings = () => {
       setLoading(false);
     }
   };
+// ✅ Handle Confirm Booking
+const handleConfirm = async (bookingId) => {
+  if (!window.confirm('Confirm this booking?')) return;
+  try {
+    setActionLoading(bookingId);
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please login again');
+      return;
+    }
+    
+    await confirmBooking(bookingId, token);
+    await fetchBookings();
+    alert('✅ Booking confirmed successfully!');
+  } catch (error) {
+    console.error('Error confirming booking:', error);
+    
+    // ✅ Show specific error message
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to confirm booking';
+    alert(`❌ ${errorMessage}`);
+  } finally {
+    setActionLoading(null);
+  }
+};
 
-  // Status styles with AI Tour colors
+// ✅ Handle Reject Booking
+const handleReject = async (bookingId) => {
+  const reason = prompt('Reason for rejection:');
+  if (reason === null) return;
+  try {
+    setActionLoading(bookingId);
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please login again');
+      return;
+    }
+    
+    await rejectBooking(bookingId, token, reason);
+    await fetchBookings();
+    alert('✅ Booking rejected successfully');
+  } catch (error) {
+    console.error('Error rejecting booking:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to reject booking';
+    alert(`❌ ${errorMessage}`);
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+// ✅ Handle Mark In Progress
+const handleMarkInProgress = async (bookingId) => {
+  if (!window.confirm('Mark this booking as in progress?')) return;
+  try {
+    setActionLoading(bookingId);
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please login again');
+      return;
+    }
+    
+    await markInProgress(bookingId, token);
+    await fetchBookings();
+    alert('✅ Trip marked as in progress!');
+  } catch (error) {
+    console.error('Error marking in progress:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to mark booking as in progress';
+    alert(`❌ ${errorMessage}`);
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+// ✅ Handle Complete Booking
+const handleComplete = async (bookingId) => {
+  if (!window.confirm('Mark this booking as completed?')) return;
+  try {
+    setActionLoading(bookingId);
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please login again');
+      return;
+    }
+    
+    await completeBooking(bookingId, token);
+    await fetchBookings();
+    alert('✅ Booking completed successfully!');
+  } catch (error) {
+    console.error('Error completing booking:', error);
+    const errorMessage = error.response?.data?.message || error.message || 'Failed to complete booking';
+    alert(`❌ ${errorMessage}`);
+  } finally {
+    setActionLoading(null);
+  }
+};
+  // ✅ Get entity (listing or tour)
+  const getEntity = (booking) => {
+    return booking?.listing || booking?.tour || null;
+  };
+
+  const getEntityTitle = (booking) => {
+    const entity = getEntity(booking);
+    return entity?.title || 'Experience';
+  };
+
+  const getEntityLocation = (booking) => {
+    const entity = getEntity(booking);
+    return entity?.location || 'Location not specified';
+  };
+
+  const getEntityPrice = (booking) => {
+    const entity = getEntity(booking);
+    return entity?.price || 0;
+  };
+
+  const getBookingCode = (booking) => {
+    return booking?.bookingCode || booking?._id?.slice(-8)?.toUpperCase() || 'N/A';
+  };
+
+  // ✅ Status styles with all statuses
   const getStatusStyle = (status) => {
     const styles = {
+      pending_payment: {
+        bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
+        text: 'text-[#F59E0B] dark:text-[#F59E0B]',
+        icon: Clock,
+        label: 'Pending Payment',
+      },
+      paid: {
+        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
+        text: 'text-[#0D9488] dark:text-[#0D9488]',
+        icon: CheckCircle,
+        label: 'Paid',
+      },
       confirmed: {
         bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
         text: 'text-[#0D9488] dark:text-[#0D9488]',
         icon: CheckCircle,
         label: 'Confirmed',
       },
-      pending: {
+      in_progress: {
+        bg: 'bg-blue-100 dark:bg-blue-900/20',
+        text: 'text-blue-600 dark:text-blue-400',
+        icon: Play,
+        label: 'In Progress',
+      },
+      completed: {
+        bg: 'bg-green-100 dark:bg-green-900/20',
+        text: 'text-green-600 dark:text-green-400',
+        icon: CheckCircle,
+        label: 'Completed',
+      },
+      review_eligible: {
         bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
         text: 'text-[#F59E0B] dark:text-[#F59E0B]',
-        icon: Clock,
-        label: 'Pending',
+        icon: Star, // ✅ Now defined
+        label: 'Ready for Review',
       },
       cancelled: {
         bg: 'bg-red-100 dark:bg-red-900/20',
@@ -75,8 +231,20 @@ const Bookings = () => {
         icon: XCircle,
         label: 'Cancelled',
       },
+      rejected: {
+        bg: 'bg-red-100 dark:bg-red-900/20',
+        text: 'text-red-600 dark:text-red-400',
+        icon: XCircle,
+        label: 'Rejected',
+      },
+      failed_payment: {
+        bg: 'bg-red-100 dark:bg-red-900/20',
+        text: 'text-red-600 dark:text-red-400',
+        icon: XCircle,
+        label: 'Payment Failed',
+      },
     };
-    return styles[status] || styles.pending;
+    return styles[status] || styles.pending_payment;
   };
 
   const getPaymentStyle = (status) => {
@@ -93,16 +261,29 @@ const Bookings = () => {
         bg: 'bg-red-100 dark:bg-red-900/20',
         text: 'text-red-600 dark:text-red-400',
       },
+      refunded: {
+        bg: 'bg-gray-100 dark:bg-gray-800',
+        text: 'text-gray-500 dark:text-gray-400',
+      },
     };
     return styles[status] || styles.pending;
   };
 
+  // ✅ Check if actions are available
+  const canConfirm = (status) => status === 'paid' || status === 'pending_payment';
+  const canReject = (status) => status === 'paid' || status === 'pending_payment';
+  const canMarkInProgress = (status) => status === 'confirmed';
+  const canComplete = (status) => status === 'confirmed' || status === 'in_progress';
+
   // Filter bookings
   const filteredBookings = bookings.filter(booking => {
+    const entity = getEntity(booking);
+    const entityTitle = entity?.title || '';
     const matchesSearch = 
-      booking.tour?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entityTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      booking.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getBookingCode(booking).toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
     
@@ -123,15 +304,20 @@ const Bookings = () => {
 
   const statusCounts = {
     all: bookings.length,
+    pending_payment: bookings.filter(b => b.status === 'pending_payment').length,
+    paid: bookings.filter(b => b.status === 'paid').length,
     confirmed: bookings.filter(b => b.status === 'confirmed').length,
-    pending: bookings.filter(b => b.status === 'pending').length,
+    in_progress: bookings.filter(b => b.status === 'in_progress').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
+    review_eligible: bookings.filter(b => b.status === 'review_eligible').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    rejected: bookings.filter(b => b.status === 'rejected').length,
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -154,13 +340,13 @@ const Bookings = () => {
         </div>
       </div>
 
-      {/* SEARCH & FILTER - Updated with AI Tour colors */}
+      {/* SEARCH & FILTER */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by tour, traveler name, or email..."
+            placeholder="Search by experience, traveler name, email, or booking code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-12 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
@@ -173,9 +359,14 @@ const Bookings = () => {
             className="h-12 px-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
           >
             <option value="all">All ({statusCounts.all})</option>
+            <option value="pending_payment">Pending Payment ({statusCounts.pending_payment})</option>
+            <option value="paid">Paid ({statusCounts.paid})</option>
             <option value="confirmed">Confirmed ({statusCounts.confirmed})</option>
-            <option value="pending">Pending ({statusCounts.pending})</option>
+            <option value="in_progress">In Progress ({statusCounts.in_progress})</option>
+            <option value="completed">Completed ({statusCounts.completed})</option>
+            <option value="review_eligible">Ready for Review ({statusCounts.review_eligible})</option>
             <option value="cancelled">Cancelled ({statusCounts.cancelled})</option>
+            <option value="rejected">Rejected ({statusCounts.rejected})</option>
           </select>
         </div>
       </div>
@@ -201,6 +392,16 @@ const Bookings = () => {
             const statusStyle = getStatusStyle(booking.status);
             const paymentStyle = getPaymentStyle(booking.paymentStatus);
             const StatusIcon = statusStyle.icon;
+            const entity = getEntity(booking);
+            const entityTitle = getEntityTitle(booking);
+            const entityLocation = getEntityLocation(booking);
+            const entityPrice = getEntityPrice(booking);
+            const bookingCode = getBookingCode(booking);
+            
+            const showConfirm = canConfirm(booking.status);
+            const showReject = canReject(booking.status);
+            const showMarkInProgress = canMarkInProgress(booking.status);
+            const showComplete = canComplete(booking.status);
 
             return (
               <div
@@ -212,13 +413,22 @@ const Bookings = () => {
                   {/* LEFT */}
                   <div className="space-y-4 flex-1">
                     <div>
-                      <h2 className="text-xl font-bold text-[#374151] dark:text-white">
-                        {booking.tour?.title || 'Tour'}
-                      </h2>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h2 className="text-xl font-bold text-[#374151] dark:text-white">
+                          {entityTitle}
+                        </h2>
+                        <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-gray-500">
+                          #{bookingCode}
+                        </span>
+                      </div>
                       <div className="flex flex-wrap items-center gap-4 mt-2">
                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <MapPin className="w-4 h-4 text-[#0D9488]" />
+                          {entityLocation}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                           <User className="w-4 h-4 text-[#0D9488]" />
-                          Traveler: {booking.fullName}
+                          Traveler: {booking.fullName || booking.user?.name || 'N/A'}
                         </p>
                         {booking.email && (
                           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -234,7 +444,7 @@ const Bookings = () => {
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">Travel Date</p>
                         <h3 className="font-semibold text-[#374151] dark:text-white">
-                          {new Date(booking.travelDate).toLocaleDateString()}
+                          {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'}
                         </h3>
                       </div>
 
@@ -242,7 +452,7 @@ const Bookings = () => {
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
                         <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
                         <h3 className="font-semibold text-[#0D9488]">
-                          ${booking.tour?.price || 0}
+                          ${booking.totalPrice || entityPrice || 0}
                         </h3>
                       </div>
 
@@ -263,9 +473,16 @@ const Bookings = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Cancellation Reason */}
+                    {booking.cancellationReason && (
+                      <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl">
+                        <span className="font-semibold">Reason:</span> {booking.cancellationReason}
+                      </div>
+                    )}
                   </div>
 
-                  {/* ACTIONS - Updated with AI Tour colors */}
+                  {/* ACTIONS */}
                   <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => setSelectedBooking(booking)}
@@ -275,12 +492,63 @@ const Bookings = () => {
                       View
                     </button>
 
-                    {booking.status !== 'cancelled' && (
+                    {showReject && (
                       <button
-                        className="px-5 h-11 rounded-2xl border-2 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 font-semibold flex items-center gap-2"
+                        onClick={() => handleReject(booking._id)}
+                        disabled={actionLoading === booking._id}
+                        className="px-5 h-11 rounded-2xl border-2 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50 flex items-center gap-2"
                       >
-                        <XCircle className="w-4 h-4" />
-                        Cancel
+                        {actionLoading === booking._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <XCircle className="w-4 h-4" />
+                        )}
+                        Reject
+                      </button>
+                    )}
+
+                    {showConfirm && (
+                      <button
+                        onClick={() => handleConfirm(booking._id)}
+                        disabled={actionLoading === booking._id}
+                        className="px-5 h-11 rounded-2xl bg-[#0D9488] text-white font-semibold hover:bg-[#0D9488]/80 transition disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {actionLoading === booking._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                        Confirm
+                      </button>
+                    )}
+
+                    {showMarkInProgress && (
+                      <button
+                        onClick={() => handleMarkInProgress(booking._id)}
+                        disabled={actionLoading === booking._id}
+                        className="px-5 h-11 rounded-2xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {actionLoading === booking._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4" />
+                        )}
+                        Start Trip
+                      </button>
+                    )}
+
+                    {showComplete && (
+                      <button
+                        onClick={() => handleComplete(booking._id)}
+                        disabled={actionLoading === booking._id}
+                        className="px-5 h-11 rounded-2xl bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {actionLoading === booking._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        Complete
                       </button>
                     )}
                   </div>
@@ -296,9 +564,14 @@ const Bookings = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-                Booking Details
-              </h2>
+              <div>
+                <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
+                  Booking Details
+                </h2>
+                <p className="text-sm text-gray-500 font-mono">
+                  #{getBookingCode(selectedBooking)}
+                </p>
+              </div>
               <button
                 onClick={() => setSelectedBooking(null)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
@@ -310,54 +583,84 @@ const Bookings = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Tour</p>
+                  <p className="text-sm text-gray-500">Experience</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.tour?.title}
+                    {getEntityTitle(selectedBooking)}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Traveler</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.fullName}
+                    {selectedBooking.fullName || selectedBooking.user?.name || 'N/A'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Email</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.email}
+                    {selectedBooking.email || selectedBooking.user?.email || 'N/A'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Phone</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.phone || 'N/A'}
+                    {selectedBooking.phone || selectedBooking.user?.phone || 'N/A'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Travel Date</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {new Date(selectedBooking.travelDate).toLocaleDateString()}
+                    {selectedBooking.startDate ? new Date(selectedBooking.startDate).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Travelers</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.travelers}
+                    {selectedBooking.numberOfPeople || selectedBooking.travelers || 1}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Total Amount</p>
                   <p className="font-semibold text-[#0D9488]">
-                    ${selectedBooking.tour?.price || 0}
+                    ${selectedBooking.totalPrice || 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {selectedBooking.status || 'Pending'}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Payment Status</p>
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {selectedBooking.paymentStatus || 'unpaid'}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Booking ID</p>
                   <p className="font-mono font-semibold text-[#0D9488] text-xs">
-                    {selectedBooking._id?.slice(0, 12)}...
+                    {getBookingCode(selectedBooking)}
                   </p>
                 </div>
               </div>
+
+              {selectedBooking.cancellationReason && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
+                  <p className="text-sm text-gray-500">Cancellation Reason</p>
+                  <p className="font-semibold text-red-600 dark:text-red-400">
+                    {selectedBooking.cancellationReason}
+                  </p>
+                </div>
+              )}
+
+              {selectedBooking.specialRequests && (
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                  <p className="text-sm text-gray-500">Special Requests</p>
+                  <p className="font-semibold text-[#374151] dark:text-white">
+                    {selectedBooking.specialRequests}
+                  </p>
+                </div>
+              )}
             </div>
 
             <button

@@ -60,7 +60,7 @@ const Earnings = () => {
   return (
     <div className="space-y-8 animate-fade-in">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -83,7 +83,7 @@ const Earnings = () => {
         </div>
       </div>
 
-      {/* STATS - Updated with AI Tour colors */}
+      {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* TOTAL EARNINGS */}
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -149,7 +149,7 @@ const Earnings = () => {
         </div>
       </div>
 
-      {/* RECENT TRANSACTIONS - Updated with AI Tour colors */}
+      {/* RECENT TRANSACTIONS */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center gap-2">
@@ -175,42 +175,47 @@ const Earnings = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {earnings?.bookings?.map((booking) => (
-              <div
-                key={booking._id}
-                className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center shadow-md">
-                    <DollarSign className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#374151] dark:text-white">
-                      {booking.fullName || 'Traveler'}
-                    </h3>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {new Date(booking.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {booking.tour?.title || 'Tour'}
-                      </span>
+            {earnings?.bookings?.map((booking) => {
+              // ✅ Get entity title (listing or tour)
+              const entityTitle = booking.listing?.title || booking.tour?.title || 'Experience';
+              
+              return (
+                <div
+                  key={booking._id}
+                  className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center shadow-md">
+                      <DollarSign className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#374151] dark:text-white">
+                        {booking.fullName || booking.user?.name || 'Traveler'}
+                      </h3>
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {new Date(booking.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {entityTitle}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="px-4 py-1.5 rounded-full bg-[#0D9488]/10 text-[#0D9488] dark:bg-[#0D9488]/20 dark:text-[#0D9488] font-bold text-sm">
-                    ${booking.totalPrice || booking.tour?.price || 0}
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-xs font-semibold">
-                    <CheckCircle className="w-3 h-3" />
-                    Paid
-                  </span>
+                  <div className="flex items-center gap-4">
+                    <span className="px-4 py-1.5 rounded-full bg-[#0D9488]/10 text-[#0D9488] dark:bg-[#0D9488]/20 dark:text-[#0D9488] font-bold text-sm">
+                      ${booking.totalPrice || booking.tour?.price || 0}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-xs font-semibold">
+                      <CheckCircle className="w-3 h-3" />
+                      Paid
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

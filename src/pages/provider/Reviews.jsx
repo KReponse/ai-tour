@@ -1,4 +1,4 @@
-// src/pages/provider/Reviews.jsx
+// frontend/src/pages/provider/Reviews.jsx
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -16,12 +16,13 @@ import {
   Eye,
   TrendingUp,
   Award,
-  ClipboardList, // ✅ Added for Listings
+  ClipboardList,
+  AlertCircle,
 } from 'lucide-react';
 import Card, { CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import ReviewCard from '../../components/ReviewCard';
-import { getProviderReviews } from '../../services/reviewService';
+import { getProviderReviews, getProviderReviewStats } from '../../services/reviewService';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
@@ -40,10 +41,15 @@ const ProviderReviews = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all');
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     average: 0,
     total: 0,
-    byListing: {}, // ✅ Changed from byTour
+    byListing: {},
+    ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    pendingCount: 0,
+    publishedCount: 0,
+    hiddenCount: 0,
   });
 
   useEffect(() => {
@@ -57,22 +63,26 @@ const ProviderReviews = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const data = await getProviderReviews();
-      const reviewsList = data.reviews || [];
+      setError(null);
+
+      // ✅ Fetch reviews and stats in parallel
+      const [reviewsData, statsData] = await Promise.all([
+        getProviderReviews(),
+        getProviderReviewStats().catch(() => ({ success: false }))
+      ]);
+
+      const reviewsList = reviewsData.reviews || [];
       setReviews(reviewsList);
       setFilteredReviews(reviewsList);
 
-      // Calculate stats
-      if (reviewsList.length > 0) {
-        const total = reviewsList.length;
-        const sum = reviewsList.reduce((acc, r) => acc + r.rating, 0);
-        const avg = (sum / total).toFixed(1);
-
-        // ✅ Updated: Group by listing instead of tour
+      // ✅ Use stats from API if available
+      if (statsData.success && statsData.stats) {
+        const apiStats = statsData.stats;
+        
+        // Calculate byListing from reviews
         const byListing = {};
         reviewsList.forEach(r => {
-          // ✅ Support both listing and tour for backward compatibility
-          const listingId = r.listing?._id || r.tour?._id;
+          const listingId = r.listing?._id || r.listing || r.tour?._id || r.tour;
           const listingTitle = r.listing?.title || r.tour?.title || 'Unknown Listing';
           if (listingId) {
             if (!byListing[listingId]) {
@@ -83,13 +93,81 @@ const ProviderReviews = () => {
           }
         });
 
-        setStats({ average: avg, total, byListing });
+        setStats({
+          average: apiStats.averageRating || 0,
+          total: apiStats.totalReviews || reviewsList.length,
+          byListing,
+          ratingCounts: apiStats.ratingCounts || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          pendingCount: apiStats.pendingCount || 0,
+          publishedCount: apiStats.publishedCount || 0,
+          hiddenCount: apiStats.hiddenCount || 0,
+        });
+      } else {
+        // ✅ Fallback: Calculate stats from reviews
+        calculateStats(reviewsList);
       }
     } catch (error) {
       console.error('Error fetching provider reviews:', error);
+      setError('Failed to load reviews. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateStats = (reviewsList) => {
+    if (reviewsList.length === 0) {
+      setStats({
+        average: 0,
+        total: 0,
+        byListing: {},
+        ratingCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        pendingCount: 0,
+        publishedCount: 0,
+        hiddenCount: 0,
+      });
+      return;
+    }
+
+    const total = reviewsList.length;
+    const sum = reviewsList.reduce((acc, r) => acc + r.rating, 0);
+    const avg = sum / total;
+
+    // Rating counts
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviewsList.forEach(r => {
+      if (ratingCounts[r.rating] !== undefined) {
+        ratingCounts[r.rating]++;
+      }
+    });
+
+    // By listing
+    const byListing = {};
+    reviewsList.forEach(r => {
+      const listingId = r.listing?._id || r.listing || r.tour?._id || r.tour;
+      const listingTitle = r.listing?.title || r.tour?.title || 'Unknown Listing';
+      if (listingId) {
+        if (!byListing[listingId]) {
+          byListing[listingId] = { title: listingTitle, count: 0, sum: 0 };
+        }
+        byListing[listingId].count++;
+        byListing[listingId].sum += r.rating;
+      }
+    });
+
+    // Status counts
+    const pendingCount = reviewsList.filter(r => r.status === 'pending').length;
+    const publishedCount = reviewsList.filter(r => r.status === 'published').length;
+    const hiddenCount = reviewsList.filter(r => r.status === 'hidden').length;
+
+    setStats({
+      average: Math.round(avg * 10) / 10,
+      total,
+      byListing,
+      ratingCounts,
+      pendingCount,
+      publishedCount,
+      hiddenCount,
+    });
   };
 
   const filterReviews = () => {
@@ -100,7 +178,8 @@ const ProviderReviews = () => {
         r.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.listing?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.tour?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+        r.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -109,6 +188,27 @@ const ProviderReviews = () => {
     }
 
     setFilteredReviews(filtered);
+  };
+
+  // ✅ Render rating distribution
+  const renderDistribution = () => {
+    const total = stats.total || 1;
+    return [5, 4, 3, 2, 1].map((star) => {
+      const count = stats.ratingCounts[star] || 0;
+      const percentage = (count / total) * 100;
+      return (
+        <div key={star} className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 w-8">{star}★</span>
+          <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#F59E0B] rounded-full transition-all duration-500"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+          <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+        </div>
+      );
+    });
   };
 
   if (loading) {
@@ -123,10 +223,25 @@ const ProviderReviews = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[300px] text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-gray-600 dark:text-gray-400">{error}</p>
+        <button
+          onClick={fetchReviews}
+          className="mt-4 px-6 py-2 rounded-xl bg-[#0D9488] text-white hover:bg-[#0D9488]/80 transition"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in px-4 py-6 max-w-5xl mx-auto">
 
-      {/* HEADER - ✅ Updated */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
@@ -134,10 +249,10 @@ const ProviderReviews = () => {
           </div>
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-[#374151] dark:text-white">
-              Reviews on My Listings {/* ✅ Changed from "My Tours" */}
+              Reviews on My Listings
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              See what travelers are saying about your listings {/* ✅ Changed from "tours" */}
+              See what travelers are saying about your listings
             </p>
           </div>
         </div>
@@ -149,7 +264,7 @@ const ProviderReviews = () => {
 
       {/* STATS */}
       {reviews.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
             <div className="flex items-center gap-2">
               <Star className="w-5 h-5 text-[#F59E0B] fill-[#F59E0B]" />
@@ -170,12 +285,12 @@ const ProviderReviews = () => {
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
             <div className="flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-[#0D9488]" /> {/* ✅ Changed from TrendingUp */}
+              <ClipboardList className="w-5 h-5 text-[#0D9488]" />
               <span className="text-2xl font-bold text-[#374151] dark:text-white">
-                {Object.keys(stats.byListing).length} {/* ✅ Changed from byTour */}
+                {Object.keys(stats.byListing).length}
               </span>
             </div>
-            <p className="text-xs text-gray-500">Listings with Reviews</p> {/* ✅ Changed from "Tours with Reviews" */}
+            <p className="text-xs text-gray-500">Listings with Reviews</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
             <div className="flex items-center gap-2">
@@ -186,20 +301,41 @@ const ProviderReviews = () => {
             </div>
             <p className="text-xs text-gray-500">4+ Star Reviews</p>
           </div>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-[#F59E0B]" />
+              <span className="text-2xl font-bold text-[#F59E0B]">
+                {stats.pendingCount}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">Pending</p>
+          </div>
         </div>
       )}
 
-      {/* LISTING BREAKDOWN - ✅ Updated */}
+      {/* RATING DISTRIBUTION */}
+      {reviews.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+          <h3 className="font-semibold text-[#374151] dark:text-white mb-3">
+            Rating Distribution
+          </h3>
+          <div className="space-y-1.5 max-w-md">
+            {renderDistribution()}
+          </div>
+        </div>
+      )}
+
+      {/* LISTING BREAKDOWN */}
       {Object.keys(stats.byListing).length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
           <h3 className="font-semibold text-[#374151] dark:text-white mb-3">
-            Reviews by Listing {/* ✅ Changed from "Reviews by Tour" */}
+            Reviews by Listing
           </h3>
           <div className="flex flex-wrap gap-3">
             {Object.entries(stats.byListing).map(([id, data]) => (
               <Link
                 key={id}
-                to={`/listing/${id}`} // ✅ Changed from /tour/${id}
+                to={`/listing/${id}`}
                 className="px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-[#0D9488]/10 transition flex items-center gap-2"
               >
                 <span className="text-sm font-medium text-[#374151] dark:text-white">
@@ -217,13 +353,13 @@ const ProviderReviews = () => {
         </div>
       )}
 
-      {/* SEARCH & FILTER - ✅ Updated placeholder */}
+      {/* SEARCH & FILTER */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search reviews by traveler or listing..." // ✅ Changed from "tour"
+            placeholder="Search reviews by traveler or listing..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 h-12 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
@@ -243,7 +379,7 @@ const ProviderReviews = () => {
         </select>
       </div>
 
-      {/* EMPTY STATE - ✅ Updated */}
+      {/* EMPTY STATE */}
       {filteredReviews.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
@@ -255,7 +391,7 @@ const ProviderReviews = () => {
           <p className="text-gray-500 dark:text-gray-400">
             {searchTerm || ratingFilter !== 'all'
               ? 'Try adjusting your search or filters'
-              : 'Reviews will appear here once travelers review your listings'} {/* ✅ Changed from "tours" */}
+              : 'Reviews will appear here once travelers review your listings'}
           </p>
         </div>
       ) : (

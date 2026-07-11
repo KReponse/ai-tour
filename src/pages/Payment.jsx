@@ -1,7 +1,7 @@
 // src/pages/Payment.jsx
 
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   CreditCard,
   Smartphone,
@@ -12,11 +12,16 @@ import {
   Lock,
   ArrowLeft,
   Loader2,
+  MapPin,
+  Calendar,
+  Users,
+  DollarSign,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { createCheckout } from '../services/paymentService';
+import { getBookingById } from '../services/bookingService';
 import { useAuth } from '../contexts/AuthContext';
 
 // ===============================
@@ -29,62 +34,70 @@ import { useAuth } from '../contexts/AuthContext';
 // ===============================
 
 const Payment = () => {
+  const { bookingId } = useParams(); // ✅ Get booking ID from URL
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
-  const [bookingData, setBookingData] = useState(null);
+  const [booking, setBooking] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('card'); // ✅ Added missing state
 
-  // Get booking data from location state
+  // ✅ Fetch booking from backend
   useEffect(() => {
-    if (location.state) {
-      setBookingData(location.state);
+    if (bookingId) {
+      fetchBooking();
+    } else if (location.state?.booking) {
+      // Fallback: use location state
+      setBooking(location.state.booking);
+      setFetching(false);
     } else {
-      // Try to get from sessionStorage
-      const saved = sessionStorage.getItem('bookingData');
-      if (saved) {
-        try {
-          setBookingData(JSON.parse(saved));
-        } catch (e) {
-          console.error('Error parsing booking data:', e);
-        }
-      }
+      setError('No booking found');
+      setFetching(false);
     }
-  }, [location]);
+  }, [bookingId, location]);
 
-  // Prevent direct access
-  if (!bookingData) {
-    return (
-      <div className="max-w-xl mx-auto py-20 px-4">
-        <Card className="p-8 rounded-3xl text-center border border-gray-100 dark:border-gray-800">
-          <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-10 h-10 text-[#0D9488]" />
-          </div>
-          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-4">
-            No Booking Found
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            Please complete your booking first.
-          </p>
-          <Button
-            onClick={() => navigate('/booking')}
-            className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B]"
-          >
-            Go Back
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+  const fetchBooking = async () => {
+    try {
+      setFetching(true);
+      const token = localStorage.getItem('token');
+      const data = await getBookingById(bookingId, token);
+      setBooking(data.booking);
+    } catch (error) {
+      console.error('Error fetching booking:', error);
+      setError('Failed to load booking details');
+    } finally {
+      setFetching(false);
+    }
+  };
 
-  const { tour, booking, formData, totalPrice } = bookingData;
-  const total = totalPrice || tour?.price * formData?.travelers || 0;
+  // ✅ Get the entity (listing or tour)
+  const getEntity = () => {
+    return booking?.listing || booking?.tour || null;
+  };
 
-  // ===============================
-  // ✅ HANDLE PAYMENT - Backend Integration
-  // ===============================
+  const getEntityTitle = () => {
+    const entity = getEntity();
+    return entity?.title || 'Experience';
+  };
+
+  const getEntityLocation = () => {
+    const entity = getEntity();
+    return entity?.location || 'Location not specified';
+  };
+
+  const getEntityPrice = () => {
+    const entity = getEntity();
+    return entity?.price || 0;
+  };
+
+  const getTotalPrice = () => {
+    return booking?.totalPrice || (getEntityPrice() * (booking?.numberOfPeople || 1));
+  };
+
+  // ✅ Handle Payment
   const handlePayment = async (e) => {
     e.preventDefault();
     
@@ -103,16 +116,13 @@ const Payment = () => {
       setLoading(true);
       setError('');
 
-      // ✅ Call backend to create Stripe checkout session
       const response = await createCheckout(booking._id);
       
       console.log('✅ Checkout response:', response);
       
       if (response.url) {
-        // ✅ Redirect to Stripe checkout
         window.location.href = response.url;
       } else if (response.sessionId) {
-        // ✅ Or navigate to success with session ID
         navigate('/payment-success', {
           state: {
             sessionId: response.sessionId,
@@ -130,6 +140,48 @@ const Payment = () => {
       setLoading(false);
     }
   };
+
+  // Loading state
+  if (fetching) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500">Loading booking details...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !booking) {
+    return (
+      <div className="max-w-xl mx-auto py-20 px-4">
+        <Card className="p-8 rounded-3xl text-center border border-gray-100 dark:border-gray-800">
+          <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-10 h-10 text-[#0D9488]" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-4">
+            No Booking Found
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            {error || 'Please complete your booking first.'}
+          </p>
+          <Button
+            onClick={() => navigate('/explore')}
+            className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B]"
+          >
+            Explore Experiences
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const total = getTotalPrice();
+  const entity = getEntity();
+  const entityTitle = getEntityTitle();
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10">
@@ -172,34 +224,34 @@ const Payment = () => {
             </div>
           </div>
 
-          {/* TOUR SUMMARY */}
+          {/* EXPERIENCE SUMMARY */}
           <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
             <h2 className="text-2xl font-bold mb-4 text-[#374151] dark:text-white">
               Booking Summary
             </h2>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-500">Tour</span>
+                <span className="text-gray-500">Experience</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {tour?.title || 'Tour'}
+                  {entityTitle}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Location</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {tour?.location || 'N/A'}
+                  {getEntityLocation()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Travelers</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {formData?.travelers || 1}
+                  {booking.numberOfPeople || 1}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Travel Date</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
-                  {formData?.travelDate || 'N/A'}
+                  {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
@@ -281,7 +333,21 @@ const Payment = () => {
               <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
                 <span className="text-gray-500">Booking ID</span>
                 <span className="font-semibold text-[#374151] dark:text-white text-xs">
-                  {booking?._id?.slice(0, 8) || 'N/A'}
+                  {booking.bookingCode || booking._id?.slice(0, 8) || 'N/A'}
+                </span>
+              </div>
+
+              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-gray-500">Experience</span>
+                <span className="font-semibold text-[#374151] dark:text-white text-sm text-right max-w-[55%]">
+                  {entityTitle}
+                </span>
+              </div>
+
+              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-gray-500">Travelers</span>
+                <span className="font-semibold text-[#374151] dark:text-white">
+                  {booking.numberOfPeople || 1}
                 </span>
               </div>
 
@@ -289,20 +355,6 @@ const Payment = () => {
                 <span className="text-gray-500">Subtotal</span>
                 <span className="font-semibold text-[#374151] dark:text-white">
                   ${total}
-                </span>
-              </div>
-
-              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Taxes</span>
-                <span className="font-semibold text-[#374151] dark:text-white">
-                  $0.00
-                </span>
-              </div>
-
-              <div className="flex justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-gray-500">Service Fee</span>
-                <span className="font-semibold text-[#374151] dark:text-white">
-                  $0.00
                 </span>
               </div>
 

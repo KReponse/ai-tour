@@ -1,6 +1,7 @@
 // src/pages/EditProfile.jsx
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Camera,
@@ -14,8 +15,12 @@ import {
   AlertCircle,
   X,
   Sparkles,
+  ArrowLeft,
+  Globe,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import toast from "react-hot-toast";
 
 // ===============================
 // AI TOUR COLORS
@@ -28,22 +33,25 @@ import { useAuth } from "../contexts/AuthContext";
 
 // ✅ Use consistent API URL
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const EditProfile = () => {
+  const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    country: user?.country || "",
-    avatar: user?.avatar || "",
-    bio: user?.bio || "",
-    location: user?.location || "",
+    name: "",
+    email: "",
+    phone: "",
+    country: "",
+    avatar: "",
+    bio: "",
+    location: "",
   });
 
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -51,7 +59,41 @@ const EditProfile = () => {
   const token = localStorage.getItem("token");
 
   // ======================
-  // IMAGE UPLOAD (BASE64)
+  // FETCH USER DATA
+  // ======================
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        setFetching(true);
+        const response = await axios.get(`${API_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const userData = response.data.user;
+        setFormData({
+          name: userData?.name || "",
+          email: userData?.email || "",
+          phone: userData?.phone || "",
+          country: userData?.country || "",
+          avatar: userData?.avatar || "",
+          bio: userData?.bio || "",
+          location: userData?.location || "",
+        });
+      } catch (error) {
+        console.error("❌ Error fetching user:", error);
+        toast.error("Failed to load profile data");
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    if (token) {
+      fetchUser();
+    }
+  }, [token]);
+
+  // ======================
+  // IMAGE UPLOAD (Base64)
   // ======================
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -107,6 +149,17 @@ const EditProfile = () => {
   };
 
   // ======================
+  // GET IMAGE URL
+  // ======================
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith('/uploads/')) return `${API_BASE}${path}`;
+    if (path.startsWith('data:image')) return path;
+    return `${API_BASE}/uploads/${path}`;
+  };
+
+  // ======================
   // SUBMIT
   // ======================
   const handleSubmit = async (e) => {
@@ -130,50 +183,97 @@ const EditProfile = () => {
     try {
       setLoading(true);
 
-      // ✅ Use correct endpoint
-      const res = await axios.put(
+      // ✅ Prepare data for backend
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || "",
+        country: formData.country || "",
+        bio: formData.bio || "",
+        location: formData.location || "",
+      };
+
+      // ✅ If avatar is base64, send it separately or handle upload
+      // For now, we'll use the existing avatar URL or null
+      if (formData.avatar && formData.avatar.startsWith('data:image')) {
+        // This would require a separate upload endpoint
+        // For simplicity, we're using the existing avatar
+        updateData.avatar = formData.avatar;
+      }
+
+      const response = await axios.put(
         `${API_URL}/users/me`,
-        formData,
+        updateData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
         }
       );
 
-      const updatedUser = res.data.user;
+      const updatedUser = response.data.user;
 
-      // Update UI using updateUser
+      // Update UI using updateUser from AuthContext
       updateUser(updatedUser);
 
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 4000);
+      toast.success("Profile updated successfully! 🎉");
+      
+      setTimeout(() => {
+        setSuccess(false);
+        navigate("/profile");
+      }, 2000);
 
     } catch (err) {
-      console.log("❌ Update error:", err);
+      console.error("❌ Update error:", err);
       setError(err.response?.data?.message || "Update failed. Please try again.");
+      toast.error(err.response?.data?.message || "Failed to update profile");
     } finally {
       setLoading(false);
     }
   };
+
+  // ======================
+  // LOADING STATE
+  // ======================
+  if (fetching) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading profile...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in p-4">
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 dark:border-gray-800">
 
         {/* HEADER */}
-        <div className="mb-8 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
-            <User className="w-6 h-6 text-white" />
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
+              <User className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-[#374151] dark:text-white">
+                Edit Profile
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                Update your account information
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-black text-[#374151] dark:text-white">
-              Edit Profile
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-              Update your account information
-            </p>
-          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
 
         {/* SUCCESS NOTIFICATION */}
@@ -196,14 +296,21 @@ const EditProfile = () => {
         <div className="flex justify-center mb-8">
           <div className="relative group">
             <div className="relative">
-              <img
-                src={
-                  formData.avatar ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=0D9488&color=fff&size=128`
-                }
-                alt="avatar"
-                className="w-32 h-32 rounded-full object-cover border-4 border-[#0D9488] shadow-lg transition group-hover:scale-105"
-              />
+              {formData.avatar ? (
+                <img
+                  src={getImageUrl(formData.avatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=0D9488&color=fff&size=128`}
+                  alt="avatar"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-[#0D9488] shadow-lg transition group-hover:scale-105"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'User')}&background=0D9488&color=fff&size=128`;
+                  }}
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] text-white flex items-center justify-center text-5xl font-black shadow-lg shadow-[#0D9488]/30">
+                  {formData.name?.charAt(0) || 'U'}
+                </div>
+              )}
               {uploading && (
                 <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -248,7 +355,7 @@ const EditProfile = () => {
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="Enter your full name"
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white"
                 required
               />
             </div>
@@ -267,7 +374,7 @@ const EditProfile = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="Enter your email"
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white"
                 required
               />
             </div>
@@ -286,7 +393,7 @@ const EditProfile = () => {
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+250 7XX XXX XXX"
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white"
               />
             </div>
           </div>
@@ -297,31 +404,16 @@ const EditProfile = () => {
               Country
             </label>
             <div className="relative">
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
                 placeholder="Rwanda"
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white"
               />
             </div>
-          </div>
-
-          {/* BIO (Optional) */}
-          <div>
-            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
-              Bio
-            </label>
-            <textarea
-              name="bio"
-              value={formData.bio || ""}
-              onChange={handleChange}
-              placeholder="Tell us a little about yourself..."
-              rows="3"
-              className="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none resize-none"
-            />
           </div>
 
           {/* LOCATION (Optional) */}
@@ -337,9 +429,24 @@ const EditProfile = () => {
                 value={formData.location || ""}
                 onChange={handleChange}
                 placeholder="e.g., Kigali, Rwanda"
-                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+                className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none dark:text-white"
               />
             </div>
+          </div>
+
+          {/* BIO */}
+          <div>
+            <label className="block mb-2 text-sm font-medium text-[#374151] dark:text-white">
+              Bio
+            </label>
+            <textarea
+              name="bio"
+              value={formData.bio || ""}
+              onChange={handleChange}
+              placeholder="Tell us a little about yourself..."
+              rows="3"
+              className="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none resize-none dark:text-white"
+            />
           </div>
 
           {/* SAVE */}

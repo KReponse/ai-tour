@@ -1,4 +1,5 @@
 // src/components/ui/Card.jsx
+
 import React, { useState } from 'react';
 import clsx from 'clsx';
 import { MapPin } from 'lucide-react';
@@ -36,6 +37,7 @@ const Card = ({
   hover = true,
   variant = 'default',
   padding = true,
+  onClick,
 }) => {
   const variants = {
     default: {
@@ -61,17 +63,21 @@ const Card = ({
   const variantStyles = variants[variant] || variants.default;
 
   return (
-    <div className={clsx(
-      variantStyles.bg,
-      variantStyles.shadow,
-      variantStyles.border,
-      variantStyles.rounded,
-      'overflow-hidden',
-      'transition-all duration-300',
-      hover && 'hover:scale-[1.02] hover:-translate-y-1',
-      padding && 'p-6',
-      className
-    )}>
+    <div 
+      onClick={onClick}
+      className={clsx(
+        variantStyles.bg,
+        variantStyles.shadow,
+        variantStyles.border,
+        variantStyles.rounded,
+        'overflow-hidden',
+        'transition-all duration-300',
+        hover && 'hover:scale-[1.02] hover:-translate-y-1',
+        padding && 'p-6',
+        onClick && 'cursor-pointer',
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -143,7 +149,7 @@ export const CardContent = ({
 );
 
 // =====================================
-// CARD BADGE ✅ (Added export)
+// CARD BADGE ✅
 // =====================================
 export const CardBadge = ({ 
   children, 
@@ -170,7 +176,7 @@ export const CardBadge = ({
 };
 
 // =====================================
-// CARD TITLE ✅ (Added export)
+// CARD TITLE ✅
 // =====================================
 export const CardTitle = ({ 
   children, 
@@ -187,7 +193,7 @@ export const CardTitle = ({
 );
 
 // =====================================
-// CARD SUBTITLE ✅ (Added export)
+// CARD SUBTITLE ✅
 // =====================================
 export const CardSubtitle = ({ 
   children, 
@@ -414,6 +420,6 @@ export const TourCard = ({
 };
 
 // =====================================
-// EXPORTS ✅ (All exports)
+// EXPORTS ✅
 // =====================================
 export default Card;

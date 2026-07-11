@@ -1,6 +1,6 @@
 // src/pages/provider/Dashboard.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -19,12 +19,12 @@ import {
   XCircle,
   Star,
   MessageCircle,
-  ClipboardList, // ✅ Added for Listings
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProviderBookings, getProviderAnalytics, getProviderEarnings } from '../../services/bookingService';
 import { getProviderReviews, getProviderReviewStats } from '../../services/reviewService';
-import { getProviderListings } from '../../services/listingService'; // ✅ Added
+import { getProviderListings } from '../../services/listingService';
 import ReviewCard from '../../components/ReviewCard';
 
 // ===============================
@@ -43,104 +43,170 @@ const Dashboard = () => {
   const [recentRequests, setRecentRequests] = useState([]);
   const [reviewStats, setReviewStats] = useState(null);
   const [recentReviews, setRecentReviews] = useState([]);
-  const [recentListings, setRecentListings] = useState([]); // ✅ Added
-  const [listingCount, setListingCount] = useState(0); // ✅ Added
+  const [recentListings, setRecentListings] = useState([]);
+  const [listingCount, setListingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // ✅ Helper to get user display name consistently
+  const getDisplayName = useCallback(() => {
+    if (!user) return 'Provider';
+    return user.fullName || user.name || user.businessName || 'Provider';
+  }, [user]);
 
-        const token = localStorage.getItem('token');
+  // ✅ Helper to get user initials
+  const getInitials = useCallback(() => {
+    const name = getDisplayName();
+    if (name === 'Provider') return 'P';
+    return name.charAt(0).toUpperCase();
+  }, [getDisplayName]);
 
-        // ✅ Fetch analytics
-        const analytics = await getProviderAnalytics(token);
-        console.log('✅ Analytics:', analytics);
+  // ✅ Fetch data function - wrapped in useCallback to prevent recreation
+  const fetchData = useCallback(async () => {
+    // Don't fetch if no user
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-        // ✅ Fetch earnings
-        const earnings = await getProviderEarnings(token);
-        console.log('✅ Earnings:', earnings);
+    try {
+      setLoading(true);
+      setError(null);
 
-        // ✅ Fetch bookings
-        const bookingsData = await getProviderBookings(token);
-        const bookings = bookingsData.bookings || [];
-        console.log('✅ Bookings:', bookings.length);
+      const token = localStorage.getItem('token');
 
-        // ✅ Fetch listings (NEW)
-        try {
-          const listingsData = await getProviderListings(token);
-          const listings = listingsData.listings || [];
-          setRecentListings(listings.slice(0, 3));
-          setListingCount(listings.length);
-        } catch (error) {
-          console.error('Error fetching listings:', error);
-          setRecentListings([]);
-          setListingCount(0);
-        }
-
-        // ✅ Fetch review stats
-        try {
-          const reviewStatsData = await getProviderReviewStats();
-          setReviewStats(reviewStatsData.stats || null);
-        } catch (error) {
-          console.error('Error fetching review stats:', error);
-        }
-
-        // ✅ Fetch recent reviews
-        try {
-          const reviewsData = await getProviderReviews();
-          setRecentReviews(reviewsData.reviews || []);
-        } catch (error) {
-          console.error('Error fetching reviews:', error);
-        }
-
-        // ✅ Build stats from real data
-        const stats = [
-          { 
-            title: "Total Bookings", 
-            value: analytics?.totalBookings || 0, 
-            growth: `${analytics?.growth || 0}%` 
-          },
-          { 
-            title: "Travelers", 
-            value: analytics?.totalTravelers || 0, 
-            growth: `${analytics?.travelerGrowth || 0}%` 
-          },
-          { 
-            title: "Listings", // ✅ Changed from "Tours"
-            value: listingCount || analytics?.totalListings || analytics?.totalTours || 0, 
-            growth: `${analytics?.listingGrowth || analytics?.tourGrowth || 0}%` 
-          },
-          { 
-            title: "Revenue", 
-            value: `$${earnings?.totalEarnings || 0}`, 
-            growth: `${earnings?.growth || 0}%` 
-          },
-        ];
-
-        setProviderStats(stats);
-
-        // ✅ Use bookings as recent requests
-        setRecentRequests(bookings.slice(0, 5));
-
-      } catch (error) {
-        console.error("❌ Dashboard Error:", error);
-        setError(error.response?.data?.message || "Failed to load dashboard data");
-      } finally {
+      // ✅ Check if user is provider before making requests
+      const userRole = user?.role?.toLowerCase();
+      if (userRole !== 'provider' && userRole !== 'admin') {
+        setError('Provider access required. Please apply to become a provider.');
         setLoading(false);
+        setTimeout(() => {
+          navigate('/provider/request');
+        }, 2000);
+        return;
       }
-    };
 
+      // ✅ Fetch analytics with error handling
+      let analytics = null;
+      try {
+        analytics = await getProviderAnalytics(token);
+        console.log('✅ Analytics:', analytics);
+      } catch (analyticsError) {
+        if (analyticsError.response?.status === 403) {
+          console.warn('⚠️ Provider analytics access denied. User may not be a provider.');
+        } else {
+          throw analyticsError;
+        }
+      }
+
+      // ✅ Fetch earnings with error handling
+      let earnings = null;
+      try {
+        earnings = await getProviderEarnings(token);
+        console.log('✅ Earnings:', earnings);
+      } catch (earningsError) {
+        if (earningsError.response?.status === 403) {
+          console.warn('⚠️ Provider earnings access denied.');
+        } else {
+          throw earningsError;
+        }
+      }
+
+      // ✅ Fetch bookings with error handling
+      let bookings = [];
+      try {
+        const bookingsData = await getProviderBookings(token);
+        bookings = bookingsData.bookings || [];
+        console.log('✅ Bookings:', bookings.length);
+      } catch (bookingsError) {
+        if (bookingsError.response?.status === 403) {
+          console.warn('⚠️ Provider bookings access denied.');
+        } else {
+          throw bookingsError;
+        }
+      }
+
+      // ✅ Fetch listings
+      try {
+        const listingsData = await getProviderListings(token);
+        const listings = listingsData.listings || [];
+        setRecentListings(listings.slice(0, 3));
+        setListingCount(listings.length);
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+        setRecentListings([]);
+        setListingCount(0);
+      }
+
+      // ✅ Fetch review stats
+      try {
+        const reviewStatsData = await getProviderReviewStats();
+        setReviewStats(reviewStatsData.stats || null);
+      } catch (error) {
+        console.error('Error fetching review stats:', error);
+      }
+
+      // ✅ Fetch recent reviews
+      try {
+        const reviewsData = await getProviderReviews();
+        setRecentReviews(reviewsData.reviews || []);
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
+      }
+
+      // ✅ Build stats from real data
+      const stats = [
+        { 
+          title: "Total Bookings", 
+          value: analytics?.totalBookings || 0, 
+          growth: `${analytics?.growth || 0}%` 
+        },
+        { 
+          title: "Travelers", 
+          value: analytics?.totalTravelers || 0, 
+          growth: `${analytics?.travelerGrowth || 0}%` 
+        },
+        { 
+          title: "Listings",
+          value: listingCount || analytics?.totalListings || analytics?.totalTours || 0, 
+          growth: `${analytics?.listingGrowth || analytics?.tourGrowth || 0}%` 
+        },
+        { 
+          title: "Revenue", 
+          value: `$${earnings?.totalEarnings || 0}`, 
+          growth: `${earnings?.growth || 0}%` 
+        },
+      ];
+
+      setProviderStats(stats);
+      setRecentRequests(bookings.slice(0, 5));
+
+    } catch (error) {
+      console.error("❌ Dashboard Error:", error);
+      
+      if (error.response?.status === 403) {
+        setError("You need to be a verified provider to access this dashboard. Please apply for provider status.");
+        setTimeout(() => {
+          navigate('/provider/request');
+        }, 3000);
+      } else {
+        setError(error.response?.data?.message || "Failed to load dashboard data");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, navigate, listingCount]); // ✅ Only recreate when these change
+
+  // ✅ Run fetchData only once on mount
+  useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ Empty dependency array = run once on mount
 
   const iconMap = {
     "Total Bookings": CalendarCheck,
     "Travelers": Users,
-    "Listings": ClipboardList, // ✅ Changed from "Tours": MapPin
+    "Listings": ClipboardList,
     "Revenue": Wallet,
   };
 
@@ -184,20 +250,28 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh]">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
             <XCircle className="w-10 h-10 text-red-600" />
           </div>
           <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
-            Error Loading Dashboard
+            Access Restricted
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/80 transition"
-          >
-            Retry
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => navigate('/provider/request')}
+              className="px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/80 transition"
+            >
+              Apply for Provider
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-3 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-[#374151] dark:text-white font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              Go Home
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -218,19 +292,18 @@ const Dashboard = () => {
                 Provider Dashboard
               </h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1">
-                Welcome back, {user?.name || 'Provider'}!
+                Welcome back, {getDisplayName()}!
               </p>
             </div>
           </div>
         </div>
 
-        {/* ✅ Updated: Add Listing instead of Add Tour */}
         <button
           onClick={() => navigate('/provider/add-listing')}
           className="h-12 px-6 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-semibold shadow-lg shadow-[#0D9488]/30 hover:scale-105 transition-all duration-300 flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
-          Create New Listing {/* ✅ Changed from "Create New Tour" */}
+          Create New Listing
         </button>
       </div>
 
@@ -266,7 +339,7 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* RECENT LISTINGS - NEW */}
+      {/* RECENT LISTINGS */}
       {recentListings.length > 0 && (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
           <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -505,21 +578,21 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions - ✅ Updated */}
+      {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button
-          onClick={() => navigate('/provider/listings')} // ✅ Changed from /provider/tours
+          onClick={() => navigate('/provider/listings')}
           className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#0D9488] transition-all duration-300 hover:shadow-lg group"
         >
-          <ClipboardList className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" /> {/* ✅ Changed from MapPin */}
-          <p className="text-sm font-semibold text-[#374151] dark:text-white">My Listings</p> {/* ✅ Changed from "My Tours" */}
+          <ClipboardList className="w-6 h-6 text-[#0D9488] mx-auto mb-2 group-hover:scale-110 transition-transform" />
+          <p className="text-sm font-semibold text-[#374151] dark:text-white">My Listings</p>
         </button>
         <button
-          onClick={() => navigate('/provider/add-listing')} // ✅ Changed from /provider/add-tour
+          onClick={() => navigate('/provider/add-listing')}
           className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-[#F59E0B] transition-all duration-300 hover:shadow-lg group"
         >
           <Plus className="w-6 h-6 text-[#F59E0B] mx-auto mb-2 group-hover:scale-110 transition-transform" />
-          <p className="text-sm font-semibold text-[#374151] dark:text-white">Add Listing</p> {/* ✅ Changed from "Add Tour" */}
+          <p className="text-sm font-semibold text-[#374151] dark:text-white">Add Listing</p>
         </button>
         <button
           onClick={() => navigate('/provider/analytics')}

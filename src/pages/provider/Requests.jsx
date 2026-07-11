@@ -1,9 +1,5 @@
 // src/pages/provider/Requests.jsx
 
-// ===============================
-// IMPORTS
-// ===============================
-
 import React, { useEffect, useState } from 'react';
 import {
   Loader2,
@@ -23,20 +19,6 @@ import {
 // ✅ FIX: Use getMyRequests instead of getRequests
 import { getMyRequests, updateRequestStatus } from '../../services/requestService';
 
-// ... rest of the code ...
-
-  const fetchRequests = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      // ✅ FIX: Use getMyRequests instead of getRequests
-      const data = await getMyRequests(token);
-      setRequests(data.requests || []);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 // ===============================
 // AI TOUR COLORS
 // ===============================
@@ -64,11 +46,13 @@ const Requests = () => {
 
   const fetchRequests = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const data = await getRequests(token);
+      // ✅ FIXED: Use getMyRequests instead of getRequests
+      const data = await getMyRequests(token);
       setRequests(data.requests || []);
     } catch (error) {
-      console.log(error);
+      console.error('❌ Error fetching requests:', error);
     } finally {
       setLoading(false);
     }
@@ -102,7 +86,7 @@ const Requests = () => {
       await updateRequestStatus(id, status, token);
       await fetchRequests();
     } catch (error) {
-      console.log(error);
+      console.error('❌ Error updating request:', error);
     } finally {
       setActionLoading(null);
     }
@@ -154,7 +138,7 @@ const Requests = () => {
   return (
     <div className="space-y-6 animate-fade-in">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -176,7 +160,7 @@ const Requests = () => {
         </div>
       </div>
 
-      {/* SEARCH & FILTER - Updated with AI Tour colors */}
+      {/* SEARCH & FILTER */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -293,7 +277,7 @@ const Requests = () => {
                   </div>
                 )}
 
-                {/* ACTIONS - Updated with AI Tour colors */}
+                {/* ACTIONS */}
                 {request.status === 'pending' && (
                   <div className="flex gap-3 mt-5">
                     <button

@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Sparkles,
   DollarSign,
+  Star,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -43,6 +44,43 @@ const MyBookings = () => {
     if (image.startsWith('http')) return image;
     if (image.startsWith('/')) return image;
     return `${API_URL}/uploads/${image}`;
+  };
+
+  const getEntity = (booking) => {
+    return booking?.listing || booking?.tour || null;
+  };
+
+  const getEntityImage = (booking) => {
+    const entity = getEntity(booking);
+    if (!entity) return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    
+    return (
+      getImageUrl(entity.coverImage) ||
+      getImageUrl(entity.galleryImages?.[0]) ||
+      getImageUrl(entity.images?.[0]) ||
+      getImageUrl(entity.image) ||
+      'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500'
+    );
+  };
+
+  const getEntityTitle = (booking) => {
+    const entity = getEntity(booking);
+    return entity?.title || 'Experience';
+  };
+
+  const getEntityLocation = (booking) => {
+    const entity = getEntity(booking);
+    return entity?.location || 'Location not specified';
+  };
+
+  const getEntityLink = (booking) => {
+    if (booking?.listing) {
+      return `/listing/${booking.listing._id || booking.listing}`;
+    }
+    if (booking?.tour) {
+      return `/tour/${booking.tour._id || booking.tour}`;
+    }
+    return '#';
   };
 
   const handleCancel = async (bookingId) => {
@@ -83,13 +121,17 @@ const MyBookings = () => {
       const data = await getMyBookings(token);
       console.log('✅ Bookings from backend:', data);
       
-      // Handle different response formats
       let bookingsList = [];
       if (data && data.bookings) {
         bookingsList = data.bookings;
       } else if (data && Array.isArray(data)) {
         bookingsList = data;
       }
+      
+      // ✅ Debug: Log each booking's ID
+      bookingsList.forEach((booking, index) => {
+        console.log(`📊 Booking ${index + 1} ID:`, booking._id);
+      });
       
       setBookings(bookingsList);
     } catch (error) {
@@ -99,20 +141,49 @@ const MyBookings = () => {
     }
   };
 
-  // Get status badge styling
   const getStatusBadge = (status) => {
     const styles = {
+      draft: {
+        bg: 'bg-gray-100 dark:bg-gray-800',
+        text: 'text-gray-500 dark:text-gray-400',
+        icon: Clock,
+        label: 'Draft',
+      },
+      pending_payment: {
+        bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
+        text: 'text-[#F59E0B] dark:text-[#F59E0B]',
+        icon: Clock,
+        label: 'Pending Payment',
+      },
+      paid: {
+        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
+        text: 'text-[#0D9488] dark:text-[#0D9488]',
+        icon: CheckCircle,
+        label: 'Paid',
+      },
       confirmed: {
         bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
         text: 'text-[#0D9488] dark:text-[#0D9488]',
         icon: CheckCircle,
         label: 'Confirmed',
       },
-      pending: {
+      in_progress: {
+        bg: 'bg-blue-100 dark:bg-blue-900/20',
+        text: 'text-blue-600 dark:text-blue-400',
+        icon: Clock,
+        label: 'In Progress',
+      },
+      completed: {
+        bg: 'bg-green-100 dark:bg-green-900/20',
+        text: 'text-green-600 dark:text-green-400',
+        icon: CheckCircle,
+        label: 'Completed',
+      },
+      review_eligible: {
         bg: 'bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20',
         text: 'text-[#F59E0B] dark:text-[#F59E0B]',
-        icon: Clock,
-        label: 'Pending',
+        icon: Star,
+        label: 'Ready for Review',
       },
       cancelled: {
         bg: 'bg-red-100 dark:bg-red-900/20',
@@ -120,23 +191,22 @@ const MyBookings = () => {
         icon: XCircle,
         label: 'Cancelled',
       },
-      completed: {
-        bg: 'bg-[#0D9488]/10 dark:bg-[#0D9488]/20',
-        text: 'text-[#0D9488] dark:text-[#0D9488]',
-        icon: CheckCircle,
-        label: 'Completed',
-      },
       rejected: {
         bg: 'bg-red-100 dark:bg-red-900/20',
         text: 'text-red-600 dark:text-red-400',
         icon: XCircle,
         label: 'Rejected',
       },
+      refunded: {
+        bg: 'bg-gray-100 dark:bg-gray-800',
+        text: 'text-gray-500 dark:text-gray-400',
+        icon: CheckCircle,
+        label: 'Refunded',
+      },
     };
-    return styles[status] || styles.pending;
+    return styles[status] || styles.pending_payment;
   };
 
-  // Get payment status styling
   const getPaymentBadge = (status) => {
     const styles = {
       paid: 'text-[#0D9488]',
@@ -148,11 +218,24 @@ const MyBookings = () => {
     return styles[status] || styles.pending;
   };
 
-  // Get travel date from booking
   const getTravelDate = (booking) => {
     if (booking.travelDate) return booking.travelDate;
     if (booking.startDate) return booking.startDate;
     return null;
+  };
+
+  const canCancel = (status) => {
+    return ['pending_payment', 'paid', 'confirmed'].includes(status);
+  };
+
+  const canPay = (status) => {
+    return status === 'pending_payment';
+  };
+
+  const canReview = (booking) => {
+    return (booking.status === 'completed' || booking.status === 'review_eligible') 
+           && !booking.reviewSubmitted 
+           && !booking.canReview === false;
   };
 
   if (loading) {
@@ -195,13 +278,13 @@ const MyBookings = () => {
             No Bookings Yet
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-6">
-            Explore tours and make your first booking.
+            Explore experiences and make your first booking.
           </p>
           <Link
             to="/explore"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition"
           >
-            Explore Tours
+            Explore Experiences
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -212,18 +295,23 @@ const MyBookings = () => {
             const StatusIcon = statusStyle.icon;
             const travelDate = getTravelDate(booking);
             const paymentColor = getPaymentBadge(booking.paymentStatus);
+            const imageUrl = getEntityImage(booking);
+            const entityTitle = getEntityTitle(booking);
+            const entityLocation = getEntityLocation(booking);
+            const entityLink = getEntityLink(booking);
             
-            // Get tour image
-            const tour = booking.tour || {};
-            const imageUrl = 
-              getImageUrl(tour.coverImage) ||
-              getImageUrl(tour.images?.[0]) ||
-              getImageUrl(tour.image) ||
-              'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+            const isCancellable = canCancel(booking.status);
+            const isPayable = canPay(booking.status);
+            const isReviewable = canReview(booking);
+
+            // ✅ Debug: Log booking ID for review link
+            if (isReviewable) {
+              console.log('📤 Reviewable booking ID:', booking._id);
+            }
 
             return (
               <div
-                key={booking._id}
+                key={booking._id || booking.id}
                 className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg hover:shadow-2xl hover:-translate-y-1 duration-300 border border-gray-100 dark:border-gray-800 overflow-hidden"
               >
                 <div className="grid md:grid-cols-4">
@@ -231,13 +319,12 @@ const MyBookings = () => {
                   <div className="relative">
                     <img
                       src={imageUrl}
-                      alt={tour.title || 'Tour'}
+                      alt={entityTitle}
                       className="w-full h-full object-cover min-h-[220px]"
                       onError={(e) => {
                         e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
                       }}
                     />
-                    {/* Status Badge on Image */}
                     <div className="absolute top-4 left-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${statusStyle.bg} ${statusStyle.text}`}>
                         <StatusIcon className="w-3.5 h-3.5" />
@@ -245,11 +332,10 @@ const MyBookings = () => {
                       </span>
                     </div>
                     
-                    {/* Price Badge */}
                     {booking.totalPrice && (
                       <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
                         <DollarSign className="w-3 h-3" />
-                        {booking.totalPrice}
+                        ${booking.totalPrice}
                       </div>
                     )}
                   </div>
@@ -259,11 +345,11 @@ const MyBookings = () => {
                     <div className="flex flex-wrap justify-between gap-4">
                       <div>
                         <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-                          {tour.title || 'Tour'}
+                          {entityTitle}
                         </h2>
                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mt-2">
                           <MapPin size={16} className="text-[#0D9488]" />
-                          {tour.location || 'Location not specified'}
+                          {entityLocation}
                         </div>
                         {booking.bookingCode && (
                           <p className="text-xs text-gray-400 mt-1">
@@ -274,7 +360,6 @@ const MyBookings = () => {
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-4 mt-6">
-                      {/* Travel Date */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
                         <Calendar size={18} className="text-[#0D9488]" />
                         <div>
@@ -285,7 +370,6 @@ const MyBookings = () => {
                         </div>
                       </div>
 
-                      {/* Travelers */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
                         <Users size={18} className="text-[#F59E0B]" />
                         <div>
@@ -296,7 +380,6 @@ const MyBookings = () => {
                         </div>
                       </div>
 
-                      {/* Payment */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
                         <CreditCard size={18} className="text-[#0D9488]" />
                         <div>
@@ -310,15 +393,35 @@ const MyBookings = () => {
 
                     {/* ACTION BUTTONS */}
                     <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        onClick={() => setSelectedBooking(booking)}
+                      <Link
+                        to={`/trip/${booking._id}`}
                         className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#0f766e] hover:scale-[1.02] text-white font-semibold transition-all duration-300 flex items-center gap-2 shadow-md shadow-[#0D9488]/25"
                       >
                         <Eye size={18} />
                         View Details
-                      </button>
+                      </Link>
 
-                      {booking.status !== 'cancelled' && booking.status !== 'completed' && (
+                      {isPayable && (
+                        <Link
+                          to={`/payment/${booking._id}`}
+                          className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#F59E0B] to-[#d97706] hover:scale-[1.02] text-white font-semibold transition-all duration-300 flex items-center gap-2 shadow-md shadow-[#F59E0B]/25"
+                        >
+                          <CreditCard size={18} />
+                          Pay Now
+                        </Link>
+                      )}
+
+                      {isReviewable && booking._id && (
+                        <Link
+                          to={`/review/${booking._id}`}
+                          className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] hover:scale-[1.02] text-white font-semibold transition-all duration-300 flex items-center gap-2 shadow-md shadow-[#0D9488]/25"
+                        >
+                          <Star size={18} />
+                          Leave Review
+                        </Link>
+                      )}
+
+                      {isCancellable && (
                         <button
                           onClick={() => handleCancel(booking._id)}
                           disabled={cancelling === booking._id}
@@ -365,16 +468,17 @@ const MyBookings = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                  <p className="text-sm text-gray-500">Tour</p>
+                  <p className="text-sm text-gray-500">Experience</p>
                   <p className="font-semibold text-[#374151] dark:text-white">
-                    {selectedBooking.tour?.title || 'N/A'}
+                    {getEntityTitle(selectedBooking)}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
                   <p className="text-sm text-gray-500">Status</p>
                   <p className={`font-semibold capitalize ${
                     selectedBooking.status === 'confirmed' ? 'text-[#0D9488]' :
-                    selectedBooking.status === 'pending' ? 'text-[#F59E0B]' :
+                    selectedBooking.status === 'pending_payment' ? 'text-[#F59E0B]' :
+                    selectedBooking.status === 'completed' ? 'text-green-600' :
                     'text-red-600'
                   }`}>
                     {selectedBooking.status}

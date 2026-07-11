@@ -1,7 +1,8 @@
-// src/pages/AIPlanner.jsx
+// frontend/src/pages/AIPlanner.jsx
+// ✅ UPDATED - Changed "Tour" references to "Experience" where user-facing
 
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Bot,
   MapPin,
@@ -26,15 +27,28 @@ import {
   BedDouble,
   ThumbsUp,
   Loader2,
+  Calendar,
+  DollarSign,
+  Plane,
+  Clock,
+  Award,
+  Shield,
+  Info,
+  Bookmark,
+  BookmarkCheck,
+  Download,
+  Share2,
 } from 'lucide-react';
 
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
-import { generateTripPlan } from '../services/aiService';
+import { generateTripPlan, getAIRecommendations } from '../services/aiService';
+import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 // ===============================
-// AI TOUR COLORS
+// AI TOUR COLORS (Brand Name - Keep as is)
 // ===============================
 // Teal  : #0D9488
 // Gold  : #F59E0B
@@ -43,17 +57,22 @@ import { generateTripPlan } from '../services/aiService';
 // ===============================
 
 const AIPlanner = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [tripPlan, setTripPlan] = useState(null);
   const [savedTrips, setSavedTrips] = useState([]);
+  const [isSaved, setIsSaved] = useState(false);
+  const [activeDay, setActiveDay] = useState(0);
 
   const aiMessages = [
     'Analyzing your travel style...',
-    'Finding the best Rwanda experiences...',
-    'Optimizing your budget...',
-    'Generating smart itinerary...',
+    'Discovering hidden gems in Rwanda...',
+    'Optimizing your itinerary...',
+    'Creating your personalized experience...',
   ];
 
   const [formData, setFormData] = useState({
@@ -67,7 +86,19 @@ const AIPlanner = () => {
     mood: '',
     accommodation: 'mid',
     travelStyle: 'balanced',
+    language: 'English',
   });
+
+  const destinations = [
+    { value: 'Kigali City', label: 'Kigali City', emoji: '🏙️' },
+    { value: 'Volcanoes National Park', label: 'Volcanoes National Park', emoji: '🌋' },
+    { value: 'Akagera National Park', label: 'Akagera National Park', emoji: '🦁' },
+    { value: 'Nyungwe Forest', label: 'Nyungwe Forest', emoji: '🌿' },
+    { value: 'Lake Kivu', label: 'Lake Kivu', emoji: '🏖️' },
+    { value: 'Musanze', label: 'Musanze', emoji: '⛰️' },
+    { value: 'Gisenyi', label: 'Gisenyi', emoji: '🌊' },
+    { value: 'Rwanda (Multi-city)', label: 'Rwanda (Multi-city)', emoji: '🇷🇼' },
+  ];
 
   const moods = [
     {
@@ -119,105 +150,409 @@ const AIPlanner = () => {
     { name: 'Shopping', icon: Wallet },
   ];
 
-  const calculateDays = () => {
+  const travelStyles = [
+    { value: 'balanced', label: 'Balanced' },
+    { value: 'adventure', label: 'Adventure' },
+    { value: 'cultural', label: 'Cultural' },
+    { value: 'relaxation', label: 'Relaxation' },
+    { value: 'luxury', label: 'Luxury' },
+    { value: 'budget', label: 'Budget' },
+  ];
+
+  const calculateDays = useCallback(() => {
     if (formData.startDate && formData.endDate) {
       const start = new Date(formData.startDate);
       const end = new Date(formData.endDate);
       const diffTime = Math.abs(end - start);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays + 1;
+      return Math.max(diffDays + 1, 1);
     }
     return 3;
-  };
+  }, [formData.startDate, formData.endDate]);
 
-  const [aiText, setAiText] = useState('');
-
-  // ============================================================
-  // ✅ FIX: Frontend sends request to Backend, not Gemini directly
-  // ============================================================
+  // ✅ Generate AI Trip
   const generateAITrip = async () => {
+    if (!formData.destination) {
+      toast.error('Please select a destination');
+      return;
+    }
+    if (!formData.mood) {
+      toast.error('Please select your travel mood');
+      return;
+    }
+
     setLoading(true);
     setLoadingProgress(0);
+    setLoadingMessage(aiMessages[0]);
 
-    // Prepare request data
+    const days = calculateDays();
     const requestData = {
       destination: formData.destination,
       mood: formData.mood,
       budget: formData.budget,
       travelers: formData.travelers,
-      interests: formData.interests.join(', '),
+      interests: formData.interests,
       travelStyle: formData.travelStyle,
       accommodation: formData.accommodation,
-      days: calculateDays(),
+      days: days,
+      startDate: formData.startDate,
+      language: formData.language,
     };
 
     try {
-      // ✅ Call backend API
-      const response = await generateTripPlan(requestData);
-      
-      console.log('✅ Backend Response:', response);
-
-      // Update progress
-      const intervals = [25, 50, 75, 100];
-      for (let i = 0; i < intervals.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        setLoadingProgress(intervals[i]);
+      // Progress animation
+      for (let i = 0; i < aiMessages.length; i++) {
+        setLoadingMessage(aiMessages[i]);
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        setLoadingProgress(((i + 1) / aiMessages.length) * 100);
       }
 
-      // ✅ Set response from backend
-      const planText = response.plan || response.message || response.reply || 'No plan generated';
-      setAiText(planText);
-      setTripPlan({
-        plan: planText,
-        ...response,
-      });
+      const response = await generateTripPlan(requestData);
+      console.log('✅ Trip Plan Response:', response);
 
-      setLoading(false);
-      setStep(4);
-
+      if (response.success && response.plan) {
+        setTripPlan({
+          ...response.plan,
+          raw: response.plan,
+          destination: formData.destination,
+          days: days,
+          budget: formData.budget,
+          travelers: formData.travelers,
+        });
+        setIsSaved(false);
+        setStep(4);
+        setActiveDay(0);
+        toast.success('✨ Your personalized trip plan is ready!');
+      } else {
+        toast.error(response.message || 'Failed to generate trip plan');
+      }
     } catch (error) {
       console.error('❌ AI Generation Error:', error);
-      alert(error.response?.data?.message || 'AI failed to generate trip plan');
+      toast.error(error.response?.data?.message || 'Failed to generate trip plan');
+    } finally {
       setLoading(false);
     }
   };
 
-  const saveTrip = () => {
+  // ✅ Save Trip
+  const handleSaveTrip = async () => {
     if (!tripPlan) return;
-    const newTrip = {
-      id: Date.now(),
-      destination: formData.destination,
-      date: new Date().toISOString(),
-      plan: tripPlan,
-    };
-    const updatedTrips = [...savedTrips, newTrip];
-    setSavedTrips(updatedTrips);
-    localStorage.setItem('savedTrips', JSON.stringify(updatedTrips));
-    alert('✅ Trip saved successfully!');
+
+    try {
+      const savedTrip = {
+        id: Date.now(),
+        destination: formData.destination,
+        date: new Date().toISOString(),
+        plan: tripPlan,
+        travelers: formData.travelers,
+        budget: formData.budget,
+        mood: formData.mood,
+      };
+
+      const updatedTrips = [...savedTrips, savedTrip];
+      setSavedTrips(updatedTrips);
+      localStorage.setItem('savedTrips', JSON.stringify(updatedTrips));
+      setIsSaved(true);
+      toast.success('✅ Trip saved successfully!');
+    } catch (error) {
+      console.error('❌ Save trip error:', error);
+      toast.error('Failed to save trip');
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.destination) {
-      alert('Please select a destination');
-      return;
-    }
-    if (!formData.mood) {
-      alert('Please select your travel mood');
-      return;
-    }
-    generateAITrip();
+  // ✅ Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
+  // ✅ Load saved trips from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('savedTrips');
     if (stored) {
-      setSavedTrips(JSON.parse(stored));
+      try {
+        setSavedTrips(JSON.parse(stored));
+      } catch (e) {
+        console.error('Error loading saved trips:', e);
+      }
     }
   }, []);
 
+  // ✅ Get destination emoji
+  const getDestinationEmoji = (destination) => {
+    const found = destinations.find(d => d.value === destination);
+    return found?.emoji || '📍';
+  };
+
+  // ✅ Render day itinerary
+  const renderDayItinerary = (day) => {
+    if (!tripPlan?.itinerary) return null;
+    const dayData = tripPlan.itinerary[day];
+    if (!dayData) return null;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-full bg-[#0D9488]/10 text-[#0D9488] flex items-center justify-center font-bold">
+            {day + 1}
+          </span>
+          <h4 className="text-xl font-bold text-[#374151] dark:text-white">
+            {dayData.title || `Day ${day + 1}`}
+          </h4>
+        </div>
+
+        <div className="space-y-3 pl-14">
+          {dayData.activities?.map((activity, idx) => (
+            <div key={idx} className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-[#0D9488] mt-2" />
+              <div>
+                <p className="font-medium text-[#374151] dark:text-white">
+                  {activity.time && (
+                    <span className="text-sm text-gray-400 mr-2">{activity.time}</span>
+                  )}
+                  {activity.name || activity}
+                </p>
+                {activity.description && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {activity.description}
+                  </p>
+                )}
+                {activity.cost && (
+                  <p className="text-xs text-[#0D9488] font-medium">${activity.cost}</p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {dayData.meals && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                🍽️ {dayData.meals.breakfast} • {dayData.meals.lunch} • {dayData.meals.dinner}
+              </p>
+            </div>
+          )}
+
+          {dayData.accommodation && (
+            <div className="mt-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                🏨 {typeof dayData.accommodation === 'string' 
+                  ? dayData.accommodation 
+                  : dayData.accommodation.name}
+                {dayData.accommodation?.cost && ` ($${dayData.accommodation.cost})`}
+              </p>
+            </div>
+          )}
+
+          {dayData.transport && (
+            <div className="mt-1">
+              <p className="text-sm text-gray-400">🚗 {dayData.transport}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ✅ Render results step
+  const renderResults = () => {
+    if (!tripPlan) return null;
+
+    const daysCount = tripPlan.itinerary?.length || tripPlan.days || calculateDays();
+
+    return (
+      <div className="space-y-8">
+        {/* Result Header */}
+        <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-[#0D9488] to-[#F59E0B] p-8 text-white">
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-3xl">{getDestinationEmoji(tripPlan.destination)}</span>
+              <h2 className="text-3xl font-black">{tripPlan.destination}</h2>
+            </div>
+            <p className="text-white/80 text-lg">
+              Your personalized {daysCount}-day itinerary
+            </p>
+            <div className="flex flex-wrap gap-4 mt-4 text-sm">
+              <span className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
+                <Calendar className="w-4 h-4" />
+                {daysCount} Days
+              </span>
+              <span className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
+                <Users className="w-4 h-4" />
+                {tripPlan.travelers || formData.travelers} Travelers
+              </span>
+              <span className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
+                <DollarSign className="w-4 h-4" />
+                ${tripPlan.budget || formData.budget}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Budget Summary */}
+        {tripPlan.summary && (
+          <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-bold mb-4 dark:text-white">💰 Budget Breakdown</h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm text-gray-500">Accommodation</p>
+                <p className="text-lg font-bold text-[#0D9488]">
+                  ${tripPlan.summary.accommodationTotal || 0}
+                </p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm text-gray-500">Activities</p>
+                <p className="text-lg font-bold text-[#F59E0B]">
+                  ${tripPlan.summary.activitiesTotal || 0}
+                </p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm text-gray-500">Food</p>
+                <p className="text-lg font-bold text-[#374151] dark:text-white">
+                  ${tripPlan.summary.foodTotal || 0}
+                </p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm text-gray-500">Transport</p>
+                <p className="text-lg font-bold text-[#374151] dark:text-white">
+                  ${tripPlan.summary.transportTotal || 0}
+                </p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm text-gray-500">Total</p>
+                <p className="text-lg font-bold text-[#0D9488]">
+                  ${tripPlan.summary.totalCost || tripPlan.budget || formData.budget}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Day Selector */}
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: daysCount }).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setActiveDay(idx)}
+              className={`px-5 py-2.5 rounded-xl font-medium transition ${
+                activeDay === idx
+                  ? 'bg-[#0D9488] text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              Day {idx + 1}
+            </button>
+          ))}
+        </div>
+
+        {/* Day Itinerary */}
+        <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
+          {renderDayItinerary(activeDay)}
+        </Card>
+
+        {/* Tips */}
+        {tripPlan.tips && tripPlan.tips.length > 0 && (
+          <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-bold mb-4 dark:text-white">💡 Travel Tips</h3>
+            <ul className="space-y-2">
+              {tripPlan.tips.map((tip, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
+                  <Sparkles className="w-4 h-4 text-[#F59E0B] flex-shrink-0 mt-1" />
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* Packing List */}
+        {tripPlan.packingList && tripPlan.packingList.length > 0 && (
+          <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-bold mb-4 dark:text-white">🎒 Packing List</h3>
+            <div className="flex flex-wrap gap-2">
+              {tripPlan.packingList.map((item, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-4 justify-center">
+          <button
+            onClick={handleSaveTrip}
+            className="px-8 py-4 rounded-2xl border-2 border-[#0D9488] text-[#0D9488] bg-white hover:bg-[#0D9488]/10 transition flex items-center gap-2"
+          >
+            {isSaved ? (
+              <BookmarkCheck className="w-5 h-5" />
+            ) : (
+              <Bookmark className="w-5 h-5" />
+            )}
+            {isSaved ? 'Saved!' : 'Save Trip'}
+          </button>
+
+          <Link to="/explore">
+            <Button className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-xl shadow-[#0D9488]/30 hover:scale-[1.02] transition flex items-center gap-2">
+              Explore Experiences
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          </Link>
+
+          <button
+            onClick={() => window.print()}
+            className="px-8 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Print Plan
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ✅ Render loading
+  const renderLoading = () => (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-900 p-8 max-w-md w-full mx-4 text-center rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800">
+        <div className="relative w-24 h-24 mx-auto mb-6">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Bot className="w-10 h-10 text-[#0D9488]" />
+          </div>
+        </div>
+
+        <h3 className="text-2xl font-bold mb-2 dark:text-white">
+          AI Planning Your Trip
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
+          {loadingMessage || 'Creating your personalized itinerary...'}
+        </p>
+
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+          <div
+            className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B] h-2.5 rounded-full transition-all duration-500"
+            style={{ width: `${loadingProgress}%` }}
+          />
+        </div>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-4">
+          {Math.round(loadingProgress)}% Complete
+        </p>
+      </div>
+    </div>
+  );
+
   // ============================================================
-  // RENDER
+  // MAIN RENDER
   // ============================================================
 
   return (
@@ -225,7 +560,7 @@ const AIPlanner = () => {
 
       {/* HERO */}
       <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#0D9488] via-[#0D9488] to-[#F59E0B] text-white p-8 md:p-12 shadow-2xl">
-        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute inset-0 bg-black/10" />
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md mb-6">
             <Bot className="w-5 h-5" />
@@ -237,9 +572,8 @@ const AIPlanner = () => {
             Travel Better.
           </h1>
           <p className="text-lg text-white/85 max-w-2xl">
-            AI Tour creates personalized Rwanda travel
-            experiences based on your travel style,
-            budget, and interests.
+            AI Tour creates personalized Rwanda travel experiences based on your
+            travel style, budget, and interests.
           </p>
         </div>
       </section>
@@ -265,59 +599,45 @@ const AIPlanner = () => {
 
           {/* FORM */}
           <div className="lg:col-span-2">
-            <Card className="p-6 md:p-8 rounded-[32px] shadow-xl">
+            <Card className="p-6 md:p-8 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
               <h2 className="text-3xl font-black mb-8 dark:text-white">
                 AI Trip Planner
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-8">
+              <form onSubmit={(e) => { e.preventDefault(); generateAITrip(); }} className="space-y-8">
                 {/* Destination */}
                 <div>
                   <label className="block text-sm font-semibold mb-3 dark:text-white">
-                    Destination
+                    Where do you want to go?
                   </label>
                   <select
                     value={formData.destination}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        destination: e.target.value,
-                      });
-                    }}
-                    className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
+                    onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                    className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
                   >
-                    <option value="">Select destination</option>
-                    <option value="Kigali City">Kigali City</option>
-                    <option value="Volcanoes National Park">Volcanoes National Park</option>
-                    <option value="Akagera National Park">Akagera National Park</option>
-                    <option value="Nyungwe Forest">Nyungwe Forest</option>
-                    <option value="Lake Kivu">Lake Kivu</option>
-                    <option value="Musanze">Musanze</option>
-                    <option value="Gisenyi">Gisenyi</option>
+                    <option value="">Select a destination</option>
+                    {destinations.map((dest) => (
+                      <option key={dest.value} value={dest.value}>
+                        {dest.emoji} {dest.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Mood */}
+                {/* Travel Mood */}
                 <div>
                   <label className="block text-sm font-semibold mb-4 dark:text-white">
-                    Travel Mood
+                    What's your travel mood?
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {moods.map((item) => (
                       <button
                         key={item.name}
                         type="button"
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            mood: item.name,
-                          })
-                        }
+                        onClick={() => setFormData({ ...formData, mood: item.name })}
                         className={`rounded-2xl p-4 text-left text-white bg-gradient-to-r ${item.color} ${
-                          formData.mood === item.name
-                            ? 'ring-4 ring-[#F59E0B]'
-                            : ''
-                        }`}
+                          formData.mood === item.name ? 'ring-4 ring-[#F59E0B]' : ''
+                        } transition-all hover:scale-[1.02]`}
                       >
                         <item.icon className="w-7 h-7 mb-3" />
                         <h3 className="font-bold">{item.name}</h3>
@@ -335,70 +655,76 @@ const AIPlanner = () => {
                     <label className="block text-sm font-semibold mb-3 dark:text-white">
                       Start Date
                     </label>
-                    <Input
+                    <input
                       type="date"
                       value={formData.startDate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          startDate: e.target.value,
-                        })
-                      }
-                      className="h-14 rounded-2xl focus:ring-[#0D9488]"
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-3 dark:text-white">
                       End Date
                     </label>
-                    <Input
+                    <input
                       type="date"
                       value={formData.endDate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          endDate: e.target.value,
-                        })
-                      }
-                      className="h-14 rounded-2xl focus:ring-[#0D9488]"
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Travelers + Budget */}
+                {/* Travelers & Budget */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-semibold mb-3 dark:text-white">
-                      Travelers
+                      Number of Travelers
                     </label>
-                    <Input
+                    <input
                       type="number"
                       min="1"
+                      max="20"
                       value={formData.travelers}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          travelers: parseInt(e.target.value),
-                        })
-                      }
-                      className="h-14 rounded-2xl focus:ring-[#0D9488]"
+                      onChange={(e) => setFormData({ ...formData, travelers: parseInt(e.target.value) || 1 })}
+                      className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-3 dark:text-white">
                       Budget (USD)
                     </label>
-                    <Input
+                    <input
                       type="number"
+                      min="100"
+                      step="50"
                       value={formData.budget}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          budget: parseInt(e.target.value),
-                        })
-                      }
-                      className="h-14 rounded-2xl focus:ring-[#0D9488]"
+                      onChange={(e) => setFormData({ ...formData, budget: parseInt(e.target.value) || 100 })}
+                      className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
                     />
+                  </div>
+                </div>
+
+                {/* Travel Style */}
+                <div>
+                  <label className="block text-sm font-semibold mb-3 dark:text-white">
+                    Travel Style
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    {travelStyles.map((style) => (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, travelStyle: style.value })}
+                        className={`px-5 py-3 rounded-2xl text-sm font-semibold transition ${
+                          formData.travelStyle === style.value
+                            ? 'bg-[#0D9488] text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 dark:text-white hover:bg-[#0D9488]/10'
+                        }`}
+                      >
+                        {style.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -416,21 +742,36 @@ const AIPlanner = () => {
                           const updated = formData.interests.includes(item.name)
                             ? formData.interests.filter((i) => i !== item.name)
                             : [...formData.interests, item.name];
-                          setFormData({
-                            ...formData,
-                            interests: updated,
-                          });
+                          setFormData({ ...formData, interests: updated });
                         }}
-                        className={`px-5 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                        className={`px-5 py-3 rounded-2xl text-sm font-semibold transition ${
                           formData.interests.includes(item.name)
                             ? 'bg-[#0D9488] text-white'
                             : 'bg-gray-100 dark:bg-gray-800 dark:text-white hover:bg-[#0D9488]/10'
                         }`}
                       >
+                        <item.icon className="w-4 h-4 inline mr-2" />
                         {item.name}
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Language */}
+                <div>
+                  <label className="block text-sm font-semibold mb-3 dark:text-white">
+                    Language
+                  </label>
+                  <select
+                    value={formData.language}
+                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                    className="w-full h-14 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 bg-white dark:bg-gray-900 dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                  >
+                    <option value="English">English</option>
+                    <option value="French">Français</option>
+                    <option value="Kinyarwanda">Kinyarwanda</option>
+                    <option value="Swahili">Swahili</option>
+                  </select>
                 </div>
 
                 {/* Submit */}
@@ -447,142 +788,48 @@ const AIPlanner = () => {
 
           {/* SIDEBAR */}
           <div className="space-y-6">
-            <Card className="p-6 rounded-[32px] shadow-xl">
+            <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
               <h3 className="text-2xl font-black mb-6 dark:text-white">
                 Why AI Tour?
               </h3>
               <div className="space-y-4">
                 {[
-                  'AI Personalized Trips',
-                  'Local Rwanda Insights',
-                  'Budget Optimization',
-                  'Smart Itineraries',
-                  '24/7 AI Assistant',
+                  { icon: Sparkles, text: 'AI Personalized Trips' },
+                  { icon: Globe2, text: 'Local Rwanda Insights' },
+                  { icon: Wallet, text: 'Budget Optimization' },
+                  { icon: Clock3, text: 'Smart Itineraries' },
+                  { icon: Bot, text: '24/7 AI Assistant' },
                 ].map((item) => (
-                  <div key={item} className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[#0D9488]" />
-                    <span className="dark:text-white">{item}</span>
+                  <div key={item.text} className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-[#0D9488] flex-shrink-0" />
+                    <span className="dark:text-white">{item.text}</span>
                   </div>
                 ))}
               </div>
             </Card>
+
+            {/* Saved Trips Count */}
+            {savedTrips.length > 0 && (
+              <Card className="p-6 rounded-[32px] shadow-xl border border-gray-100 dark:border-gray-800">
+                <h4 className="font-bold mb-2 dark:text-white">
+                  Saved Trips: {savedTrips.length}
+                </h4>
+                <Link
+                  to="/trips"
+                  className="text-sm text-[#0D9488] hover:underline"
+                >
+                  View all saved trips →
+                </Link>
+              </Card>
+            )}
           </div>
         </div>
       ) : (
-        // ============================================================
-        // RESULTS
-        // ============================================================
-        <div className="space-y-8">
-
-          {/* RESULT HERO */}
-          <div className="relative overflow-hidden rounded-[32px]">
-            <img
-              src="https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=1200"
-              alt={formData.destination}
-              className="w-full h-[350px] object-cover"
-            />
-            <div className="absolute inset-0 bg-black/50"></div>
-            <div className="absolute bottom-8 left-8 text-white">
-              <h2 className="text-4xl font-black">
-                {formData.destination}
-              </h2>
-              <p className="text-lg mt-2">Your personalized AI itinerary</p>
-            </div>
-          </div>
-
-          {/* TRIP SUMMARY */}
-          <Card className="p-6 rounded-[32px] shadow-xl">
-            <h3 className="text-2xl font-black mb-6 dark:text-white">
-              Trip Summary
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-              <div>
-                <p className="text-gray-500 text-sm">Duration</p>
-                <h4 className="font-bold text-lg dark:text-white">
-                  {calculateDays()} Days
-                </h4>
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm">Travelers</p>
-                <h4 className="font-bold text-lg dark:text-white">
-                  {formData.travelers}
-                </h4>
-              </div>
-              <div>
-                <p className="text-gray-500 text-sm">Budget</p>
-                <h4 className="font-bold text-lg text-[#0D9488]">
-                  ${formData.budget}
-                </h4>
-              </div>
-            </div>
-          </Card>
-
-          {/* AI PLAN - From Backend */}
-          <Card className="p-6 rounded-[32px] shadow-xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-2xl font-black dark:text-white">
-                AI Travel Plan
-              </h3>
-              <span className="text-xs bg-[#0D9488]/10 text-[#0D9488] px-3 py-1 rounded-full">
-                Powered by AI
-              </span>
-            </div>
-            <div className="whitespace-pre-line text-gray-700 dark:text-gray-200 leading-8">
-              {aiText}
-            </div>
-          </Card>
-
-          {/* CTA */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={saveTrip}
-              className="h-14 px-8 rounded-2xl border-2 border-[#0D9488] text-[#0D9488] bg-white hover:bg-[#0D9488]/10 transition"
-            >
-              Save Trip
-            </Button>
-
-            <Link to="/explore">
-              <Button className="h-14 px-10 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-xl shadow-[#0D9488]/30 hover:scale-[1.02] transition">
-                Explore Tours
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-          </div>
-        </div>
+        renderResults()
       )}
 
-      {/* LOADING */}
-      {loading && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="p-8 max-w-md mx-4 text-center rounded-3xl">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-[#0D9488] to-[#F59E0B] flex items-center justify-center mx-auto mb-6">
-              <Loader2 className="w-10 h-10 text-white animate-spin" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2 dark:text-white">
-              AI Planning Your Trip
-            </h3>
-            <p className="text-gray-500 mb-6">
-              {
-                aiMessages[
-                  Math.min(
-                    Math.floor(loadingProgress / 25),
-                    aiMessages.length - 1
-                  )
-                ]
-              }
-            </p>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B] h-2 rounded-full transition-all duration-300"
-                style={{ width: `${loadingProgress}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-400 mt-4">
-              {loadingProgress}% Complete
-            </p>
-          </Card>
-        </div>
-      )}
+      {/* Loading Modal */}
+      {loading && renderLoading()}
     </div>
   );
 };

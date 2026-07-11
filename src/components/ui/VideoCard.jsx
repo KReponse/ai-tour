@@ -127,9 +127,9 @@ const VideoCard = ({
       onMouseLeave={handleMouseLeave}
       className={`
         relative
-        min-w-[260px]
+        min-w-[280px]
         w-full
-        h-[360px]
+        h-[380px]
         rounded-2xl
         overflow-hidden
         cursor-pointer

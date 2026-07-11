@@ -1,6 +1,7 @@
-// src/pages/Reviews.jsx
+// frontend/src/pages/Reviews.jsx
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Star,
   ThumbsUp,
@@ -14,10 +15,13 @@ import {
   Reply,
   CheckCircle,
   AlertCircle,
+  ArrowRight,
+  User,
 } from 'lucide-react';
 import axios from 'axios';
 import Card, { CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import ReviewCard from '../components/ReviewCard'; // ✅ ADD THIS IMPORT
 
 // ===============================
 // AI TOUR COLORS
@@ -31,6 +35,7 @@ import Button from '../components/ui/Button';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const Reviews = () => {
+  const navigate = useNavigate();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -70,7 +75,34 @@ const Reviews = () => {
     { value: '1', label: '⭐ 1 Star' }
   ];
 
-  // Fetch community reviews
+  // ✅ Helper to calculate stats from reviews
+  const calculateStatsFromReviews = useCallback((reviewsData) => {
+    const totalReviews = reviewsData.length;
+    if (totalReviews === 0) {
+      return {
+        averageRating: 0,
+        totalReviews: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      };
+    }
+
+    const sum = reviewsData.reduce((acc, r) => acc + r.rating, 0);
+    const averageRating = sum / totalReviews;
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviewsData.forEach(r => {
+      if (distribution[r.rating] !== undefined) {
+        distribution[r.rating]++;
+      }
+    });
+
+    return {
+      averageRating: Math.round(averageRating * 10) / 10,
+      totalReviews,
+      distribution
+    };
+  }, []);
+
+  // ✅ Fetch community reviews
   const fetchReviews = useCallback(async (reset = true) => {
     try {
       if (reset) {
@@ -94,7 +126,7 @@ const Reviews = () => {
         params.append('search', filters.search.trim());
       }
 
-      const response = await axios.get(`${API_URL}/reviews/community?${params}`);
+      const response = await axios.get(`${API_URL}/public/reviews?${params}`);
 
       if (response.data.success) {
         const { reviews: newReviews, total, page, totalPages, stats: dataStats } = response.data;
@@ -106,7 +138,19 @@ const Reviews = () => {
         }
 
         setPagination({ page, totalPages, total });
-        setStats(dataStats);
+        
+        // Handle stats
+        if (dataStats && dataStats.totalReviews !== undefined) {
+          setStats({
+            averageRating: dataStats.averageRating || 0,
+            totalReviews: dataStats.totalReviews || 0,
+            distribution: dataStats.distribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          });
+        } else {
+          const calculatedStats = calculateStatsFromReviews(newReviews);
+          setStats(calculatedStats);
+        }
+        
         setHasMore(page < totalPages);
       }
     } catch (err) {
@@ -116,7 +160,7 @@ const Reviews = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filters, pagination.page]);
+  }, [filters, pagination.page, calculateStatsFromReviews]);
 
   // Initial load and filter changes
   useEffect(() => {
@@ -259,10 +303,9 @@ const Reviews = () => {
       </div>
 
       {/* Stats Overview */}
-      {stats.totalReviews > 0 && (
+      {stats && stats.totalReviews > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Overall Rating */}
             <div className="text-center md:text-left">
               <p className="text-sm text-gray-500 dark:text-gray-400">Overall Rating</p>
               <div className="flex items-center justify-center md:justify-start gap-3 mt-1">
@@ -278,7 +321,6 @@ const Reviews = () => {
               </div>
             </div>
 
-            {/* Rating Distribution */}
             <div className="md:col-span-2">
               <div className="space-y-1.5">
                 {[5, 4, 3, 2, 1].map((star) => {
@@ -309,7 +351,6 @@ const Reviews = () => {
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
-        {/* Search */}
         <form onSubmit={handleSearch} className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
@@ -321,7 +362,6 @@ const Reviews = () => {
           />
         </form>
 
-        {/* Sort */}
         <div className="relative">
           <select
             value={filters.sort}
@@ -337,7 +377,6 @@ const Reviews = () => {
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
         </div>
 
-        {/* Rating Filter */}
         <div className="relative">
           <select
             value={filters.rating}
@@ -354,7 +393,7 @@ const Reviews = () => {
         </div>
       </div>
 
-      {/* Reviews List */}
+      {/* ✅ Reviews List - Using ReviewCard */}
       {reviews.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-16 text-center shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">
@@ -372,92 +411,16 @@ const Reviews = () => {
       ) : (
         <div className="space-y-4">
           {reviews.map((review) => (
-            <Card key={review._id} className="hover:shadow-lg transition border border-gray-100 dark:border-gray-800">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-start gap-4">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <img
-                      src={review.user?.profileImage || getAvatar(review.user?.name)}
-                      alt={review.user?.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-[#0D9488]"
-                      onError={(e) => {
-                        e.target.src = getAvatar(review.user?.name);
-                      }}
-                    />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* User Info */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-[#374151] dark:text-white">
-                        {review.user?.name || 'Anonymous'}
-                      </span>
-                      {review.user?.role === 'traveler' && (
-                        <span className="inline-flex items-center gap-1 text-xs text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded-full">
-                          <CheckCircle className="w-3 h-3" />
-                          Verified Traveler
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-400">
-                        {formatDate(review.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Rating */}
-                    <div className="flex items-center gap-2 mt-1">
-                      {renderStars(review.rating)}
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {review.rating}.0
-                      </span>
-                    </div>
-
-                    {/* Comment */}
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed mt-2">
-                      {review.comment}
-                    </p>
-
-                    {/* Tour Info */}
-                    {review.tour && (
-                      <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        <MapPin className="w-3 h-3 text-[#0D9488]" />
-                        <span>{review.tour.title}</span>
-                        {review.tour.location && (
-                          <span className="text-gray-400">· {review.tour.location}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Provider Reply */}
-                    {review.reply && (
-                      <div className="mt-3 p-3 rounded-xl bg-[#0D9488]/5 border border-[#0D9488]/10">
-                        <div className="flex items-start gap-2">
-                          <Reply className="w-4 h-4 text-[#0D9488] flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-medium text-[#0D9488]">
-                              Provider Response
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
-                              {review.reply}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Helpful Count */}
-                    <div className="flex items-center gap-2 mt-3 text-sm text-gray-400">
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>{review.helpfulCount || 0} found this helpful</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ReviewCard
+              key={review._id}
+              review={review}
+              showTourInfo={true}
+              showUserInfo={true}
+              showProviderResponse={true}
+              onHelpfulToggle={() => fetchReviews()}
+            />
           ))}
 
-          {/* Load More */}
           {hasMore && (
             <div className="text-center pt-4">
               <Button

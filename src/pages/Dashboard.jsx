@@ -15,6 +15,9 @@ import {
   Clock,
   Star,
   MessageCircle,
+  Shield,
+  DollarSign,
+  Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMyBookings } from "../services/bookingService";
@@ -35,6 +38,7 @@ const Dashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [providerRequest, setProviderRequest] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [favorites, setFavorites] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -43,7 +47,7 @@ const Dashboard = () => {
   // ✅ Role checks
   const isAdmin = user?.role === "admin" || user?.role === "ADMIN";
   const isProvider = user?.role === "provider" || user?.role === "PROVIDER";
-  const isTraveler = user?.role === "traveler" || user?.role === "TRAVELER" || !user?.role;
+  const isTraveler = user?.role === "traveler" || user?.role === "TRAVELER" || user?.role === "user" || !user?.role;
 
   useEffect(() => {
     fetchData();
@@ -56,28 +60,32 @@ const Dashboard = () => {
 
       const token = localStorage.getItem("token");
 
-      // ✅ ONLY user-specific endpoints - NO admin calls
-      // Admin dashboard has its own data fetching
-
-      // Fetch bookings (for travelers and providers)
+      // ✅ Fetch bookings
       try {
         const bookingsData = await getMyBookings(token);
         setBookings(bookingsData.bookings || []);
       } catch (err) {
         console.error("Error fetching bookings:", err);
-        // Don't fail the whole dashboard
       }
 
-      // Fetch user's reviews (for travelers)
+      // ✅ Fetch user's reviews
       try {
         const reviewsData = await getMyReviews();
         setReviews(reviewsData.reviews || []);
       } catch (err) {
         console.error("Error fetching reviews:", err);
-        // Don't fail the whole dashboard
       }
 
-      // Fetch provider request (only for travelers)
+      // ✅ Fetch favorites count
+      try {
+        const favoritesData = JSON.parse(localStorage.getItem("favorites") || "[]");
+        setFavorites(favoritesData.length || 0);
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+        setFavorites(0);
+      }
+
+      // ✅ Fetch provider request (only for travelers)
       if (isTraveler) {
         try {
           const providerData = await getMyProviderRequest();
@@ -92,6 +100,22 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate review stats
+  const totalReviews = reviews.length;
+  const averageRating = totalReviews > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+    : 0;
+    
+  // Calculate booking stats
+  const confirmedTrips = bookings.filter(b => b.status === "confirmed" || b.status === "paid").length;
+  const pendingBookings = bookings.filter(b => b.status === "pending_payment" || b.status === "pending").length;
+  const completedTrips = bookings.filter(b => b.status === "completed").length;
+
+  const getDisplayName = () => {
+    if (!user) return 'Traveler';
+    return user.fullName || user.name || 'Traveler';
   };
 
   if (loading) {
@@ -130,12 +154,6 @@ const Dashboard = () => {
     );
   }
 
-  // Calculate review stats
-  const totalReviews = reviews.length;
-  const averageRating = totalReviews > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
-    : 0;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -148,17 +166,19 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-4xl font-black text-[#374151] dark:text-white">
-                Welcome {user?.name || 'Traveler'}
+                Welcome {getDisplayName()}
               </h1>
               <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-[#0D9488]" />
-                Manage your travel experience
+                {isProvider ? 'Manage your listings and bookings' : 
+                 isAdmin ? 'Manage the platform' : 
+                 'Manage your travel experience'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ✅ ONLY SHOW PROVIDER FLOW FOR TRAVELERS */}
+        {/* ✅ PROVIDER FLOW FOR TRAVELERS */}
         {isTraveler && !providerRequest && (
           <div className="mb-10 rounded-3xl p-8 text-white bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-xl shadow-[#0D9488]/30 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -182,7 +202,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* ✅ ONLY SHOW PROVIDER STATUS FOR TRAVELERS */}
+        {/* ✅ PROVIDER REQUEST STATUS */}
         {isTraveler && providerRequest?.status === "pending" && (
           <div className="mb-10 p-8 rounded-3xl bg-[#F59E0B]/10 border-2 border-[#F59E0B]/30 dark:bg-[#F59E0B]/20">
             <div className="flex items-center gap-3 mb-3">
@@ -207,7 +227,7 @@ const Dashboard = () => {
               </h2>
             </div>
             <p className="text-gray-600 dark:text-gray-300">
-              Your provider account is active. Start managing your tours.
+              Your provider account is active. Start managing your listings.
             </p>
             <Link
               to="/provider/dashboard"
@@ -248,7 +268,7 @@ const Dashboard = () => {
               </h2>
             </div>
             <p className="text-gray-600 dark:text-gray-300">
-              Manage your tours, bookings, and earnings.
+              Manage your listings, bookings, and earnings.
             </p>
             <Link
               to="/provider/dashboard"
@@ -269,7 +289,7 @@ const Dashboard = () => {
               </h2>
             </div>
             <p className="text-gray-600 dark:text-gray-300">
-              Manage users, tours, and platform settings.
+              Manage users, listings, and platform settings.
             </p>
             <Link
               to="/admin/dashboard"
@@ -297,32 +317,31 @@ const Dashboard = () => {
               <Heart className="w-6 h-6 text-red-500" />
             </div>
             <h2 className="text-3xl font-bold text-[#374151] dark:text-white">
-              0
+              {favorites}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">Favorites</p>
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-            <div className="w-12 h-12 rounded-2xl bg-[#F59E0B]/10 flex items-center justify-center mb-4">
-              <Map className="w-6 h-6 text-[#F59E0B]" />
+            <div className="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-4">
+              <CheckCircle className="w-6 h-6 text-[#0D9488]" />
             </div>
             <h2 className="text-3xl font-bold text-[#374151] dark:text-white">
-              {bookings.filter((b) => b.status === "confirmed").length}
+              {confirmedTrips}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">Confirmed Trips</p>
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-            <div className="w-12 h-12 rounded-2xl bg-[#0D9488]/10 flex items-center justify-center mb-4">
-              <User className="w-6 h-6 text-[#0D9488]" />
+            <div className="w-12 h-12 rounded-2xl bg-[#F59E0B]/10 flex items-center justify-center mb-4">
+              <Clock className="w-6 h-6 text-[#F59E0B]" />
             </div>
-            <h2 className="text-xl font-bold text-[#374151] dark:text-white capitalize">
-              {user?.role || 'Traveler'}
+            <h2 className="text-3xl font-bold text-[#374151] dark:text-white">
+              {pendingBookings}
             </h2>
-            <p className="text-gray-500 dark:text-gray-400">Account Type</p>
+            <p className="text-gray-500 dark:text-gray-400">Pending</p>
           </div>
 
-          {/* ✅ REVIEW STATS CARD */}
           <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
             <div className="w-12 h-12 rounded-2xl bg-[#F59E0B]/10 flex items-center justify-center mb-4">
               <Star className="w-6 h-6 text-[#F59E0B]" />
@@ -352,35 +371,42 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="space-y-4">
-              {bookings.slice(0, 5).map((booking) => (
-                <div key={booking._id} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
-                  <div>
-                    <p className="font-semibold text-[#374151] dark:text-white">
-                      {booking.tour?.title || 'Tour'}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(booking.createdAt).toLocaleDateString()}
-                    </p>
+              {bookings.slice(0, 5).map((booking) => {
+                const entity = booking.listing || booking.tour;
+                const title = entity?.title || 'Experience';
+                
+                return (
+                  <div key={booking._id} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
+                    <div>
+                      <p className="font-semibold text-[#374151] dark:text-white">
+                        {title}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : new Date(booking.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        booking.status === 'confirmed' || booking.status === 'paid'
+                          ? 'bg-[#0D9488]/10 text-[#0D9488]'
+                          : booking.status === 'pending_payment' || booking.status === 'pending'
+                          ? 'bg-[#F59E0B]/10 text-[#F59E0B]'
+                          : booking.status === 'completed'
+                          ? 'bg-green-100 text-green-600'
+                          : 'bg-red-100 text-red-600'
+                      }`}>
+                        {booking.status || 'Pending'}
+                      </span>
+                      <Link
+                        to={`/trip/${booking._id}`}
+                        className="text-sm text-[#0D9488] hover:underline"
+                      >
+                        View →
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      booking.status === 'confirmed'
-                        ? 'bg-[#0D9488]/10 text-[#0D9488]'
-                        : booking.status === 'pending'
-                        ? 'bg-[#F59E0B]/10 text-[#F59E0B]'
-                        : 'bg-red-100 text-red-600'
-                    }`}>
-                      {booking.status}
-                    </span>
-                    <Link
-                      to={`/booking/${booking._id}`}
-                      className="text-sm text-[#0D9488] hover:underline"
-                    >
-                      View →
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -401,12 +427,12 @@ const Dashboard = () => {
             <div className="text-center py-8 text-gray-500">
               <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
               <p>You haven't written any reviews yet.</p>
-              {bookings.filter(b => b.status === 'confirmed').length > 0 && (
+              {bookings.filter(b => b.status === 'completed').length > 0 && (
                 <Link 
                   to="/explore" 
                   className="inline-block mt-3 text-[#0D9488] hover:underline text-sm font-medium"
                 >
-                  Browse tours to review →
+                  Browse experiences to review →
                 </Link>
               )}
             </div>

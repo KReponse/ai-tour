@@ -32,6 +32,7 @@ import Input from '../components/ui/Input';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getTourById } from '../services/tourService';
+import { getListingById } from '../services/listingService';
 import { createBooking } from '../services/bookingService';
 
 // ===============================
@@ -46,14 +47,13 @@ import { createBooking } from '../services/bookingService';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const Booking = () => {
-  const { id } = useParams();
+  const { listingId } = useParams(); // ✅ Use listingId
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [tour, setTour] = useState(null);
+  const [entity, setEntity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [bookingType, setBookingType] = useState('tour');
   const [error, setError] = useState('');
 
   // Booking form data
@@ -66,21 +66,24 @@ const Booking = () => {
     specialRequests: '',
   });
 
-  // Fetch tour from backend
+  // Fetch entity (listing) from backend
   useEffect(() => {
-    if (id) {
-      fetchTour();
+    if (listingId) {
+      fetchEntity();
     }
-  }, [id]);
+  }, [listingId]);
 
-  const fetchTour = async () => {
+  const fetchEntity = async () => {
     try {
       setLoading(true);
-      const data = await getTourById(id);
-      setTour(data.tour);
+      setError('');
+      
+      // ✅ Always fetch as listing (primary)
+      const data = await getListingById(listingId);
+      setEntity(data.listing);
     } catch (error) {
-      console.error('Error fetching tour:', error);
-      setError('Failed to load tour details');
+      console.error('Error fetching listing:', error);
+      setError('Failed to load experience details');
     } finally {
       setLoading(false);
     }
@@ -97,13 +100,13 @@ const Booking = () => {
     e.preventDefault();
 
     if (!user) {
-      alert('Please login to book a tour');
+      alert('Please login to book this experience');
       navigate('/login');
       return;
     }
 
-    if (!tour) {
-      alert('Tour not found');
+    if (!entity) {
+      alert('Experience not found');
       return;
     }
 
@@ -129,29 +132,21 @@ const Booking = () => {
       setSubmitting(true);
 
       const bookingData = {
-        tour: tour._id,
+        listing: entity._id,
         startDate: formData.travelDate,
-        endDate: formData.travelDate, // Single day or calculate based on duration
+        endDate: formData.travelDate,
         numberOfPeople: formData.travelers,
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
         specialRequests: formData.specialRequests,
       };
 
-      const response = await createBooking(bookingData);
+      const token = localStorage.getItem('token');
+      const response = await createBooking(bookingData, token);
       
       console.log('✅ Booking created:', response);
       
-      // Navigate to payment or success
-      navigate('/payment', {
-        state: {
-          tour,
-          booking: response.booking,
-          formData,
-          totalPrice: tour.price * formData.travelers,
-        },
-      });
+      // ✅ Navigate to payment page with booking ID
+      const bookingId = response.booking._id;
+      navigate(`/payment/${bookingId}`);
 
     } catch (error) {
       console.error('❌ Booking error:', error);
@@ -169,25 +164,25 @@ const Booking = () => {
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
         </div>
-        <p className="mt-4 text-gray-500">Loading tour details...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading experience details...</p>
       </div>
     );
   }
 
   // Error state
-  if (error || !tour) {
+  if (error || !entity) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
         <div className="max-w-md">
           <h1 className="text-4xl font-bold mb-4 text-[#374151] dark:text-white">
-            Tour Not Available
+            Experience Not Available
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mb-6">
-            {error || 'The tour you are looking for is not available for booking.'}
+            {error || 'The experience you are looking for is not available for booking.'}
           </p>
           <Link to="/explore">
             <Button className="bg-gradient-to-r from-[#0D9488] to-[#F59E0B]">
-              Explore Tours
+              Explore Experiences
             </Button>
           </Link>
         </div>
@@ -195,8 +190,16 @@ const Booking = () => {
     );
   }
 
-  const totalPrice = tour.price * formData.travelers;
-  const isPending = tour.status === 'pending';
+  const totalPrice = entity.price * formData.travelers;
+  const isPending = entity.status === 'pending';
+  const entityTitle = entity.title || 'Experience';
+  const entityLocation = entity.location || 'Location not specified';
+  const entityDuration = entity.duration || 'N/A';
+  const entityImage = entity.coverImage 
+    ? `${API_URL}/uploads/${entity.coverImage}` 
+    : entity.galleryImages?.[0] 
+      ? `${API_URL}/uploads/${entity.galleryImages[0]}` 
+      : null;
 
   return (
     <div className="max-w-7xl mx-auto px-3 md:px-5 space-y-8 pb-32 md:pb-10 animate-fade-in">
@@ -206,7 +209,7 @@ const Booking = () => {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-3 mb-6">
-            {['Tour', 'Details', 'Payment', 'Confirmation'].map((step, index) => (
+            {['Booking', 'Details', 'Payment', 'Confirmation'].map((step, index) => (
               <div
                 key={index}
                 className={`px-4 py-2 rounded-full text-sm font-medium ${
@@ -220,10 +223,10 @@ const Booking = () => {
             ))}
           </div>
           <h1 className="text-3xl md:text-5xl font-bold mb-4">
-            Book Your Dream Trip
+            Book Your Experience
           </h1>
           <p className="text-white/90 text-lg max-w-2xl">
-            Complete your booking for {tour.title} in {tour.location}.
+            Complete your booking for {entityTitle} in {entityLocation}.
           </p>
         </div>
       </section>
@@ -234,12 +237,12 @@ const Booking = () => {
         {/* LEFT */}
         <div className="lg:col-span-2 space-y-8">
 
-          {/* TOUR DETAILS */}
+          {/* ENTITY DETAILS */}
           <Card className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800">
             <div className="grid md:grid-cols-2">
               <CardImage
-                src={tour.coverImage ? `${API_URL}/uploads/${tour.coverImage}` : '/placeholder-tour.jpg'}
-                alt={tour.title}
+                src={entityImage || 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500'}
+                alt={entityTitle}
                 className="h-64 md:h-full object-cover"
                 onError={(e) => {
                   e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
@@ -248,31 +251,31 @@ const Booking = () => {
               <CardContent className="p-6 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="px-3 py-1 rounded-full bg-[#0D9488]/10 text-[#0D9488] text-xs font-semibold">
-                    {tour.category || 'Popular Destination'}
+                    {entity.category || 'Popular Experience'}
                   </span>
                   <div className="flex items-center text-sm font-semibold">
                     <Star className="w-4 h-4 text-[#F59E0B] fill-current mr-1" />
-                    {tour.averageRating || tour.rating || 4.8}
+                    {entity.averageRating || entity.rating || 4.8}
                   </div>
                 </div>
                 <h2 className="text-3xl font-bold mb-3 dark:text-white">
-                  {tour.title}
+                  {entityTitle}
                 </h2>
                 <div className="flex items-center text-gray-500 dark:text-gray-400 mb-4">
                   <MapPin className="w-4 h-4 mr-1 text-[#0D9488]" />
-                  {tour.location}
+                  {entityLocation}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-5 line-clamp-3">
-                  {tour.description}
+                  {entity.description}
                 </p>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Starting from</p>
                     <div className="text-3xl font-bold text-[#0D9488]">
-                      ${tour.price}
+                      ${entity.price}
                     </div>
                   </div>
-                  <Link to={`/tour/${tour._id}`}>
+                  <Link to={`/listing/${entity._id}`}>
                     <Button variant="outline" className="border-[#0D9488] text-[#0D9488]">
                       View Details
                     </Button>
@@ -290,7 +293,7 @@ const Booking = () => {
 
             {isPending && (
               <div className="mb-4 p-4 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B]">
-                ⏳ This tour is pending approval and cannot be booked yet.
+                ⏳ This experience is pending approval and cannot be booked yet.
               </div>
             )}
 
@@ -424,7 +427,7 @@ const Booking = () => {
                     Booking...
                   </>
                 ) : isPending ? (
-                  'Tour Pending Approval'
+                  'Experience Pending Approval'
                 ) : (
                   `Book Now - $${totalPrice}`
                 )}
@@ -443,16 +446,16 @@ const Booking = () => {
 
             <div className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tour</span>
+                <span className="text-gray-500">Experience</span>
                 <span className="font-semibold dark:text-white text-right max-w-[55%]">
-                  {tour.title}
+                  {entityTitle}
                 </span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Location</span>
                 <span className="font-semibold dark:text-white">
-                  {tour.location}
+                  {entityLocation}
                 </span>
               </div>
 
@@ -466,7 +469,7 @@ const Booking = () => {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Duration</span>
                 <span className="font-semibold dark:text-white">
-                  {tour.duration || 'N/A'}
+                  {entityDuration}
                 </span>
               </div>
 
@@ -487,7 +490,7 @@ const Booking = () => {
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  ${tour.price} × {formData.travelers} traveler{formData.travelers > 1 ? 's' : ''}
+                  ${entity.price} × {formData.travelers} traveler{formData.travelers > 1 ? 's' : ''}
                 </p>
               </div>
             </div>

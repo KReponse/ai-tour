@@ -164,7 +164,7 @@ const UploadZone = ({
     ${color === TEAL ? 'border-[#0D9488]/30 dark:border-[#0D9488]/30 hover:border-[#0D9488] dark:hover:border-[#0D9488] bg-[#0D9488]/5 dark:bg-[#0D9488]/5 hover:bg-[#0D9488]/10 dark:hover:bg-[#0D9488]/10' : ''}
     ${color === GOLD ? 'border-[#F59E0B]/30 dark:border-[#F59E0B]/30 hover:border-[#F59E0B] dark:hover:border-[#F59E0B] bg-[#F59E0B]/5 dark:bg-[#F59E0B]/5 hover:bg-[#F59E0B]/10 dark:hover:bg-[#F59E0B]/10' : ''}
   `}>
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[${color}]/15 dark:bg-[${color}]/20`}>
+    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[color]/15 dark:bg-[color]/20">
       <Icon size={20} color={color} />
     </div>
     <div>
@@ -255,6 +255,7 @@ const AddListing = () => {
   }, [businessType, form.listingType]);
 
   // ── Validation ────────────────────────────────────────────────
+  // ✅ UPDATED: Images 15MB, Videos 500MB
   const validate = useCallback(
     (name, value) => {
       if (name === "title") {
@@ -282,20 +283,22 @@ const AddListing = () => {
         if (!value?.trim()) return "Description is required";
         if (value.length < 30) return "At least 30 characters";
       }
+      
+      // ✅ UPDATED: Images 15MB, Videos 500MB
       if (name === "coverImage") {
         if (!value) return "Cover image is required";
         if (!value.type?.startsWith("image/")) return "Must be an image";
-        if (value.size > 5 * 1024 * 1024) return "Max 5 MB";
+        if (value.size > 15 * 1024 * 1024) return "Max 15 MB";
       }
       if (name === "galleryImages") {
         if (value.length > 15) return "Max 15 images";
-        if (value.some((f) => f.size > 5 * 1024 * 1024))
-          return "Each image max 5 MB";
+        if (value.some((f) => f.size > 15 * 1024 * 1024))
+          return "Each image max 15 MB";
       }
       if (name === "videos") {
         if (value.length > 3) return "Max 3 videos";
-        if (value.some((f) => f.size > 100 * 1024 * 1024))
-          return "Each video max 100 MB";
+        if (value.some((f) => f.size > 500 * 1024 * 1024))
+          return "Each video max 500 MB";
       }
       return "";
     },
@@ -720,13 +723,13 @@ const AddListing = () => {
             <SectionCard id="media" config={bizCfg}>
               {/* Cover image */}
               <div className="mb-4.5">
-                <Label required hint="Main image shown in search results (max 5 MB)">
+                <Label required hint="Main image shown in search results (max 15 MB)">
                   Cover Image
                 </Label>
                 {!coverPreview ? (
                   <UploadZone
                     label="Upload Cover Image"
-                    hint="JPG, PNG, WEBP · Max 5 MB"
+                    hint="JPG, PNG, WEBP · Max 15 MB"
                     accept="image/*"
                     onChange={handleCover}
                     icon={Camera}
@@ -758,7 +761,7 @@ const AddListing = () => {
                 </Label>
                 <UploadZone
                   label="Upload Gallery Photos"
-                  hint="Multiple selection · Max 15 images · 5 MB each"
+                  hint="Multiple selection · Max 15 images · 15 MB each"
                   accept="image/*"
                   multiple
                   onChange={handleGallery}
@@ -789,12 +792,12 @@ const AddListing = () => {
 
               {/* Videos */}
               <div>
-                <Label hint="Up to 3 videos · Max 5 min each · Max 100 MB each">
+                <Label hint="Up to 3 videos · Max 5 min each · Max 500 MB each">
                   Videos (optional)
                 </Label>
                 <UploadZone
                   label="Upload Listing Videos"
-                  hint="MP4, MOV · Max 3 videos · 5 min limit"
+                  hint="MP4, MOV · Max 3 videos · 5 min limit · 500 MB each"
                   accept="video/*"
                   multiple
                   onChange={handleVideos}

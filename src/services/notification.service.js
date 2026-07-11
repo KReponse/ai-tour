@@ -1,4 +1,5 @@
 // frontend/src/services/notification.service.js
+
 import api from './api';
 
 class NotificationService {
@@ -13,6 +14,7 @@ class NotificationService {
       const response = await api.get('/notifications', { params });
       return response.data;
     } catch (error) {
+      console.error('❌ Get notifications error:', error);
       throw error.response?.data || { message: error.message };
     }
   }
@@ -25,6 +27,7 @@ class NotificationService {
       const response = await api.get('/notifications/unread-count');
       return response.data;
     } catch (error) {
+      console.error('❌ Get unread count error:', error);
       throw error.response?.data || { message: error.message };
     }
   }
@@ -37,6 +40,7 @@ class NotificationService {
       const response = await api.put(`/notifications/${id}/read`);
       return response.data;
     } catch (error) {
+      console.error('❌ Mark as read error:', error);
       throw error.response?.data || { message: error.message };
     }
   }
@@ -49,6 +53,7 @@ class NotificationService {
       const response = await api.put('/notifications/read-all');
       return response.data;
     } catch (error) {
+      console.error('❌ Mark all as read error:', error);
       throw error.response?.data || { message: error.message };
     }
   }
@@ -61,6 +66,7 @@ class NotificationService {
       const response = await api.delete(`/notifications/${id}`);
       return response.data;
     } catch (error) {
+      console.error('❌ Delete notification error:', error);
       throw error.response?.data || { message: error.message };
     }
   }
@@ -73,6 +79,7 @@ class NotificationService {
       const response = await api.delete('/notifications/read/all');
       return response.data;
     } catch (error) {
+      console.error('❌ Delete all read error:', error);
       throw error.response?.data || { message: error.message };
     }
   }

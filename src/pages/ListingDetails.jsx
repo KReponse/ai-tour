@@ -1,4 +1,5 @@
-// src/pages/ListingDetails.jsx
+// frontend/src/pages/ListingDetails.jsx
+// ✅ UPDATED - Fixed review section to work with Listing architecture
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -46,13 +47,15 @@ import {
   Music,
   ShoppingBag,
   DollarSign,
+  Calendar as CalendarIcon,
+  ArrowRight,
 } from 'lucide-react';
 
 import { getListingById, toggleLike } from '../services/listingService';
 import { getPublicProviderProfile } from '../services/providerService';
-import { createCheckout } from '../services/paymentService';
 import { useAuth } from '../contexts/AuthContext';
 import { getTourReviews, createReview, toggleHelpful } from '../services/reviewService';
+import { createBooking } from '../services/bookingService';
 import { BIZ_CONFIG, getBusinessConfig } from '../config/listingConfigs';
 import ReviewCard from '../components/ReviewCard';
 import ReviewForm from '../components/ReviewForm';
@@ -569,13 +572,50 @@ const ProviderCard = ({ provider }) => {
 };
 
 // ================================================================
-// REVIEWS SECTION
+// REVIEWS SECTION - ✅ UPDATED for Listing architecture
 // ================================================================
 const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [completedBookingId, setCompletedBookingId] = useState(null);
+  const [fetchingBooking, setFetchingBooking] = useState(false);
+
+  // ✅ Fetch user's completed booking for this listing
+  useEffect(() => {
+    if (user && listingId) {
+      fetchCompletedBooking();
+    }
+  }, [user, listingId]);
+
+  const fetchCompletedBooking = async () => {
+    try {
+      setFetchingBooking(true);
+      const token = localStorage.getItem('token');
+      const { getMyBookings } = await import('../services/bookingService');
+      const data = await getMyBookings(token);
+      const bookings = data.bookings || [];
+      
+      // ✅ Find a completed booking for this listing
+      const completedBooking = bookings.find(
+        b => (b.listing?._id === listingId || b.listing === listingId) && 
+             b.status === 'completed' && 
+             b.paymentStatus === 'paid'
+      );
+      
+      if (completedBooking) {
+        setCompletedBookingId(completedBooking._id);
+        console.log('✅ Found completed booking:', completedBooking._id);
+      } else {
+        console.log('ℹ️ No completed booking found for this listing');
+      }
+    } catch (error) {
+      console.error('Error fetching completed booking:', error);
+    } finally {
+      setFetchingBooking(false);
+    }
+  };
 
   const getRatingDistribution = () => {
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -593,23 +633,34 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
     : 0;
 
-  const canWriteReview = user && !reviews.some(r => r.user?._id === user._id);
+  // ✅ Check if user can write a review
+  const hasUserReviewed = user && reviews.some(r => r.user?._id === user._id);
+  const canWriteReview = user && !hasUserReviewed && completedBookingId;
 
   const handleSubmitReview = async (data) => {
     try {
       setSubmitting(true);
       
+      if (!completedBookingId) {
+        alert('You need to complete a booking for this experience before you can review it.');
+        setSubmitting(false);
+        return;
+      }
+      
       if (editingReview) {
         const { updateReview } = await import('../services/reviewService');
         await updateReview(editingReview._id, {
           rating: data.rating,
+          title: data.title || 'Great Experience!',
           comment: data.comment,
         });
       } else {
-        const { createReview } = await import('../services/reviewService');
+        // ✅ Create review using the completed booking ID
         await createReview({
-          tourId: data.tourId,
+          bookingId: completedBookingId,
+          listingId: listingId, // ✅ Pass listingId explicitly
           rating: data.rating,
+          title: data.title || 'Great Experience!',
           comment: data.comment,
         });
       }
@@ -657,7 +708,7 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
         <div className="flex items-center gap-3">
           <MessageCircle className="w-6 h-6 text-[#0D9488]" />
           <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-            Reviews
+            Travelers Say
           </h2>
           {totalReviews > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -734,6 +785,7 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
         <div className="mb-6">
           <ReviewForm
             tourId={listingId}
+            bookingId={completedBookingId}
             initialData={editingReview}
             isEditing={!!editingReview}
             onSubmit={handleSubmitReview}
@@ -750,6 +802,11 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <MessageCircle className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p>No reviews yet. Be the first to share your experience!</p>
+          {user && !completedBookingId && (
+            <p className="text-xs text-gray-400 mt-2">
+              You need to complete a booking before you can review.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -765,155 +822,6 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
           ))}
         </div>
       )}
-    </div>
-  );
-};
-
-// ================================================================
-// BOOKING MODAL
-// ================================================================
-const BookingModal = ({ listing, onClose }) => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [travelers, setTravelers] = useState(1);
-  const [selectedDate, setSelectedDate] = useState('');
-
-  const handleBooking = async () => {
-    if (!user) {
-      alert('Please login to book this listing');
-      navigate('/login');
-      return;
-    }
-
-    if (!selectedDate) {
-      alert('Please select a date');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const bookingData = {
-        tour: listing._id,
-        startDate: selectedDate,
-        endDate: selectedDate,
-        numberOfPeople: travelers,
-      };
-
-      const { createBooking } = await import('../services/bookingService');
-      const bookingResult = await createBooking(bookingData, localStorage.getItem('token'));
-
-      const { createCheckout } = await import('../services/paymentService');
-      const checkout = await createCheckout(bookingResult.booking._id);
-
-      if (checkout.url) {
-        window.location.href = checkout.url;
-      } else {
-        alert('Booking created! Please complete payment.');
-        onClose();
-      }
-
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert(error.response?.data?.message || 'Failed to process booking');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
-            Book This Experience
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
-            <h3 className="font-bold text-[#374151] dark:text-white">{listing.title}</h3>
-            <p className="text-sm text-gray-500">{listing.location}</p>
-            <p className="text-2xl font-bold text-[#0D9488] mt-2">${listing.price}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Number of Travelers
-            </label>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setTravelers(Math.max(1, travelers - 1))}
-                className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-              >
-                -
-              </button>
-              <span className="text-xl font-bold text-[#374151] dark:text-white w-12 text-center">
-                {travelers}
-              </span>
-              <button
-                onClick={() => setTravelers(Math.min(listing.capacity || 10, travelers + 1))}
-                className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-              >
-                +
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Max {listing.capacity || 10} travelers</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Date
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#0D9488]/5 border border-[#0D9488]/20">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">Total</span>
-              <span className="text-xl font-bold text-[#0D9488]">
-                ${(listing.price * travelers).toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleBooking}
-              disabled={loading}
-              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/25 hover:scale-[1.02] transition disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <CreditCard className="w-5 h-5" />
-                  Book Now
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
@@ -953,13 +861,6 @@ const ListingTrustBadges = () => {
 // ================================================================
 // MAIN PAGE
 // ================================================================
-const TABS = [
-  { id: 'about', label: 'About', Icon: Info },
-  { id: 'highlights', label: 'Highlights', Icon: Sparkles },
-  { id: 'included', label: 'What\'s Included', Icon: Check },
-  { id: 'requirements', label: 'Requirements', Icon: List },
-];
-
 const ListingDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -967,10 +868,24 @@ const ListingDetails = () => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('about');
-  const [showBooking, setShowBooking] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [reviews, setReviews] = useState([]);
   const [reviewLoading, setReviewLoading] = useState(false);
+
+  // ✅ Booking Modal State
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingDate, setBookingDate] = useState('');
+  const [numberOfPeople, setNumberOfPeople] = useState(1);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+
+  // ✅ TABS DEFINITION
+  const TABS = [
+    { id: 'about', label: 'About', Icon: Info },
+    { id: 'highlights', label: 'Highlights', Icon: Sparkles },
+    { id: 'included', label: "What's Included", Icon: Check },
+    { id: 'requirements', label: 'Requirements', Icon: List },
+  ];
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1019,13 +934,69 @@ const ListingDetails = () => {
     }
   };
 
+  // ✅ Handle Booking Submission
+  const handleBookingSubmit = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (!bookingDate) {
+      setBookingError('Please select a date');
+      return;
+    }
+
+    try {
+      setBookingLoading(true);
+      setBookingError('');
+
+      const bookingData = {
+        listingId: listing._id,
+        startDate: bookingDate,
+        endDate: bookingDate,
+        numberOfPeople: numberOfPeople,
+        specialRequests: ''
+      };
+
+      console.log('📤 Creating booking:', bookingData);
+
+      const response = await createBooking(bookingData);
+      console.log('✅ Booking created:', response);
+
+      if (response.success && response.booking) {
+        navigate(`/payment/${response.booking._id}`);
+      } else {
+        setBookingError(response.message || 'Failed to create booking');
+      }
+    } catch (error) {
+      console.error('❌ Booking error:', error);
+      
+      if (error.response?.status === 409) {
+        const activeBooking = error.response?.data?.activeBooking;
+        if (activeBooking) {
+          setBookingError(
+            `You already have an active booking for this experience. ` +
+            `Status: ${activeBooking.status}. ` +
+            `Please wait for it to complete or cancel it first.`
+          );
+        } else {
+          setBookingError('You already have an active booking for this experience.');
+        }
+      } else {
+        setBookingError(error.response?.data?.message || 'Failed to create booking');
+      }
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="relative w-20 h-20">
         <div className="w-20 h-20 rounded-full border-4 border-[#0D9488]/20" />
         <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
       </div>
-      <p className="mt-6 text-lg font-semibold text-[#374151] dark:text-white">Loading Listing...</p>
+      <p className="mt-6 text-lg font-semibold text-[#374151] dark:text-white">Loading Experience...</p>
     </div>
   );
 
@@ -1034,10 +1005,10 @@ const ListingDetails = () => {
       <div className="w-24 h-24 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-6">
         <MapPin className="w-12 h-12 text-[#0D9488]" />
       </div>
-      <h1 className="text-3xl font-bold text-[#374151] dark:text-white mb-2">Listing Not Found</h1>
-      <p className="text-gray-500 dark:text-gray-400">The listing you're looking for doesn't exist.</p>
+      <h1 className="text-3xl font-bold text-[#374151] dark:text-white mb-2">Experience Not Found</h1>
+      <p className="text-gray-500 dark:text-gray-400">The experience you're looking for doesn't exist.</p>
       <button onClick={() => navigate('/explore')} className="mt-6 px-6 py-3 rounded-xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/90 transition">
-        Browse Listings
+        Browse Experiences
       </button>
     </div>
   );
@@ -1052,9 +1023,9 @@ const ListingDetails = () => {
   const businessLabel = getBusinessLabel(listing.businessType);
 
   const tabContent = {
-    about: { title: 'About This Listing', body: listing.description || 'No description available.' },
+    about: { title: 'About This Experience', body: listing.description || 'No description available.' },
     highlights: { title: 'Highlights', body: listing.highlights || 'No highlights listed.' },
-    included: { title: 'What\'s Included', body: listing.included || 'No included services listed.' },
+    included: { title: "What's Included", body: listing.included || 'No included services listed.' },
     requirements: { title: 'Requirements', body: listing.requirements || 'No specific requirements.' },
   };
 
@@ -1119,7 +1090,7 @@ const ListingDetails = () => {
                 />
               )}
 
-              {/* Provider Profile - Using enhanced ProviderCard */}
+              {/* Provider Profile */}
               {listing.provider && <ProviderCard provider={listing.provider} />}
 
               {/* Tabs */}
@@ -1146,7 +1117,7 @@ const ListingDetails = () => {
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{tabContent[activeTab].body}</p>
               </div>
 
-              {/* Reviews Section */}
+              {/* ✅ Reviews Section - Updated */}
               <ReviewsSection
                 listingId={listing._id}
                 reviews={reviews}
@@ -1199,16 +1170,16 @@ const ListingDetails = () => {
                       ))}
                     </div>
 
-                    {/* CTA Button */}
+                    {/* ✅ Booking Button */}
                     <button
-                      onClick={() => !isPending && setShowBooking(true)}
+                      onClick={() => setShowBookingModal(true)}
                       disabled={isPending}
                       className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold text-lg hover:scale-[1.02] transition-all duration-300 shadow-xl shadow-[#0D9488]/25 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
                     >
                       {isPending ? <><Clock className="w-5 h-5" /> Pending Approval</> : <><Sparkles className="w-5 h-5" /> Book Now</>}
                     </button>
 
-                    <p className="text-center text-xs text-gray-400">No payment charged until confirmed</p>
+                    <p className="text-center text-xs text-gray-400">Select date and travelers before booking</p>
                   </div>
                 </div>
 
@@ -1220,8 +1191,129 @@ const ListingDetails = () => {
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showBooking && <BookingModal listing={listing} onClose={() => setShowBooking(false)} />}
+      {/* ================================================================
+          BOOKING MODAL
+          ================================================================ */}
+      {showBookingModal && (
+        <>
+          <div
+            onClick={() => setShowBookingModal(false)}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          />
+
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto pointer-events-auto">
+              
+              <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-[#374151] dark:text-white">
+                    Book This Experience
+                  </h2>
+                  <button
+                    onClick={() => setShowBookingModal(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {listing.title}
+                </p>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-2">
+                    Select Date
+                  </label>
+                  <div className="relative">
+                    <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="date"
+                      value={bookingDate}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full h-12 pl-12 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-[#374151] dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-2">
+                    Number of Travelers
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setNumberOfPeople(Math.max(1, numberOfPeople - 1))}
+                      className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition text-xl font-bold"
+                    >
+                      -
+                    </button>
+                    <span className="text-xl font-bold text-[#374151] dark:text-white min-w-[40px] text-center">
+                      {numberOfPeople}
+                    </span>
+                    <button
+                      onClick={() => setNumberOfPeople(Math.min(10, numberOfPeople + 1))}
+                      className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition text-xl font-bold"
+                    >
+                      +
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      max 10 people
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 dark:text-gray-400">Price per person</span>
+                    <span className="font-bold text-[#374151] dark:text-white">${listing.price}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-gray-500 dark:text-gray-400">Travelers</span>
+                    <span className="font-bold text-[#374151] dark:text-white">× {numberOfPeople}</span>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700 mt-3 pt-3 flex justify-between items-center">
+                    <span className="font-bold text-[#374151] dark:text-white">Total</span>
+                    <span className="text-2xl font-black text-[#0D9488]">
+                      ${(listing.price * numberOfPeople).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {bookingError && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
+                    <p className="text-sm text-red-600 dark:text-red-400">{bookingError}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex gap-3">
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBookingSubmit}
+                  disabled={bookingLoading || !bookingDate}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-[#0D9488]/30 disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                >
+                  {bookingLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      Continue to Payment
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };

@@ -55,7 +55,7 @@ const ProviderSidebar = ({ collapsed, onToggle, mobile, onClose }) => {
     { name: 'Add Tour', path: '/provider/add-tour', icon: PlusCircle, isLegacy: true, hidden: true },
     
     // ── Business ──
-    { name: 'Requests', path: '/provider/requests', icon: CalendarClock },
+    
     { name: 'Bookings', path: '/provider/bookings', icon: CalendarCheck },
     { name: 'Travelers', path: '/provider/travelers', icon: Users },
     { name: 'Analytics', path: '/provider/analytics', icon: TrendingUp },

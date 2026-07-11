@@ -1,4 +1,5 @@
-// src/pages/AIChat.jsx
+// frontend/src/pages/AIChat.jsx
+// ✅ UPDATED - Changed all "Tour" references to "Experience"
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -56,28 +57,28 @@ const languages = [
   { code: 'sw', name: 'Swahili', flag: '🇹🇿', nativeName: 'Kiswahili' },
 ];
 
-// Suggested questions by language
+// Suggested questions by language (UPDATED - Experience terminology)
 const suggestedQuestionsByLang = {
   en: [
-    { text: "Top tourist attractions in Rwanda", icon: MapPin },
+    { text: "Best experiences in Rwanda", icon: MapPin },
     { text: "How much is gorilla trekking?", icon: DollarSign },
     { text: "Luxury Rwanda safari itinerary", icon: Calendar },
     { text: "Best time to visit Volcanoes National Park", icon: Sparkles },
   ],
   fr: [
-    { text: "Meilleures attractions touristiques", icon: MapPin },
+    { text: "Meilleures expériences au Rwanda", icon: MapPin },
     { text: "Prix du trekking des gorilles", icon: DollarSign },
     { text: "Itinéraire safari de luxe", icon: Calendar },
     { text: "Meilleure saison pour visiter", icon: Sparkles },
   ],
   rw: [
-    { text: "Ahantu nyaburanga heza", icon: MapPin },
+    { text: "Ibikorwa byiza mu Rwanda", icon: MapPin },
     { text: "Ibiciro byo gusura ingagi", icon: DollarSign },
     { text: "Urugendo rwiza rwa safari", icon: Calendar },
     { text: "Igihe cyiza cyo gusura", icon: Sparkles },
   ],
   sw: [
-    { text: "Vivutio bora vya utalii", icon: MapPin },
+    { text: "Uzoefu bora nchini Rwanda", icon: MapPin },
     { text: "Gharama za gorilla trekking", icon: DollarSign },
     { text: "Ratiba ya safari ya kifahari", icon: Calendar },
     { text: "Msimu bora wa kutembelea", icon: Sparkles },
@@ -119,10 +120,10 @@ const AIChat = () => {
   // Get placeholders based on language
   const getPlaceholder = () => {
     const placeholders = {
-      en: "Ask about Rwanda safaris, hotels, gorilla trekking...",
-      fr: "Posez des questions sur les safaris, hôtels, gorilles...",
-      rw: "Baza ibyerekeye safari, hoteli, ingagi...",
-      sw: "Uliza kuhusu safari, hoteli, gorilla trekking..."
+      en: "Ask about Rwanda safaris, hotels, gorilla trekking, cultural experiences...",
+      fr: "Posez des questions sur les safaris, hôtels, gorilles, expériences culturelles...",
+      rw: "Baza ibyerekeye safari, hoteli, ingagi, ubukerarugendo...",
+      sw: "Uliza kuhusu safari, hoteli, gorilla trekking, uzoefu wa kitamaduni..."
     };
     return placeholders[language] || placeholders.en;
   };
@@ -189,10 +190,10 @@ const AIChat = () => {
 
   const setWelcomeMessage = () => {
     const welcomeMessages = {
-      en: "👋 Welcome to AI Tour! I'm your smart Rwanda travel assistant. I can help you plan unforgettable experiences across Rwanda — from gorilla trekking and safaris to luxury stays, culture, and adventure. Ask me anything ✨",
-      fr: "👋 Bienvenue sur AI Tour ! Je suis votre assistant intelligent pour découvrir le Rwanda. Je peux vous aider à organiser des expériences inoubliables ✨",
-      rw: "👋 Murakaza neza kuri AI Tour! Ndi umufasha wawe w'ubukerarugendo mu Rwanda. Mbaza icyo ushaka kumenya ✨",
-      sw: "👋 Karibu AI Tour! Mimi ni msaidizi wako wa utalii nchini Rwanda. Uliza chochote ✨",
+      en: "👋 Welcome to AI Tour! I'm your smart Rwanda travel assistant. I can help you discover unforgettable experiences across Rwanda — from gorilla trekking and safaris to luxury stays, culture, and adventure. Ask me anything ✨",
+      fr: "👋 Bienvenue sur AI Tour ! Je suis votre assistant intelligent pour découvrir le Rwanda. Je peux vous aider à trouver des expériences inoubliables ✨",
+      rw: "👋 Murakaza neza kuri AI Tour! Ndi umufasha wawe w'ubukerarugendo mu Rwanda. Ndashobora kugufasha kubona ibikorwa byiza ✨",
+      sw: "👋 Karibu AI Tour! Mimi ni msaidizi wako wa utalii nchini Rwanda. Ninaweza kukusaidia kupata uzoefu wa kukumbukwa ✨",
     };
     
     setChat([{
@@ -339,7 +340,7 @@ const AIChat = () => {
   };
 
   // ============================================================
-  // ✅ FIX: Send to Backend API, not Gemini directly
+  // ✅ Send to Backend API
   // ============================================================
   const sendMessage = async () => {
     if ((!message.trim() && uploadedImages.length === 0) || loading) return;
@@ -439,10 +440,10 @@ const AIChat = () => {
   // Clear chat
   const clearChat = () => {
     const clearMessages = {
-      en: "✨ Conversation cleared. I'm ready to help you plan your next Rwanda adventure!",
-      fr: "✨ Conversation supprimée. Je suis prêt à vous aider !",
-      rw: "✨ Ibiganiro bisibwe neza. Ndi tayari kugufasha!",
-      sw: "✨ Mazungumzo yamefutwa. Niko tayari kukusaidia!",
+      en: "✨ Conversation cleared. I'm ready to help you discover amazing experiences in Rwanda!",
+      fr: "✨ Conversation supprimée. Je suis prêt à vous aider à découvrir des expériences incroyables !",
+      rw: "✨ Ibiganiro bisibwe neza. Ndi tayari kugufasha kubona ibikorwa byiza mu Rwanda!",
+      sw: "✨ Mazungumzo yamefutwa. Niko tayari kukusaidia kupata uzoefu mzuri nchini Rwanda!",
     };
     setChat([{
       id: Date.now(),

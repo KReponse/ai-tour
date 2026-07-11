@@ -14,6 +14,8 @@ import {
   XCircle,
   Search,
   Filter,
+  Mail,
+  Phone,
 } from "lucide-react";
 
 // ===============================
@@ -25,7 +27,8 @@ import {
 // White : #FFFFFF
 // ===============================
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api/admin";
+// ✅ FIX: Remove /admin from base URL
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Requests = () => {
   const [requests, setRequests] = useState([]);
@@ -38,12 +41,13 @@ const Requests = () => {
 
   const fetchRequests = async () => {
     try {
-      const res = await axios.get(`${API}/requests`, {
+      // ✅ FIX: Use correct endpoint
+      const res = await axios.get(`${API}/admin/requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data.requests || []);
     } catch (error) {
-      console.error(error);
+      console.error("❌ Error fetching requests:", error);
     } finally {
       setLoading(false);
     }
@@ -66,7 +70,8 @@ const Requests = () => {
         (r) =>
           r.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           r.destination?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+          r.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          r.user?.phone?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -86,6 +91,12 @@ const Requests = () => {
         text: "text-[#F59E0B] dark:text-[#F59E0B]",
         icon: Clock,
         label: "Pending",
+      },
+      accepted: {
+        bg: "bg-[#0D9488]/10 dark:bg-[#0D9488]/20",
+        text: "text-[#0D9488] dark:text-[#0D9488]",
+        icon: CheckCircle,
+        label: "Accepted",
       },
       approved: {
         bg: "bg-[#0D9488]/10 dark:bg-[#0D9488]/20",
@@ -118,6 +129,7 @@ const Requests = () => {
   const statusCounts = {
     all: requests.length,
     pending: requests.filter((r) => r.status === "pending").length,
+    accepted: requests.filter((r) => r.status === "accepted").length,
     approved: requests.filter((r) => r.status === "approved").length,
     rejected: requests.filter((r) => r.status === "rejected").length,
   };
@@ -125,7 +137,7 @@ const Requests = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fade-in">
 
-      {/* HEADER - Updated with AI Tour colors */}
+      {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center shadow-lg">
@@ -145,7 +157,7 @@ const Requests = () => {
         </div>
       </div>
 
-      {/* SEARCH & FILTER - Updated with AI Tour colors */}
+      {/* SEARCH & FILTER */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -164,12 +176,13 @@ const Requests = () => {
         >
           <option value="all">All ({statusCounts.all})</option>
           <option value="pending">Pending ({statusCounts.pending})</option>
+          <option value="accepted">Accepted ({statusCounts.accepted})</option>
           <option value="approved">Approved ({statusCounts.approved})</option>
           <option value="rejected">Rejected ({statusCounts.rejected})</option>
         </select>
       </div>
 
-      {/* EMPTY STATE - Updated with AI Tour colors */}
+      {/* EMPTY STATE */}
       {filteredRequests.length === 0 ? (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-16 text-center shadow-sm">
           <div className="w-20 h-20 rounded-full bg-[#0D9488]/10 flex items-center justify-center mx-auto mb-4">

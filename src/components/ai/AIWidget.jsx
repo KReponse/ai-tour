@@ -1,4 +1,5 @@
-// src/components/ai/AIWidget.jsx
+// frontend/src/components/ai/AIWidget.jsx
+// ✅ UPDATED - Changed "Tours" to "Experiences" where user-facing
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -17,6 +18,7 @@ import {
   RefreshCw,
   MessageCircle,
   HelpCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -24,7 +26,7 @@ import { getAIChat } from '../../services/aiService';
 import { useAuth } from '../../contexts/AuthContext';
 
 // ===============================
-// AI TOUR COLORS
+// AI TOUR COLORS (Brand Name - Keep as is)
 // ===============================
 // Teal  : #0D9488
 // Gold  : #F59E0B
@@ -44,22 +46,22 @@ const AIWidget = ({ isOpen, onClose }) => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Quick actions
+  // Quick actions - UPDATED: "Find Tours" → "Find Experiences"
   const quickActions = [
     { label: 'Plan a Trip', icon: Calendar, action: 'plan', color: 'bg-[#0D9488]/10 text-[#0D9488]' },
-    { label: 'Find Tours', icon: MapPin, action: 'tours', color: 'bg-[#0D9488]/10 text-[#0D9488]' },
+    { label: 'Find Experiences', icon: MapPin, action: 'experiences', color: 'bg-[#0D9488]/10 text-[#0D9488]' },
     { label: 'Budget Help', icon: DollarSign, action: 'budget', color: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
     { label: 'Recommendations', icon: Sparkles, action: 'recommend', color: 'bg-[#F59E0B]/10 text-[#F59E0B]' },
   ];
 
-  // Welcome message
+  // Welcome message - UPDATED: "find tours" → "find experiences"
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([
         {
           id: 'welcome',
           role: 'assistant',
-          content: `👋 Hi ${user?.name || 'Traveler'}! I'm your AI Tour assistant. I can help you plan trips, find tours, and explore Rwanda. What would you like to do?`,
+          content: `👋 Hi ${user?.name || 'Traveler'}! I'm your AI Tour assistant. I can help you plan trips, find amazing experiences, and explore Rwanda. What would you like to do?`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -78,16 +80,15 @@ const AIWidget = ({ isOpen, onClose }) => {
     }
   }, [isOpen, loading]);
 
-  // Handle quick action
+  // Handle quick action - UPDATED: "tours" → "experiences"
   const handleQuickAction = (action) => {
     const prompts = {
       plan: 'I want to plan a trip to Rwanda. Can you help me?',
-      tours: 'What tours are available in Rwanda?',
+      experiences: 'What experiences are available in Rwanda?',
       budget: 'How much should I budget for a 5-day trip to Rwanda?',
       recommend: 'Can you recommend the best places to visit in Rwanda?',
     };
     setInput(prompts[action] || '');
-    // Auto send after setting input
     setTimeout(() => {
       handleSend(prompts[action] || '');
     }, 100);
@@ -98,7 +99,6 @@ const AIWidget = ({ isOpen, onClose }) => {
     const messageToSend = messageOverride || input;
     if (!messageToSend.trim() || loading) return;
 
-    // Clear error
     setError(null);
 
     const userMessage = {
@@ -124,7 +124,6 @@ const AIWidget = ({ isOpen, onClose }) => {
 
       setTyping(false);
 
-      // ✅ Handle different response formats
       const aiText = response.reply || response.message || response.response || "I couldn't generate a response. Please try again.";
 
       const aiMessage = {
