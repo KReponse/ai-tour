@@ -1,28 +1,76 @@
-const express =
-  require('express');
+import express from "express";
 
-const router =
-  express.Router();
-
-const {
+import {
   registerUser,
   loginUser,
-} = require(
-  '../controllers/authController'
-);
+  forgotPassword,
+  resetPassword,
+  getCurrentUser,
+} from "../controllers/authController.js";
 
-/* ================= REGISTER ================= */
+
+import {
+  protect,
+} from "../middleware/authMiddleware.js";
+
+
+const router = express.Router();
+
+
+// =========================
+// REGISTER
+// =========================
 
 router.post(
-  '/register',
+  "/register",
   registerUser
 );
 
-/* ================= LOGIN ================= */
+
+
+// =========================
+// LOGIN
+// =========================
 
 router.post(
-  '/login',
+  "/login",
   loginUser
 );
 
-module.exports = router;
+
+
+// =========================
+// FORGOT PASSWORD
+// =========================
+
+router.post(
+  "/forgot-password",
+  forgotPassword
+);
+
+
+
+// =========================
+// RESET PASSWORD
+// =========================
+
+router.post(
+  "/reset-password/:token",
+  resetPassword
+);
+
+
+
+// =========================
+// CURRENT USER
+// =========================
+
+router.get(
+  "/me",
+  protect,
+  getCurrentUser
+);
+
+
+
+export default router;

@@ -1,6 +1,5 @@
-const authorizeRoles =
+export const authorizeRoles =
   (...roles) => {
-
     return (
       req,
       res,
@@ -12,21 +11,12 @@ const authorizeRoles =
           req.user.role
         )
       ) {
-
         return res.status(403).json({
           success: false,
-          message:
-            `Role (${req.user.role}) not allowed`,
+          message: `Role (${req.user.role}) not allowed`,
         });
-
       }
 
       next();
-
     };
-
   };
-
-module.exports = {
-  authorizeRoles,
-};

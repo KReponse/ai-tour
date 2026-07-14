@@ -1,0 +1,83 @@
+### ============================================================
+### AI TOUR RWANDA - API TEST FILE
+### ============================================================
+
+@baseUrl = http://localhost:5000/api
+@contentType = application/json
+
+### ============================================================
+### ✅ PUBLIC ENDPOINTS (No Auth Required)
+### ============================================================
+
+### 1.1 Get AI Provider Status (PUBLIC)
+GET http://localhost:5000/api/ai/provider-info
+
+### 1.2 Chat (PUBLIC)
+POST http://localhost:5000/api/ai/chat
+Content-Type: application/json
+
+{
+  "message": "Hello! What experiences do you recommend in Rwanda?",
+  "language": "English"
+}
+
+### 1.3 Planner (PUBLIC)
+POST http://localhost:5000/api/ai/planner
+Content-Type: application/json
+
+{
+  "destination": "Kigali",
+  "days": 3,
+  "budget": 500,
+  "travelers": 2
+}
+
+### 1.4 Search (PUBLIC)
+GET http://localhost:5000/api/ai/search?query=gorilla trekking&limit=10
+
+### 1.5 Suggestions (PUBLIC)
+GET http://localhost:5000/api/ai/suggestions
+
+### ============================================================
+### ✅ PROTECTED ENDPOINTS (Auth Required)
+### ============================================================
+
+### 2.1 Login First
+# @name login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+
+{
+  "email": "reponsedev@gmail.com",
+  "password": "123456"
+}
+
+### 2.2 Set Token
+@authToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNTFmNzUxNDkxNTQ1M2EyZmE4MTU5YiIsInJvbGUiOiJ0cmF2ZWxlciIsInZlcmlmaWNhdGlvblN0YXR1cyI6ImFwcHJvdmVkIiwiaWF0IjoxNzgzNzY1MzI4LCJleHAiOjE3ODQzNzAxMjh9.r4psTwpb0TbOt2LcE9BqgTYRcu-XF_RqttOy6bggZos",
+
+### 2.3 Get Personalized Recommendations
+GET http://localhost:5000/api/ai/recommendations?limit=5
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNTFmNzUxNDkxNTQ1M2EyZmE4MTU5YiIsInJvbGUiOiJ0cmF2ZWxlciIsInZlcmlmaWNhdGlvblN0YXR1cyI6ImFwcHJvdmVkIiwiaWF0IjoxNzgzNzY1MzI4LCJleHAiOjE3ODQzNzAxMjh9.r4psTwpb0TbOt2LcE9BqgTYRcu-XF_RqttOy6bggZos
+
+### 2.4 Get Trending Experiences
+GET http://localhost:5000/api/ai/trending?limit=5
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNTFmNzUxNDkxNTQ1M2EyZmE4MTU5YiIsInJvbGUiOiJ0cmF2ZWxlciIsInZlcmlmaWNhdGlvblN0YXR1cyI6ImFwcHJvdmVkIiwiaWF0IjoxNzgzNzY1MzI4LCJleHAiOjE3ODQzNzAxMjh9.r4psTwpb0TbOt2LcE9BqgTYRcu-XF_RqttOy6bggZos
+
+
+### 2.5 Get Featured Experiences
+GET http://localhost:5000/api/ai/featured?limit=5
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNTFmNzUxNDkxNTQ1M2EyZmE4MTU5YiIsInJvbGUiOiJ0cmF2ZWxlciIsInZlcmlmaWNhdGlvblN0YXR1cyI6ImFwcHJvdmVkIiwiaWF0IjoxNzgzNzY1MzI4LCJleHAiOjE3ODQzNzAxMjh9.r4psTwpb0TbOt2LcE9BqgTYRcu-XF_RqttOy6bggZos
+
+
+### ============================================================
+### ✅ ADMIN ENDPOINTS
+### ============================================================
+
+### 3.1 Switch AI Provider (Admin Only)
+POST http://localhost:5000/api/ai/switch-provider
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDc5YzlmNWZkYzUxZDY1MTVkYjQyYiIsInJvbGUiOiJhZG1pbiIsInZlcmlmaWNhdGlvblN0YXR1cyI6ImFwcHJvdmVkIiwiaWF0IjoxNzgzNzY1ODYyLCJleHAiOjE3ODQzNzA2NjJ9.7C07bZAcCb_3L00ne4TbOEG1O3wlumDdVlCSdSiOP3k
+{
+  "provider": "gemini"
+}

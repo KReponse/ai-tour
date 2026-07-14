@@ -1,45 +1,84 @@
-const express =
-  require('express');
+// backend/src/routes/tourRoutes.js
 
-const router =
-  express.Router();
-
-const {
+import express from 'express';
+import upload from '../middleware/upload.js';
+import {
   createTour,
   getTours,
-} = require(
-  '../controllers/tourController'
-);
+  getSingleTour,
+  getProviderTours,
+  getAllTours,
+  getPendingTours,
+  approveTour,
+  rejectTour,
+  deleteTour,
+  toggleLike,
+  getLikes,
+  checkLike,
+  getToursByLocation,
+  updateTour,
+  getPopularTours,
+} from '../controllers/tourController.js';
+import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
-const {
-  protect,
-} = require(
-  '../middleware/authMiddleware'
-);
+const router = express.Router();
 
-const {
-  authorizeRoles,
-} = require(
-  '../middleware/roleMiddleware'
-);
+// =========================
+// PUBLIC ROUTES
+// =========================
 
-/* ================= CREATE TOUR ================= */
+router.get('/', getTours);
+router.get('/popular', getPopularTours);
+router.get('/location/:location', getToursByLocation);
+
+router.get('/my', protect, getProviderTours);
+
+
+
+// =========================
+// LIKES ROUTES (Protected)
+// =========================
+
+router.post('/:id/like', protect, toggleLike);
+router.get('/:id/likes', getLikes);
+router.get('/:id/likes/check', protect, checkLike);
+
+// =========================
+// PROVIDER ROUTES (Protected)
+// =========================
+
+// ✅ id route LAST
+router.get('/:id', getSingleTour);
 
 router.post(
   '/',
   protect,
-  authorizeRoles(
-    'provider',
-    'admin'
-  ),
+  upload.fields([
+    { name: 'coverImage', maxCount: 1 },
+    { name: 'galleryImages', maxCount: 15 },
+    { name: 'videos', maxCount: 3 }
+  ]),
   createTour
 );
 
-/* ================= GET TOURS ================= */
-
-router.get(
-  '/',
-  getTours
+router.put(
+  '/:id',
+  protect,
+  upload.fields([
+    { name: 'coverImage', maxCount: 1 },
+    { name: 'galleryImages', maxCount: 15 },
+    { name: 'videos', maxCount: 3 }
+  ]),
+  updateTour
 );
+// =========================
+// ADMIN ROUTES (Protected + Admin Only)
+// =========================
 
-module.exports = router;
+router.get('/admin/all', protect, adminOnly, getAllTours);
+router.get('/admin/pending', protect, adminOnly, getPendingTours);
+router.put('/admin/:id/approve', protect, adminOnly, approveTour);
+router.put('/admin/:id/reject', protect, adminOnly, rejectTour);
+router.delete('/admin/:id', protect, adminOnly, deleteTour);
+
+export default router;

@@ -1,42 +1,86 @@
-const mongoose =
-  require('mongoose');
+// backend/src/models/User.js
+import mongoose from "mongoose";
 
-const userSchema =
-  new mongoose.Schema(
-    {
-      name: {
-        type: String,
-        required: true,
-      },
+const userSchema = new mongoose.Schema(
+{
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true  // ← This creates an index
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String
+  },
+  country: {
+    type: String
+  },
+  avatar: {
+    type: String,
+    default: ""
+  },
+ role: {
+  type: String,
+  enum: ["traveler", "provider", "admin"],
+  default: "traveler"
+},
+  verificationStatus: {
+    type: String,
+    enum: ["pending", "approved", "rejected", "needs_information"],
+    default: "pending"
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  providerApprovedDate: {
+    type: Date
+  },
+  lastLogin: {
+    type: Date
+  },
+  resetPasswordToken: {
+    type: String
+  },
+  resetPasswordExpire: {
+    type: Date
+  },
+  bio: {
+    type: String,
+    trim: true
+  },
+  location: {
+    type: String,
+    trim: true
+  },
+  socialLinks: {
+    instagram: String,
+    facebook: String,
+    linkedin: String,
+    tiktok: String,
+    twitter: String,
+    youtube: String
+  }
+},
+{
+  timestamps: true
+});
 
-      email: {
-        type: String,
-        required: true,
-        unique: true,
-      },
+// =========================
+// INDEXES - Remove duplicate email index
+// =========================
 
-      password: {
-        type: String,
-        required: true,
-      },
+// Only add indexes that are NOT already defined in schema
+userSchema.index({ role: 1 });
+userSchema.index({ verificationStatus: 1 });
+// email index is already created by 'unique: true'
+// No need for: userSchema.index({ email: 1 });
 
-      role: {
-        type: String,
-        enum: [
-          'user',
-          'provider',
-          'admin',
-        ],
-        default: 'user',
-      },
-    },
-    {
-      timestamps: true,
-    }
-  );
-
-module.exports =
-  mongoose.model(
-    'User',
-    userSchema
-  );
+export default mongoose.model("User", userSchema);
