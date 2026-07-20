@@ -10,6 +10,7 @@ BASE API INSTANCE
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
 });
+
 /* =========================
 AUTO ATTACH TOKEN
 ========================= */
@@ -74,6 +75,19 @@ export const loginUser = async (userData) => {
       }
     }
 
+    return data;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+/* =========================
+VERIFY EMAIL
+========================= */
+
+export const verifyEmail = async (token) => {
+  try {
+    const { data } = await API.get(`/auth/verify-email/${token}`);
     return data;
   } catch (error) {
     handleError(error);
@@ -159,7 +173,7 @@ export const logoutUser = () => {
 };
 
 /* =========================
-REFRESH TOKEN - FIXED variable name
+REFRESH TOKEN
 ========================= */
 
 export const refreshAccessToken = async () => {

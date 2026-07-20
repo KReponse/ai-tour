@@ -119,6 +119,7 @@ import PrivacySettings from './pages/admin/PrivacySettings';
 import TermsSettings from './pages/admin/TermsSettings';
 import CareersSettings from './pages/admin/CareersSettings';
 import BlogSettings from './pages/admin/BlogSettings';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
@@ -143,6 +144,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/provider/:providerId" element={<PublicProfile />} />

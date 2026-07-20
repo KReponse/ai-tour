@@ -4,7 +4,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import User from "../models/User.js";
-import sendEmail from "../config/services/emailService.js";
+import sendEmail from "../config/services/emailService.js";  // ✅ Fixed import path
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -412,13 +412,10 @@ export const loginUser = async (req, res) => {
     await user.updateLastLogin(clientIP);
 
     // ─── Check for existing refresh token (reuse detection) ─────
-    // If user has an existing valid refresh token, this could be a replay attack
     if (user.refreshTokenId) {
-      // Check if the token is blacklisted (reuse detection)
       const isBlacklisted = await isTokenBlacklisted(user.refreshTokenId);
       if (!isBlacklisted) {
-        // ✅ Token is still valid - blacklist it to prevent reuse
-        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60); // 7 days
+        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60);
         await user.blacklistToken(user.refreshTokenId, 'login_reuse');
       }
     }
@@ -472,7 +469,6 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Verify refresh token using tokenUtils ──────────────────
     const verification = verifyToken(token, TOKEN_TYPES.REFRESH);
 
     if (!verification.valid) {
@@ -489,7 +485,6 @@ export const refreshToken = async (req, res) => {
 
     const decoded = verification.decoded;
 
-    // ─── Find user with refresh token fields ────────────────────
     const user = await User.findById(decoded.id)
       .select("+refreshTokenHash +refreshTokenId +refreshTokenExpiry +tokenVersion");
 
@@ -501,7 +496,6 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Check if user is active ─────────────────────────────────
     if (!user.isActive) {
       return res.status(401).json({
         success: false,
@@ -510,7 +504,6 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Check token version ─────────────────────────────────────
     if (decoded.version && user.tokenVersion && decoded.version !== user.tokenVersion) {
       return res.status(401).json({
         success: false,
@@ -519,10 +512,8 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Verify refresh token matches stored hash ───────────────
     const hashedToken = hashToken(token);
     if (!user.verifyRefreshToken(hashedToken)) {
-      // ✅ Token doesn't match - possible reuse attack
       await user.blacklistToken(decoded.jti, 'reuse_attempt');
       return res.status(401).json({
         success: false,
@@ -531,7 +522,6 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Check refresh token expiry ──────────────────────────────
     if (user.refreshTokenExpiry && user.refreshTokenExpiry < new Date()) {
       return res.status(401).json({
         success: false,
@@ -540,15 +530,12 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    // ─── Blacklist the used refresh token (prevent reuse) ──────
     await user.blacklistToken(decoded.jti, 'refresh_used');
-    await blacklistToken(decoded.jti, 7 * 24 * 60 * 60); // 7 days
+    await blacklistToken(decoded.jti, 7 * 24 * 60 * 60);
 
-    // ─── Generate new tokens ─────────────────────────────────────
     const accessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
-    // ─── Store new refresh token securely ────────────────────────
     const hashedNewRefreshToken = hashToken(newRefreshToken);
     const decodedNewRefresh = verifyToken(newRefreshToken, TOKEN_TYPES.REFRESH);
     const newRefreshTokenId = decodedNewRefresh.valid ? decodedNewRefresh.decoded.jti : null;
@@ -590,22 +577,17 @@ export const logout = async (req, res) => {
       });
     }
 
-    // ─── Get user with refresh token fields ─────────────────────
     const user = await User.findById(req.user._id)
       .select("+refreshTokenId");
 
     if (user) {
-      // ─── Blacklist the refresh token ───────────────────────────
       if (user.refreshTokenId) {
         await user.blacklistToken(user.refreshTokenId, 'logout');
-        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60); // 7 days
+        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60);
       }
-
-      // ─── Clear refresh token ────────────────────────────────────
       await user.clearRefreshToken();
     }
 
-    // ─── Clear cookie if used ────────────────────────────────────
     res.clearCookie("token");
 
     res.status(200).json({
@@ -647,14 +629,12 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // ─── Generate reset token ────────────────────────────────────
     const reset = generateResetToken();
 
     user.resetPasswordToken = reset.hashedToken;
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
-    // ─── Send reset email ────────────────────────────────────────
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${reset.token}`;
 
     await sendEmail(
@@ -732,7 +712,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // ─── Find user with valid reset token ────────────────────────
     const hashedToken = hashToken(token);
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
@@ -746,25 +725,17 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // ─── Hash new password ───────────────────────────────────────
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ─── Update user ─────────────────────────────────────────────
     user.password = hashedPassword;
     user.passwordChangedAt = new Date();
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
-    
-    // ✅ Invalidate all refresh tokens
     await user.invalidateAllRefreshTokens();
-    
-    // ✅ Increment token version to invalidate all access tokens
     await user.incrementTokenVersion();
-
     await user.save();
 
-    // ─── Notify user ─────────────────────────────────────────────
     await sendEmail(
       user.email,
       "AI Tour - Password Changed",
@@ -819,7 +790,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // ─── Get user with password ──────────────────────────────────
     const user = await User.findById(req.user._id).select("+password");
 
     if (!user) {
@@ -829,7 +799,6 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // ─── Verify current password ─────────────────────────────────
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -838,19 +807,13 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // ─── Hash new password ───────────────────────────────────────
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     user.password = hashedPassword;
     user.passwordChangedAt = new Date();
-    
-    // ✅ Invalidate all refresh tokens
     await user.invalidateAllRefreshTokens();
-    
-    // ✅ Increment token version to invalidate all access tokens
     await user.incrementTokenVersion();
-
     await user.save();
 
     res.status(200).json({
@@ -935,7 +898,7 @@ export const updateProfile = async (req, res) => {
 };
 
 // =========================
-// ✅ INTROSPECT TOKEN (for token validation)
+// ✅ INTROSPECT TOKEN
 // =========================
 
 export const introspectToken = async (req, res) => {
@@ -958,7 +921,6 @@ export const introspectToken = async (req, res) => {
     if (verification.valid) {
       const decoded = verification.decoded;
       
-      // Check blacklist if jti exists
       if (decoded.jti) {
         isBlacklisted = await isTokenBlacklisted(decoded.jti);
       }
