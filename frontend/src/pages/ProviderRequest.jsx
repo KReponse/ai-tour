@@ -1,4 +1,5 @@
 // src/pages/ProviderRequest.jsx
+// ✅ UPDATED - Increased button sizes and improved UI
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
@@ -667,8 +668,9 @@ const ProviderRequest = () => {
           <span className="text-[#0D9488] dark:text-[#0D9488] font-bold">💡 What's next?</span><br />
           Our admin team will review your application. You will receive a notification via email and on your dashboard once your request is processed.
         </div>
-        <button onClick={() => navigate("/provider/status")} className="w-full h-12 border-none rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-sm cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.02] transition">
-          View Application Status <ArrowRight size={18} />
+        {/* ✅ UPDATED: Larger success button */}
+        <button onClick={() => navigate("/provider/status")} className="w-full h-14 border-none rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-base cursor-pointer flex items-center justify-center gap-2.5 shadow-xl shadow-[#0D9488]/30 hover:scale-[1.03] transition-all duration-300">
+          View Application Status <ArrowRight size={20} />
         </button>
       </div>
     </div>
@@ -750,17 +752,17 @@ const ProviderRequest = () => {
               <p className="text-sm text-red-700 dark:text-red-300 mb-3 leading-relaxed">
                 <strong>Your application was rejected.</strong> Please review the admin notes above and submit a new application with updated information.
               </p>
+              {/* ✅ UPDATED: Larger reapply button */}
               <button
                 onClick={() => {
-                  // ✅ Reset form and allow reapplication
                   setForm(EMPTY_FORM);
                   setStep(1);
                   setExisting(null);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full h-12 border-none rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-sm cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#0D9488]/40 hover:scale-[1.02] transition"
+                className="w-full h-14 border-none rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-base cursor-pointer flex items-center justify-center gap-2.5 shadow-xl shadow-[#0D9488]/30 hover:scale-[1.03] transition-all duration-300"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={18} />
                 Reapply Now
               </button>
             </div>
@@ -770,7 +772,7 @@ const ProviderRequest = () => {
           {s.action !== "reapply" && (
             <button 
               onClick={() => navigate("/provider/status")} 
-              className="mt-6 w-full h-12 border-none rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-sm cursor-pointer hover:scale-[1.02] transition"
+              className="mt-6 w-full h-14 border-none rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-base cursor-pointer hover:scale-[1.03] transition-all duration-300 shadow-xl shadow-[#0D9488]/30"
             >
               Check Status
             </button>
@@ -1076,26 +1078,45 @@ const ProviderRequest = () => {
         </div>
       )}
 
-      {/* Navigation buttons */}
-      <div className="flex gap-3 mt-5">
+      {/* ================================================================
+          ✅ UPDATED: Navigation buttons with increased size and improved UI
+          ================================================================ */}
+      <div className="flex gap-4 mt-6">
         {step > 1 && (
-          <button onClick={prevStep} className="flex-none h-13 px-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-[#374151] dark:text-white font-bold text-sm cursor-pointer flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition font-sans">
-            <ArrowLeft size={17} /> Back
+          <button 
+            onClick={prevStep} 
+            className="flex-none h-14 px-8 border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-900 text-[#374151] dark:text-white font-bold text-base cursor-pointer flex items-center gap-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-[#0D9488] dark:hover:border-[#0D9488] transition-all duration-300 shadow-sm hover:shadow-md font-sans"
+          >
+            <ArrowLeft size={18} /> Back
           </button>
         )}
 
         {step < 6 ? (
-          <button onClick={nextStep} className="flex-1 h-13 border-none rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-sm cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#0D9488]/40 hover:scale-[1.02] transition font-sans">
-            Continue <ArrowRight size={17} />
+          <button 
+            onClick={nextStep} 
+            className="flex-1 h-14 border-none rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-extrabold text-base cursor-pointer flex items-center justify-center gap-2.5 shadow-xl shadow-[#0D9488]/30 hover:scale-[1.03] hover:shadow-2xl transition-all duration-300 font-sans"
+          >
+            Continue <ArrowRight size={18} />
           </button>
         ) : (
-          <button onClick={submit} disabled={submitting} className={`flex-1 h-13 border-none rounded-xl font-extrabold text-sm cursor-pointer flex items-center justify-center gap-2 transition font-sans ${submitting ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-lg shadow-[#0D9488]/40 hover:scale-[1.02]'}`}>
-            {submitting ? <><Loader2 size={18} className="animate-spin" /> Submitting...</> : <>Submit Application <ArrowRight size={17} /></>}
+          <button 
+            onClick={submit} 
+            disabled={submitting} 
+            className={`flex-1 h-14 border-none rounded-2xl font-extrabold text-base cursor-pointer flex items-center justify-center gap-2.5 transition-all duration-300 font-sans ${submitting 
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+              : 'bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-xl shadow-[#0D9488]/30 hover:scale-[1.03] hover:shadow-2xl'
+            }`}
+          >
+            {submitting ? (
+              <><Loader2 size={18} className="animate-spin" /> Submitting...</>
+            ) : (
+              <>Submit Application <ArrowRight size={18} /></>
+            )}
           </button>
         )}
       </div>
 
-      <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
+      <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-5">
         Step {step} of {STEPS.length} — {STEPS[step - 1].label}
       </p>
     </div>

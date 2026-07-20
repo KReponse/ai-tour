@@ -1,8 +1,8 @@
-// frontend/src/pages/ListingDetails.jsx
-// ✅ UPDATED - Fixed review section to work with Listing architecture
+// src/pages/ListingDetails.jsx
+// ✅ UPDATED - Uses new ProviderCard component with WhatsApp contact
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   MapPin,
   Clock,
@@ -58,8 +58,8 @@ import { getTourReviews, createReview, toggleHelpful } from '../services/reviewS
 import { createBooking } from '../services/bookingService';
 import { BIZ_CONFIG, getBusinessConfig } from '../config/listingConfigs';
 import ReviewCard from '../components/ReviewCard';
-import ReviewForm from '../components/ReviewForm';
-
+// ✅ Import the new ProviderCard component
+import ProviderCard from '../components/provider/ProviderCard';
 
 // ─── Brand tokens ───────────────────────────────────────────────
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -71,6 +71,13 @@ const toUrl = (img) => {
   return `${API_URL}/uploads/${img}`;
 };
 
+const toVideoUrl = (v) => {
+  if (!v) return '';
+  if (v.startsWith('http') || v.startsWith('/')) return v;
+  return `${API_URL}/uploads/${v}`;
+};
+
+// ✅ UPDATED: Build gallery with coverMediaType support
 const buildGallery = (listing) => {
   const seen = new Set();
   const push = (src) => {
@@ -78,21 +85,56 @@ const buildGallery = (listing) => {
     return false;
   };
   const out = [];
-  if (push(listing.coverImage)) out.push(listing.coverImage);
+  
+  // ✅ If coverMediaType is 'image', show cover media first
+  if (listing.coverMediaType === 'image' && listing.coverMedia) {
+    if (push(listing.coverMedia)) out.push(listing.coverMedia);
+  } else if (listing.coverMediaType !== 'video' && listing.coverImage) {
+    // Fallback: if coverMediaType is not 'video', use coverImage
+    if (push(listing.coverImage)) out.push(listing.coverImage);
+  }
+  
+  // ✅ Add gallery images
   (listing.galleryImages || []).forEach(i => push(i) && out.push(i));
   return out;
 };
 
+// ✅ UPDATED: Build videos with cover video support
 const buildVideos = (listing) => {
-  if (Array.isArray(listing.videos) && listing.videos.length) return listing.videos;
-  if (listing.video) return [listing.video];
-  return [];
+  const videos = [];
+  
+  // ✅ If coverMediaType is 'video', add cover video first
+  if (listing.coverMediaType === 'video' && listing.coverMedia) {
+    videos.push(listing.coverMedia);
+  }
+  
+  // ✅ Add gallery videos
+  if (Array.isArray(listing.videos) && listing.videos.length) {
+    listing.videos.forEach(v => {
+      // Avoid duplicates if cover video is already in videos array
+      if (v !== listing.coverMedia) {
+        videos.push(v);
+      }
+    });
+  }
+  
+  // Fallback: if no cover video but video exists
+  if (videos.length === 0 && listing.video) {
+    videos.push(listing.video);
+  }
+  
+  return videos;
 };
 
-const toVideoUrl = (v) => {
-  if (!v) return '';
-  if (v.startsWith('http') || v.startsWith('/')) return v;
-  return `${API_URL}/uploads/${v}`;
+// ✅ NEW: Get cover media info
+const getCoverMediaInfo = (listing) => {
+  if (!listing) return null;
+  return {
+    url: listing.coverMedia || listing.coverImage || null,
+    type: listing.coverMediaType || 'image',
+    isVideo: listing.coverMediaType === 'video',
+    isImage: listing.coverMediaType === 'image' || !listing.coverMediaType,
+  };
 };
 
 // ─── Get Business Config ────────────────────────────────────────
@@ -112,31 +154,89 @@ const getBusinessLabel = (businessType) => {
 const HeroMediaArea = ({
   images = [],
   videos = [],
+  coverMedia = null,
+  coverMediaType = 'image',
   title = '',
-  initialIndex = 0,
-  onIndexChange,
+  imageIndex = 0,
+  videoIndex = 0,
+  onImageIndexChange,
+  onVideoIndexChange,
+  activeMediaType = 'image',
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(true);
 
-  const allMedia = [...images, ...videos.map(v => ({ video: true, url: v }))];
-  const currentItem = allMedia[currentIndex] || allMedia[0] || null;
+  // ✅ Build image list (cover image + gallery images)
+  const imageList = [];
+  if (coverMedia && coverMediaType === 'image') {
+    imageList.push({ url: coverMedia, isCover: true, isVideo: false });
+  }
+  images.forEach(img => {
+    if (img) {
+      imageList.push({ url: img, isCover: false, isVideo: false });
+    }
+  });
 
-  useEffect(() => {
-    setCurrentIndex(initialIndex);
-  }, [initialIndex]);
+  // ✅ Build video list (cover video + gallery videos)
+  const videoList = [];
+  if (coverMedia && coverMediaType === 'video') {
+    videoList.push({ url: coverMedia, isCover: true, isVideo: true });
+  }
+  videos.forEach(v => {
+    if (v && v !== coverMedia) {
+      videoList.push({ url: v, isCover: false, isVideo: true });
+    }
+  });
 
-  const handlePrev = () => {
-    const newIndex = (currentIndex - 1 + allMedia.length) % allMedia.length;
-    setCurrentIndex(newIndex);
-    if (onIndexChange) onIndexChange(newIndex);
+  // ✅ Determine which item to show based on activeMediaType
+  const getCurrentItem = () => {
+    if (activeMediaType === 'video' && videoList.length > 0) {
+      const idx = Math.min(videoIndex, videoList.length - 1);
+      return videoList[idx] || null;
+    }
+    if (activeMediaType === 'image' && imageList.length > 0) {
+      const idx = Math.min(imageIndex, imageList.length - 1);
+      return imageList[idx] || null;
+    }
+    // Fallback: show first available
+    if (imageList.length > 0) return imageList[0];
+    if (videoList.length > 0) return videoList[0];
+    return null;
   };
 
-  const handleNext = () => {
-    const newIndex = (currentIndex + 1) % allMedia.length;
-    setCurrentIndex(newIndex);
-    if (onIndexChange) onIndexChange(newIndex);
+  const currentItem = getCurrentItem();
+
+  // ✅ Reset video states when item changes
+  useEffect(() => {
+    setVideoError(false);
+    setVideoLoading(true);
+  }, [currentItem?.url]);
+
+  // ✅ Navigation for images
+  const handleImagePrev = () => {
+    if (imageList.length <= 1) return;
+    const newIndex = (imageIndex - 1 + imageList.length) % imageList.length;
+    if (onImageIndexChange) onImageIndexChange(newIndex);
+  };
+
+  const handleImageNext = () => {
+    if (imageList.length <= 1) return;
+    const newIndex = (imageIndex + 1) % imageList.length;
+    if (onImageIndexChange) onImageIndexChange(newIndex);
+  };
+
+  // ✅ Navigation for videos
+  const handleVideoPrev = () => {
+    if (videoList.length <= 1) return;
+    const newIndex = (videoIndex - 1 + videoList.length) % videoList.length;
+    if (onVideoIndexChange) onVideoIndexChange(newIndex);
+  };
+
+  const handleVideoNext = () => {
+    if (videoList.length <= 1) return;
+    const newIndex = (videoIndex + 1) % videoList.length;
+    if (onVideoIndexChange) onVideoIndexChange(newIndex);
   };
 
   const renderMedia = () => {
@@ -149,26 +249,109 @@ const HeroMediaArea = ({
       );
     }
 
-    if (currentItem.video) {
+    // ✅ VIDEO RENDERING
+    if (currentItem.isVideo) {
+      const videoSrc = toVideoUrl(currentItem.url);
+      const totalVideos = videoList.length;
+      const currentVideoIndex = videoList.findIndex(v => v.url === currentItem.url);
+      
       return (
         <div className="relative w-full h-[400px] bg-black rounded-2xl overflow-hidden">
-          <video
-            src={toVideoUrl(currentItem.url)}
-            className="w-full h-full object-contain"
-            controls
-            autoPlay
-            playsInline
-          />
+          {videoLoading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 border-3 border-[#0D9488] border-t-transparent rounded-full animate-spin" />
+                <span className="text-white/60 text-sm">Loading video...</span>
+              </div>
+            </div>
+          )}
+          {videoSrc && !videoError ? (
+            <video
+              key={videoSrc}
+              src={videoSrc}
+              className="w-full h-full object-contain"
+              controls
+              autoPlay
+              muted
+              playsInline
+              onError={(e) => {
+                console.error('❌ Video error:', videoSrc, e);
+                setVideoError(true);
+                setVideoLoading(false);
+              }}
+              onLoadedData={() => {
+                setVideoLoading(false);
+                setVideoError(false);
+              }}
+              onWaiting={() => setVideoLoading(true)}
+              onCanPlay={() => setVideoLoading(false)}
+              poster={imageList.length > 0 ? toUrl(imageList[0].url) : undefined}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-800">
+              <div className="text-center text-white">
+                <Video className="w-16 h-16 mx-auto mb-4 text-gray-500" />
+                <p className="text-gray-400">Video unavailable</p>
+                <button 
+                  onClick={() => {
+                    setVideoError(false);
+                    setVideoLoading(true);
+                  }}
+                  className="mt-4 px-4 py-2 bg-[#0D9488] rounded-lg text-sm hover:bg-[#0f766e] transition"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+          {currentItem.isCover && !videoError && (
+            <div className="absolute top-4 left-4 bg-[#0D9488]/80 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+              <Play className="w-3 h-3" />
+              Cover Video
+            </div>
+          )}
+          {!videoError && (
+            <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+              <Play className="w-3 h-3" />
+              Video {currentVideoIndex + 1}/{totalVideos}
+            </div>
+          )}
+          {/* Video Navigation Arrows */}
+          {totalVideos > 1 && (
+            <>
+              <button
+                onClick={handleVideoPrev}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition z-10"
+                aria-label="Previous video"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={handleVideoNext}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition z-10"
+                aria-label="Next video"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
         </div>
       );
     }
 
+    // ✅ IMAGE RENDERING
+    const totalImages = imageList.length;
+    const currentImageIndex = imageList.findIndex(v => v.url === currentItem.url);
+    
     return (
       <div className="relative w-full h-[400px] bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden">
         <img
-          src={toUrl(currentItem)}
+          src={toUrl(currentItem.url)}
           alt={title}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = '/placeholder-tour.jpg';
+          }}
         />
         <button
           onClick={() => setIsModalOpen(true)}
@@ -176,50 +359,68 @@ const HeroMediaArea = ({
         >
           <Maximize className="w-5 h-5" />
         </button>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <div className="relative">
-        {renderMedia()}
-        
-        {allMedia.length > 1 && (
+        {currentItem.isCover && (
+          <div className="absolute top-4 left-4 bg-[#0D9488]/80 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+            <ImageIcon className="w-3 h-3" />
+            Cover Image
+          </div>
+        )}
+        {/* Image Navigation Arrows */}
+        {totalImages > 1 && (
           <>
             <button
-              onClick={handlePrev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition"
+              onClick={handleImagePrev}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition z-10"
+              aria-label="Previous image"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
-              onClick={handleNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition"
+              onClick={handleImageNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition z-10"
+              aria-label="Next image"
             >
               <ChevronRight className="w-6 h-6" />
             </button>
           </>
         )}
+        {/* Image counter */}
+        {totalImages > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+            {imageList.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  if (onImageIndexChange) onImageIndexChange(index);
+                }}
+                className={`w-2 h-2 rounded-full transition ${
+                  index === currentImageIndex ? 'bg-white w-4' : 'bg-white/50'
+                }`}
+                aria-label={`Go to image ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {allMedia.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                setCurrentIndex(index);
-                if (onIndexChange) onIndexChange(index);
-              }}
-              className={`w-2 h-2 rounded-full transition ${
-                index === currentIndex ? 'bg-white w-4' : 'bg-white/50'
-              }`}
-            />
-          ))}
-        </div>
+  if (imageList.length === 0 && videoList.length === 0) {
+    return (
+      <div className="w-full h-[400px] bg-gray-200 dark:bg-gray-800 flex items-center justify-center rounded-2xl">
+        <ImageIcon className="w-16 h-16 text-gray-400" />
+        <span className="ml-2 text-gray-400">No media available</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative">
+        {renderMedia()}
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
+      {isModalOpen && currentItem && !currentItem.isVideo && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="relative max-w-4xl w-full">
             <button
@@ -229,7 +430,7 @@ const HeroMediaArea = ({
               <X className="w-6 h-6" />
             </button>
             <img
-              src={toUrl(currentItem)}
+              src={toUrl(currentItem.url)}
               alt={title}
               className="w-full h-auto max-h-[80vh] object-contain rounded-2xl"
             />
@@ -243,28 +444,85 @@ const HeroMediaArea = ({
 // ================================================================
 // GALLERY THUMBNAILS
 // ================================================================
-const GalleryThumbnails = ({ images = [], onSelect, title = '' }) => {
-  if (images.length <= 1) return null;
+const GalleryThumbnails = ({ 
+  images = [], 
+  onSelect, 
+  title = '',
+  coverMedia = null,
+  coverMediaType = 'image',
+  selectedIndex = 0,
+}) => {
+  // ✅ Build thumbnail items including cover media
+  const buildThumbnails = () => {
+    const items = [];
+    
+    // ✅ Add cover media first if it's an image
+    if (coverMedia && coverMediaType === 'image') {
+      items.push({
+        url: coverMedia,
+        isCover: true,
+        thumbnail: toUrl(coverMedia),
+      });
+    }
+    
+    // ✅ Add gallery images
+    images.forEach(img => {
+      if (img) {
+        items.push({
+          url: img,
+          isCover: false,
+          thumbnail: toUrl(img),
+        });
+      }
+    });
+    
+    return items;
+  };
+
+  const thumbnails = buildThumbnails();
+  
+  if (thumbnails.length <= 1) return null;
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-4 border border-gray-100 dark:border-gray-800">
       <div className="flex items-center gap-2 mb-3">
         <Camera className="w-5 h-5 text-[#0D9488]" />
         <h3 className="font-semibold text-[#374151] dark:text-white">Gallery</h3>
-        <span className="text-sm text-gray-400">({images.length} photos)</span>
+        <span className="text-sm text-gray-400">({thumbnails.length} photos)</span>
+        {coverMediaType === 'video' && (
+          <span className="text-xs text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Play className="w-3 h-3" />
+            Video Cover
+          </span>
+        )}
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
-        {images.map((img, index) => (
+        {thumbnails.map((item, index) => (
           <button
             key={index}
             onClick={() => onSelect(index)}
-            className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden snap-start hover:ring-2 hover:ring-[#0D9488] transition"
+            className={`flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden snap-start transition relative group ${
+              index === selectedIndex 
+                ? 'ring-2 ring-[#0D9488] ring-offset-2 ring-offset-white dark:ring-offset-gray-900' 
+                : 'hover:ring-2 hover:ring-[#0D9488]'
+            }`}
           >
             <img
-              src={toUrl(img)}
+              src={item.thumbnail}
               alt={`${title} - ${index + 1}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=200&h=200&fit=crop';
+              }}
             />
+            {item.isCover && (
+              <div className="absolute top-1 left-1 bg-[#0D9488]/80 text-white text-[8px] px-1.5 py-0.5 rounded">
+                Cover
+              </div>
+            )}
+            {index === selectedIndex && (
+              <div className="absolute inset-0 border-2 border-[#0D9488] rounded-xl" />
+            )}
           </button>
         ))}
       </div>
@@ -275,28 +533,80 @@ const GalleryThumbnails = ({ images = [], onSelect, title = '' }) => {
 // ================================================================
 // VIDEO GALLERY
 // ================================================================
-const VideoGallery = ({ videos = [], onSelect }) => {
-  if (videos.length === 0) return null;
+const VideoGallery = ({ videos = [], onSelect, coverVideo = null, selectedIndex = 0 }) => {
+  // ✅ Build video list with cover video first if exists
+  const videoList = [];
+  
+  // Add cover video first
+  if (coverVideo) {
+    videoList.push({ url: coverVideo, isCover: true });
+  }
+  
+  // Add gallery videos (avoid duplicates)
+  videos.forEach(v => {
+    if (v !== coverVideo) {
+      videoList.push({ url: v, isCover: false });
+    }
+  });
+  
+  if (videoList.length === 0) return null;
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-4 border border-gray-100 dark:border-gray-800">
       <div className="flex items-center gap-2 mb-3">
         <Video className="w-5 h-5 text-[#0D9488]" />
         <h3 className="font-semibold text-[#374151] dark:text-white">Videos</h3>
-        <span className="text-sm text-gray-400">({videos.length} videos)</span>
+        <span className="text-sm text-gray-400">({videoList.length} videos)</span>
+        {coverVideo && (
+          <span className="text-xs text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Play className="w-3 h-3" />
+            Cover Video
+          </span>
+        )}
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
-        {videos.map((video, index) => (
+        {videoList.map((video, index) => (
           <button
             key={index}
             onClick={() => onSelect(index)}
-            className="flex-shrink-0 w-48 rounded-xl overflow-hidden snap-start hover:ring-2 hover:ring-[#0D9488] transition relative group"
+            className={`flex-shrink-0 w-48 rounded-xl overflow-hidden snap-start transition relative group ${
+              index === selectedIndex 
+                ? 'ring-2 ring-[#0D9488] ring-offset-2 ring-offset-white dark:ring-offset-gray-900' 
+                : 'hover:ring-2 hover:ring-[#0D9488]'
+            }`}
           >
             <div className="relative w-full h-28 bg-gray-800">
-              <Play className="absolute inset-0 m-auto w-8 h-8 text-white/80 group-hover:text-white transition" />
-              <div className="absolute bottom-1 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+              <video
+                src={toVideoUrl(video.url)}
+                className="w-full h-full object-cover"
+                muted
+                preload="metadata"
+                playsInline
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+              
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition">
+                <div className="w-12 h-12 rounded-full bg-[#0D9488]/80 backdrop-blur flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Play className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              
+              {video.isCover && (
+                <div className="absolute top-2 left-2 bg-[#0D9488]/80 text-white text-[10px] px-2 py-0.5 rounded">
+                  Cover
+                </div>
+              )}
+              
+              <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                <Play className="w-3 h-3" />
                 Video {index + 1}
               </div>
+
+              {index === selectedIndex && (
+                <div className="absolute inset-0 border-2 border-[#0D9488] rounded-xl" />
+              )}
             </div>
           </button>
         ))}
@@ -306,398 +616,60 @@ const VideoGallery = ({ videos = [], onSelect }) => {
 };
 
 // ================================================================
-// PROVIDER CARD - ENHANCED with Contact Modal
+// REVIEWS SECTION
 // ================================================================
-const ProviderCard = ({ provider }) => {
-  const [showContact, setShowContact] = useState(false);
-  const navigate = useNavigate();
-  const [publicProfile, setPublicProfile] = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-
-  if (!provider) return null;
-
-  const fetchPublicProfile = async () => {
-    try {
-      setLoadingProfile(true);
-      const data = await getPublicProviderProfile(provider._id);
-      if (data.success) {
-        setPublicProfile(data.provider);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching provider profile:", error);
-    } finally {
-      setLoadingProfile(false);
-    }
-  };
-
-  const handleOpenModal = () => {
-    setShowContact(true);
-    fetchPublicProfile();
-  };
-
-  const displayName = provider.businessName || provider.name || 'Provider';
-  const isVerified = provider.verificationStatus === 'approved' || provider.verified === true;
-  const rating = provider.averageRating || 0;
-  const totalReviews = provider.totalReviews || 0;
-  const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
-
-  return (
-    <>
-      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-              {provider.avatar ? (
-                <img
-                  src={provider.avatar}
-                  alt={displayName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                displayName.charAt(0).toUpperCase()
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-[#374151] dark:text-white truncate">
-                  {displayName}
-                </h3>
-                {isVerified && (
-                  <span className="flex items-center gap-1 text-[#0D9488] text-xs font-medium flex-shrink-0">
-                    <Verified className="w-4 h-4 fill-[#0D9488]" />
-                    Verified
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                <span>Provider</span>
-                {rating > 0 && (
-                  <span className="flex items-center gap-1 text-[#F59E0B]">
-                    <Star className="w-3.5 h-3.5 fill-[#F59E0B]" />
-                    <span className="font-medium text-[#374151] dark:text-white">
-                      {ratingDisplay}
-                    </span>
-                    <span className="text-gray-400 dark:text-gray-500 text-xs">
-                      ({totalReviews})
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleOpenModal}
-            className="px-5 py-2.5 rounded-xl bg-[#0D9488] text-white text-sm font-medium hover:bg-[#0f766e] transition flex-shrink-0 flex items-center gap-2 shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
-          >
-            <MessageCircle className="w-4 h-4" />
-            Contact
-          </button>
-        </div>
-      </div>
-
-      {/* Contact Modal */}
-      {showContact && (
-        <>
-          <div
-            onClick={() => setShowContact(false)}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto pointer-events-auto">
-              {loadingProfile ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
-                  <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading profile...</p>
-                </div>
-              ) : publicProfile ? (
-                <>
-                  {/* Header */}
-                  <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                          {publicProfile.avatar ? (
-                            <img src={publicProfile.avatar} alt={publicProfile.businessName} className="w-full h-full object-cover" />
-                          ) : (
-                            (publicProfile.businessName || "P").charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <h2 className="text-xl font-bold text-[#374151] dark:text-white">
-                            {publicProfile.businessName || publicProfile.name}
-                          </h2>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {publicProfile.verified && (
-                              <span className="flex items-center gap-1 text-[#0D9488] text-sm">
-                                <Verified className="w-4 h-4 fill-[#0D9488]" />
-                                Verified Provider
-                              </span>
-                            )}
-                            {publicProfile.averageRating > 0 && (
-                              <span className="flex items-center gap-1 text-sm">
-                                <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
-                                <span className="font-medium text-[#374151] dark:text-white">
-                                  {publicProfile.averageRating.toFixed(1)}
-                                </span>
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  ({publicProfile.totalReviews || 0} reviews)
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
-                            {publicProfile.city && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {publicProfile.city}{publicProfile.country ? `, ${publicProfile.country}` : ''}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Member since {new Date(publicProfile.createdAt).getFullYear()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setShowContact(false)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition flex-shrink-0"
-                      >
-                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  {publicProfile.description && (
-                    <div className="px-6 pt-4">
-                      <h4 className="text-sm font-semibold text-[#374151] dark:text-white mb-2">About</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                        {publicProfile.description}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Contact Info */}
-                  <div className="p-6 space-y-3">
-                    {publicProfile.email && (
-                      <a href={`mailto:${publicProfile.email}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
-                        <div className="w-9 h-9 rounded-xl bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
-                          <Mail className="w-4 h-4 text-[#0D9488]" />
-                        </div>
-                        <span className="text-[#374151] dark:text-white group-hover:text-[#0D9488] transition truncate">
-                          {publicProfile.email}
-                        </span>
-                      </a>
-                    )}
-                    {publicProfile.phone && (
-                      <a href={`tel:${publicProfile.phone}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
-                        <div className="w-9 h-9 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center flex-shrink-0">
-                          <Phone className="w-4 h-4 text-[#F59E0B]" />
-                        </div>
-                        <span className="text-[#374151] dark:text-white group-hover:text-[#F59E0B] transition">
-                          {publicProfile.phone}
-                        </span>
-                      </a>
-                    )}
-                    {publicProfile.website && (
-                      <a href={publicProfile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition group">
-                        <div className="w-9 h-9 rounded-xl bg-[#0D9488]/10 flex items-center justify-center flex-shrink-0">
-                          <Globe className="w-4 h-4 text-[#0D9488]" />
-                        </div>
-                        <span className="text-[#374151] dark:text-white group-hover:text-[#0D9488] transition truncate">
-                          {publicProfile.website.replace(/^https?:\/\//, '')}
-                        </span>
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Stats */}
-                  <div className="px-6 pb-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-center">
-                        <p className="text-2xl font-bold text-[#0D9488]">
-                          {publicProfile.totalTours || 0}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Active Tours</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800 text-center">
-                        <p className="text-2xl font-bold text-[#F59E0B]">
-                          {publicProfile.totalReviews || 0}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Reviews</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Buttons */}
-                  <div className="p-6 border-t border-gray-200 dark:border-gray-800 flex gap-3">
-                    <button
-                      onClick={() => {
-                        if (publicProfile.email) {
-                          window.location.href = `mailto:${publicProfile.email}`;
-                        }
-                      }}
-                      className="flex-1 py-3 rounded-xl bg-[#0D9488] text-white font-medium hover:bg-[#0f766e] transition flex items-center justify-center gap-2 shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300"
-                    >
-                      <Mail className="w-4 h-4" />
-                      Contact Provider
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowContact(false);
-                        navigate(`/provider/${publicProfile._id}`);
-                      }}
-                      className="flex-1 py-3 rounded-xl border-2 border-[#0D9488] text-[#0D9488] font-medium hover:bg-[#0D9488]/10 transition flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View Profile
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                  <p>Unable to load provider information</p>
-                  <button onClick={() => setShowContact(false)} className="mt-4 px-6 py-2 rounded-xl bg-[#0D9488] text-white">
-                    Close
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </>
-  );
-};
-
-// ================================================================
-// REVIEWS SECTION - ✅ UPDATED for Listing architecture
-// ================================================================
-const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
+const ReviewsSection = ({ listingId, onReviewAdded }) => {
   const { user } = useAuth();
-  const [showForm, setShowForm] = useState(false);
-  const [editingReview, setEditingReview] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [completedBookingId, setCompletedBookingId] = useState(null);
-  const [fetchingBooking, setFetchingBooking] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // ✅ Fetch user's completed booking for this listing
+  const fetchReviews = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getTourReviews(listingId);
+      const approvedReviews = (data.reviews || []).filter(r => r.status === 'approved' || !r.status);
+      const limitedReviews = approvedReviews.slice(0, 3);
+      setReviews(limitedReviews);
+      setTotalCount(approvedReviews.length);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      setReviews([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [listingId]);
+
   useEffect(() => {
-    if (user && listingId) {
-      fetchCompletedBooking();
-    }
-  }, [user, listingId]);
+    fetchReviews();
+  }, [fetchReviews]);
 
-  const fetchCompletedBooking = async () => {
+  const handleHelpfulToggle = async (reviewId) => {
     try {
-      setFetchingBooking(true);
-      const token = localStorage.getItem('token');
-      const { getMyBookings } = await import('../services/bookingService');
-      const data = await getMyBookings(token);
-      const bookings = data.bookings || [];
-      
-      // ✅ Find a completed booking for this listing
-      const completedBooking = bookings.find(
-        b => (b.listing?._id === listingId || b.listing === listingId) && 
-             b.status === 'completed' && 
-             b.paymentStatus === 'paid'
-      );
-      
-      if (completedBooking) {
-        setCompletedBookingId(completedBooking._id);
-        console.log('✅ Found completed booking:', completedBooking._id);
-      } else {
-        console.log('ℹ️ No completed booking found for this listing');
+      const result = await toggleHelpful(reviewId);
+      if (result) {
+        await fetchReviews();
       }
+      return result;
     } catch (error) {
-      console.error('Error fetching completed booking:', error);
-    } finally {
-      setFetchingBooking(false);
-    }
-  };
-
-  const getRatingDistribution = () => {
-    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    reviews.forEach(r => {
-      if (distribution[r.rating] !== undefined) {
-        distribution[r.rating]++;
-      }
-    });
-    return distribution;
-  };
-
-  const distribution = getRatingDistribution();
-  const totalReviews = reviews.length;
-  const averageRating = totalReviews > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
-    : 0;
-
-  // ✅ Check if user can write a review
-  const hasUserReviewed = user && reviews.some(r => r.user?._id === user._id);
-  const canWriteReview = user && !hasUserReviewed && completedBookingId;
-
-  const handleSubmitReview = async (data) => {
-    try {
-      setSubmitting(true);
-      
-      if (!completedBookingId) {
-        alert('You need to complete a booking for this experience before you can review it.');
-        setSubmitting(false);
-        return;
-      }
-      
-      if (editingReview) {
-        const { updateReview } = await import('../services/reviewService');
-        await updateReview(editingReview._id, {
-          rating: data.rating,
-          title: data.title || 'Great Experience!',
-          comment: data.comment,
-        });
-      } else {
-        // ✅ Create review using the completed booking ID
-        await createReview({
-          bookingId: completedBookingId,
-          listingId: listingId, // ✅ Pass listingId explicitly
-          rating: data.rating,
-          title: data.title || 'Great Experience!',
-          comment: data.comment,
-        });
-      }
-      
-      setShowForm(false);
-      setEditingReview(null);
-      onReviewAdded();
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      alert(error.response?.data?.message || 'Failed to submit review');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEditReview = (review) => {
-    setEditingReview(review);
-    setShowForm(true);
-  };
-
-  const handleDeleteReview = async (reviewId) => {
-    if (!confirm('Are you sure you want to delete this review?')) return;
-    
-    try {
-      const { deleteReview } = await import('../services/reviewService');
-      await deleteReview(reviewId);
-      onReviewAdded();
-    } catch (error) {
-      console.error('Error deleting review:', error);
-      alert('Failed to delete review');
+      console.error('Error toggling helpful:', error);
+      return false;
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-3 mb-6">
+          <MessageCircle className="w-6 h-6 text-[#0D9488]" />
+          <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
+            Travelers Say
+          </h2>
+        </div>
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-[#0D9488]" />
+        </div>
       </div>
     );
   }
@@ -710,103 +682,30 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
           <h2 className="text-2xl font-bold text-[#374151] dark:text-white">
             Travelers Say
           </h2>
-          {totalReviews > 0 && (
+          {totalCount > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              ({totalReviews} • ⭐ {averageRating})
+              ({totalCount} review{totalCount > 1 ? 's' : ''})
             </span>
           )}
         </div>
-        {canWriteReview && !showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 rounded-xl bg-[#0D9488] text-white text-sm font-medium hover:bg-[#0D9488]/80 transition"
+        {totalCount > 3 && (
+          <Link
+            to={`/reviews?listing=${listingId}`}
+            className="text-sm text-[#0D9488] hover:underline font-medium flex items-center gap-1"
           >
-            Write Review
-          </button>
-        )}
-        {showForm && (
-          <button
-            onClick={() => {
-              setShowForm(false);
-              setEditingReview(null);
-            }}
-            className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-          >
-            Cancel
-          </button>
+            View all reviews ({totalCount})
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         )}
       </div>
-
-      {totalReviews > 0 && (
-        <div className="mb-6 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-6 flex-wrap">
-            <div className="text-center">
-              <span className="text-4xl font-bold text-[#374151] dark:text-white">
-                {averageRating}
-              </span>
-              <div className="flex justify-center mt-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    className={`w-4 h-4 ${
-                      star <= Math.round(averageRating)
-                        ? 'text-[#F59E0B] fill-[#F59E0B]'
-                        : 'text-gray-300 dark:text-gray-600'
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{totalReviews} reviews</span>
-            </div>
-
-            <div className="flex-1 space-y-1">
-              {[5, 4, 3, 2, 1].map((star) => {
-                const count = distribution[star] || 0;
-                const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                return (
-                  <div key={star} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{star}★</span>
-                    <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#F59E0B] rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 w-8 text-right">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showForm && (
-        <div className="mb-6">
-          <ReviewForm
-            tourId={listingId}
-            bookingId={completedBookingId}
-            initialData={editingReview}
-            isEditing={!!editingReview}
-            onSubmit={handleSubmitReview}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingReview(null);
-            }}
-            isLoading={submitting}
-          />
-        </div>
-      )}
 
       {reviews.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <MessageCircle className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-          <p>No reviews yet. Be the first to share your experience!</p>
-          {user && !completedBookingId && (
-            <p className="text-xs text-gray-400 mt-2">
-              You need to complete a booking before you can review.
-            </p>
-          )}
+          <p>No reviews yet.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Be the first to share your experience!
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -815,9 +714,8 @@ const ReviewsSection = ({ listingId, reviews, onReviewAdded, loading }) => {
               key={review._id}
               review={review}
               showTourInfo={false}
-              onEdit={() => handleEditReview(review)}
-              onDelete={handleDeleteReview}
-              onHelpfulToggle={onReviewAdded}
+              showActions={false}
+              onHelpfulToggle={handleHelpfulToggle}
             />
           ))}
         </div>
@@ -864,13 +762,19 @@ const ListingTrustBadges = () => {
 const ListingDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('about');
-  const [heroIndex, setHeroIndex] = useState(0);
-  const [reviews, setReviews] = useState([]);
-  const [reviewLoading, setReviewLoading] = useState(false);
+  
+  // ✅ Read coverMediaType from navigation state
+  const initialMediaType = location.state?.coverMediaType || 'image';
+  
+  // ✅ Initialize state based on navigation
+  const [imageIndex, setImageIndex] = useState(0);
+  const [videoIndex, setVideoIndex] = useState(0);
+  const [activeMediaType, setActiveMediaType] = useState(initialMediaType);
 
   // ✅ Booking Modal State
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -897,7 +801,6 @@ const ListingDetails = () => {
       setLoading(true);
       const data = await getListingById(id);
       setListing(data.listing);
-      await fetchReviews();
     } catch (e) {
       console.error(e);
     } finally {
@@ -905,20 +808,10 @@ const ListingDetails = () => {
     }
   };
 
-  const fetchReviews = async () => {
-    try {
-      setReviewLoading(true);
-      const data = await getTourReviews(id);
-      setReviews(data.reviews || []);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    } finally {
-      setReviewLoading(false);
-    }
-  };
-
-  const handleGallerySelect = (index) => {
-    setHeroIndex(index);
+  // ✅ Separate handlers for image and video gallery
+  const handleImageSelect = (index) => {
+    setImageIndex(index);
+    setActiveMediaType('image');
     const heroElement = document.querySelector('.hero-media-container');
     if (heroElement) {
       heroElement.scrollIntoView({ behavior: 'smooth' });
@@ -926,12 +819,22 @@ const ListingDetails = () => {
   };
 
   const handleVideoSelect = (index) => {
-    const galleryLength = listing ? buildGallery(listing).length : 0;
-    setHeroIndex(galleryLength + index);
+    setVideoIndex(index);
+    setActiveMediaType('video');
     const heroElement = document.querySelector('.hero-media-container');
     if (heroElement) {
       heroElement.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const handleImageIndexChange = (index) => {
+    setImageIndex(index);
+    setActiveMediaType('image');
+  };
+
+  const handleVideoIndexChange = (index) => {
+    setVideoIndex(index);
+    setActiveMediaType('video');
   };
 
   // ✅ Handle Booking Submission
@@ -958,10 +861,7 @@ const ListingDetails = () => {
         specialRequests: ''
       };
 
-      console.log('📤 Creating booking:', bookingData);
-
       const response = await createBooking(bookingData);
-      console.log('✅ Booking created:', response);
 
       if (response.success && response.booking) {
         navigate(`/payment/${response.booking._id}`);
@@ -1013,8 +913,18 @@ const ListingDetails = () => {
     </div>
   );
 
+  // ✅ Get cover media info
+  const coverInfo = getCoverMediaInfo(listing);
+  
+  // ✅ Build gallery and videos with coverMediaType support
   const gallery = buildGallery(listing);
   const videos = buildVideos(listing);
+  const coverVideo = coverInfo?.isVideo ? coverInfo.url : null;
+  
+  // ✅ Ensure indices are within bounds
+  const safeImageIndex = Math.min(imageIndex, gallery.length - 1);
+  const safeVideoIndex = Math.min(videoIndex, videos.length - 1);
+  
   const isPending = listing.status === 'pending';
   const rating = listing.averageRating || 0;
   const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
@@ -1039,9 +949,14 @@ const ListingDetails = () => {
             <HeroMediaArea
               images={gallery}
               videos={videos}
+              coverMedia={coverInfo?.url}
+              coverMediaType={coverInfo?.type}
               title={listing.title}
-              initialIndex={heroIndex}
-              onIndexChange={setHeroIndex}
+              imageIndex={safeImageIndex}
+              videoIndex={safeVideoIndex}
+              onImageIndexChange={handleImageIndexChange}
+              onVideoIndexChange={handleVideoIndexChange}
+              activeMediaType={activeMediaType}
             />
           </div>
         </div>
@@ -1071,27 +986,43 @@ const ListingDetails = () => {
                     Pending Approval
                   </span>
                 )}
+                {coverInfo?.isVideo && (
+                  <span className="text-sm font-medium text-[#0D9488] bg-[#0D9488]/10 px-4 py-1.5 rounded-full flex items-center gap-1">
+                    <Play className="w-3 h-3" />
+                    Video Cover
+                  </span>
+                )}
               </div>
 
-              {/* Gallery Thumbnails */}
-              {gallery.length > 1 && (
-                <GalleryThumbnails
-                  images={gallery}
-                  title={listing.title}
-                  onSelect={handleGallerySelect}
+              {/* Gallery Thumbnails with selected index */}
+              <GalleryThumbnails
+                images={gallery}
+                title={listing.title}
+                onSelect={handleImageSelect}
+                coverMedia={coverInfo?.url}
+                coverMediaType={coverInfo?.type}
+                selectedIndex={safeImageIndex}
+              />
+
+              {/* Video Gallery with selected index */}
+              <VideoGallery
+                videos={videos}
+                onSelect={handleVideoSelect}
+                coverVideo={coverVideo}
+                selectedIndex={safeVideoIndex}
+              />
+
+              {/* ✅ Provider Profile - Using new ProviderCard with WhatsApp */}
+              {listing.provider && (
+                <ProviderCard 
+                  provider={listing.provider} 
+                  listingTitle={listing.title}
+                  listingId={listing._id}
+                  variant="detailed"
+                  showContact={true}
+                  showViewProfile={true}
                 />
               )}
-
-              {/* Video Gallery */}
-              {videos.length > 0 && (
-                <VideoGallery
-                  videos={videos}
-                  onSelect={handleVideoSelect}
-                />
-              )}
-
-              {/* Provider Profile */}
-              {listing.provider && <ProviderCard provider={listing.provider} />}
 
               {/* Tabs */}
               <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-800 pb-2">
@@ -1117,13 +1048,8 @@ const ListingDetails = () => {
                 <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{tabContent[activeTab].body}</p>
               </div>
 
-              {/* ✅ Reviews Section - Updated */}
-              <ReviewsSection
-                listingId={listing._id}
-                reviews={reviews}
-                onReviewAdded={fetchReviews}
-                loading={reviewLoading}
-              />
+              {/* Reviews Section */}
+              <ReviewsSection listingId={listing._id} />
             </div>
 
             {/* RIGHT COLUMN - Booking Card */}
@@ -1141,7 +1067,7 @@ const ListingDetails = () => {
                       <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
                       <span>{ratingDisplay}</span>
                       <span>•</span>
-                      <span>{reviews.length} reviews</span>
+                      <span>{listing.totalReviews || 0} reviews</span>
                     </div>
                   </div>
 
@@ -1153,6 +1079,7 @@ const ListingDetails = () => {
                         { label: 'Duration', value: listing.duration },
                         { label: 'Capacity', value: `${listing.capacity || 1} people` },
                         { label: 'Type', value: businessLabel },
+                        { label: 'Cover Media', value: coverInfo?.isVideo ? '🎬 Video' : '🖼️ Image' },
                         { label: 'Status', value: listing.status || 'approved', isStatus: true },
                       ].map(({ label, value, isStatus }) => value && (
                         <div key={label} className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
@@ -1170,7 +1097,7 @@ const ListingDetails = () => {
                       ))}
                     </div>
 
-                    {/* ✅ Booking Button */}
+                    {/* Booking Button */}
                     <button
                       onClick={() => setShowBookingModal(true)}
                       disabled={isPending}

@@ -1,4 +1,5 @@
 // backend/src/models/Payment.js
+// ✅ FIXED - Updated paymentMethod enum to include all providers
 
 import mongoose from "mongoose";
 
@@ -64,10 +65,20 @@ const paymentSchema = new mongoose.Schema(
     type: String,
   },
 
+  // ✅ UPDATED: Include all payment providers
   paymentMethod: {
     type: String,
-    enum: ["card", "bank_transfer", "mobile_money"],
-    default: "card",
+    enum: [
+      "stripe",        // ✅ Added
+      "card",          // Keep for backward compatibility
+      "bank_transfer",
+      "mobile_money",
+      "momo",          // MTN Mobile Money
+      "airtel",        // Airtel Money
+      "paypal",        // PayPal
+      "test",          // Test mode
+    ],
+    default: "stripe", // ✅ Changed default to stripe
   },
 
   status: {
@@ -118,6 +129,23 @@ const paymentSchema = new mongoose.Schema(
     enum: ["checkout", "subscription", "manual", "webhook"],
     default: "checkout",
   },
+
+  // ✅ NEW: Provider reference for multi-provider support
+  providerReference: {
+    type: String,
+  },
+
+  // ✅ NEW: Provider data storage
+  providerData: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
+
+  // ✅ NEW: Payment URL for redirects
+  paymentUrl: {
+    type: String,
+  },
 },
 {
   timestamps: true,
@@ -137,6 +165,7 @@ paymentSchema.index({ stripePaymentId: 1 });
 paymentSchema.index({ paidAt: -1 });
 paymentSchema.index({ createdAt: -1 });
 paymentSchema.index({ user: 1, booking: 1, status: 1 });
+paymentSchema.index({ providerReference: 1 }); // ✅ New index
 
 // =========================
 // ✅ VIRTUALS
@@ -154,7 +183,6 @@ paymentSchema.virtual("isSuccessful").get(function() {
   return this.status === "paid" || this.status === "processing";
 });
 
-// ✅ NEW: Virtual to calculate provider amount without pre-save
 paymentSchema.virtual("calculatedProviderAmount").get(function() {
   return this.amount - (this.platformFee || 0);
 });
@@ -167,7 +195,6 @@ paymentSchema.methods.markAsPaid = async function(paymentIntentId) {
   this.status = "paid";
   this.stripePaymentId = paymentIntentId;
   this.paidAt = new Date();
-  // Calculate provider amount before saving
   this.providerAmount = this.amount - (this.platformFee || 0);
   await this.save();
   return this;
@@ -198,7 +225,6 @@ paymentSchema.methods.processPartialRefund = async function(refundId, amount) {
   return this;
 };
 
-// ✅ Helper method to calculate provider amount
 paymentSchema.methods.calculateProviderAmount = function() {
   this.providerAmount = this.amount - (this.platformFee || 0);
   return this.providerAmount;
@@ -247,13 +273,6 @@ paymentSchema.statics.hasSuccessfulPayment = async function(bookingId) {
 paymentSchema.statics.findBySessionId = async function(sessionId) {
   return this.findOne({ stripeSessionId: sessionId });
 };
-
-// ================================================================
-// ✅ MIDDLEWARE - REMOVED (causing the error)
-// ================================================================
-
-// ❌ REMOVED: The pre-save middleware was causing 'next is not a function' error
-// The providerAmount is now calculated in the methods above
 
 // =========================
 // ✅ CREATE AND EXPORT MODEL

@@ -1,4 +1,5 @@
 // src/pages/admin/ManagementListings.jsx
+// ✅ UPDATED - Cover Media (Image + Video) support
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
@@ -26,6 +27,8 @@ import {
   Ban,
   Trash2,
   MoreVertical,
+  Video,
+  Play,
 } from 'lucide-react';
 import {
   getAdminListings,
@@ -55,6 +58,28 @@ const getImageUrl = (image) => {
   return `${API_URL}/uploads/${image}`;
 };
 
+// ✅ NEW: Get cover media (supports both image and video)
+const getCoverMedia = (listing) => {
+  if (listing.coverMedia) {
+    return getImageUrl(listing.coverMedia);
+  }
+  if (listing.coverImage) {
+    return getImageUrl(listing.coverImage);
+  }
+  if (listing.galleryImages && listing.galleryImages.length > 0) {
+    return getImageUrl(listing.galleryImages[0]);
+  }
+  return null;
+};
+
+// ✅ NEW: Get cover media type
+const getCoverMediaType = (listing) => {
+  if (listing.coverMediaType === 'video') return 'video';
+  if (listing.coverMediaType === 'image') return 'image';
+  if (listing.videos && listing.videos.length > 0) return 'video';
+  return 'image';
+};
+
 const formatDate = (date) => {
   if (!date) return 'N/A';
   return new Date(date).toLocaleDateString('en-US', {
@@ -64,6 +89,7 @@ const formatDate = (date) => {
   });
 };
 
+// ✅ Updated BUSINESS_TYPES with better labels
 const BUSINESS_TYPES = [
   { value: 'all', label: 'All Types' },
   { value: 'tour_operator', label: 'Tour Operator' },
@@ -78,12 +104,26 @@ const BUSINESS_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+// ✅ Updated STATUS_OPTIONS
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'suspended', label: 'Suspended' },
+];
+
+// ✅ Updated LISTING_TYPES for filtering
+const LISTING_TYPES = [
+  { value: 'all', label: 'All Types' },
+  { value: 'experience', label: 'Experience' },
+  { value: 'tour', label: 'Tour' },
+  { value: 'accommodation', label: 'Accommodation' },
+  { value: 'restaurant', label: 'Restaurant & Cafe' },
+  { value: 'activity', label: 'Activity' },
+  { value: 'transport', label: 'Transport' },
+  { value: 'event', label: 'Event' },
+  { value: 'other', label: 'Other' },
 ];
 
 // ── Analytics Card ──────────────────────────────────────────────
@@ -101,6 +141,66 @@ const AnalyticsCard = ({ title, value, icon: Icon, color, bgColor }) => (
   </div>
 );
 
+// ── Media Preview Component ──
+const MediaPreview = ({ listing }) => {
+  const [imageError, setImageError] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  
+  // Check what media we have
+  const coverType = getCoverMediaType(listing);
+  const coverUrl = getCoverMedia(listing);
+  
+  // If no media at all
+  if (!coverUrl) {
+    return (
+      <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 flex-shrink-0">
+        <Image className="w-5 h-5" />
+      </div>
+    );
+  }
+  
+  // Show video if coverMediaType is video
+  if (coverType === 'video' && !videoError) {
+    return (
+      <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-900 flex items-center justify-center flex-shrink-0 relative">
+        <video
+          src={coverUrl}
+          className="w-full h-full object-cover"
+          muted
+          playsInline
+          onError={() => setVideoError(true)}
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <div className="w-5 h-5 rounded-full bg-[#0D9488]/80 flex items-center justify-center">
+            <Play className="w-2.5 h-2.5 text-white ml-0.5" />
+          </div>
+        </div>
+        {/* Video indicator badge */}
+        <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-[8px] text-white px-1 py-0.5 rounded flex items-center gap-0.5">
+          <Video className="w-2.5 h-2.5" />
+        </div>
+      </div>
+    );
+  }
+  
+  // Show image (fallback for video errors too)
+  return (
+    <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+      <img
+        src={coverUrl}
+        alt={listing.title}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
+      {coverType === 'video' && (
+        <div className="absolute bottom-0.5 right-0.5 bg-black/70 text-[8px] text-white px-1 py-0.5 rounded flex items-center gap-0.5">
+          <Video className="w-2.5 h-2.5" />
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Component ──────────────────────────────────────────────
 const ManagementListings = () => {
   const [listings, setListings] = useState([]);
@@ -113,6 +213,7 @@ const ManagementListings = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [businessTypeFilter, setBusinessTypeFilter] = useState('all');
+  const [listingTypeFilter, setListingTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
   // Modal states
@@ -171,7 +272,9 @@ const ManagementListings = () => {
         l.title?.toLowerCase().includes(term) ||
         l.location?.toLowerCase().includes(term) ||
         l.provider?.name?.toLowerCase().includes(term) ||
-        l.businessType?.toLowerCase().includes(term)
+        l.businessType?.toLowerCase().includes(term) ||
+        l.listingType?.toLowerCase().includes(term) ||
+        l.category?.toLowerCase().includes(term)
       );
     }
 
@@ -183,6 +286,11 @@ const ManagementListings = () => {
     // Business type filter
     if (businessTypeFilter !== 'all') {
       result = result.filter(l => l.businessType === businessTypeFilter);
+    }
+
+    // ✅ Listing type filter
+    if (listingTypeFilter !== 'all') {
+      result = result.filter(l => l.listingType === listingTypeFilter);
     }
 
     // Sort
@@ -204,7 +312,7 @@ const ManagementListings = () => {
     }
 
     setFilteredListings(result);
-  }, [listings, search, statusFilter, businessTypeFilter, sortBy]);
+  }, [listings, search, statusFilter, businessTypeFilter, listingTypeFilter, sortBy]);
 
   // ── Notifications ──
   const showNotification = (message, type = 'success') => {
@@ -286,7 +394,7 @@ const ManagementListings = () => {
       {/* ── Notification ── */}
       {notification && (
         <div
-          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl text-white flex items-center gap-3 ${
+          className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl text-white flex items-center gap-3 animate-slide-in ${
             notification.type === 'success' ? 'bg-[#0D9488]' :
             notification.type === 'error' ? 'bg-red-500' :
             'bg-[#F59E0B]'
@@ -365,13 +473,13 @@ const ManagementListings = () => {
 
       {/* ── Filters ── */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by title, location, provider..."
+              placeholder="Search by title, location, provider, category..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-10 pl-10 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none transition dark:text-white"
@@ -385,6 +493,17 @@ const ManagementListings = () => {
             className="h-10 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none dark:text-white min-w-[140px]"
           >
             {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+
+          {/* ✅ Listing Type Filter */}
+          <select
+            value={listingTypeFilter}
+            onChange={(e) => setListingTypeFilter(e.target.value)}
+            className="h-10 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none dark:text-white min-w-[160px]"
+          >
+            {LISTING_TYPES.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -424,7 +543,7 @@ const ManagementListings = () => {
             No listings found
           </h3>
           <p className="text-gray-500 dark:text-gray-400 mt-2">
-            {search || statusFilter !== 'all' || businessTypeFilter !== 'all'
+            {search || statusFilter !== 'all' || businessTypeFilter !== 'all' || listingTypeFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'No listings have been submitted yet'}
           </p>
@@ -445,6 +564,9 @@ const ManagementListings = () => {
                     Type
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Location
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -453,164 +575,160 @@ const ManagementListings = () => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                    Created
-                  </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {filteredListings.map((listing) => (
-                  <tr
-                    key={listing._id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition"
-                  >
-                    {/* Listing */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-[180px]">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
-                          {listing.coverImage ? (
-                            <img
-                              src={getImageUrl(listing.coverImage)}
-                              alt={listing.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <Image className="w-5 h-5" />
+                {filteredListings.map((listing) => {
+                  const coverType = getCoverMediaType(listing);
+                  return (
+                    <tr
+                      key={listing._id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition"
+                    >
+                      {/* Listing - with Media Preview */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3 min-w-[180px]">
+                          <MediaPreview listing={listing} />
+                          <div>
+                            <p className="font-semibold text-[#374151] dark:text-white line-clamp-1">
+                              {listing.title}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-500 line-clamp-1">
+                                {listing.listingType || 'Listing'}
+                              </p>
+                              {/* ✅ Show media type indicator */}
+                              {coverType === 'video' && (
+                                <span className="text-[10px] text-[#0D9488] flex items-center gap-0.5 bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
+                                  <Video className="w-2.5 h-2.5" /> Video
+                                </span>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-[#374151] dark:text-white line-clamp-1">
-                            {listing.title}
-                          </p>
-                          <p className="text-xs text-gray-500 line-clamp-1">
-                            {listing.listingType || 'Listing'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Provider */}
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-[#374151] dark:text-white">
-                        {listing.provider?.name || 'Unknown'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {listing.provider?.email || ''}
-                      </p>
-                    </td>
+                      {/* Provider */}
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-medium text-[#374151] dark:text-white">
+                          {listing.provider?.name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {listing.provider?.email || ''}
+                        </p>
+                      </td>
 
-                    {/* Type */}
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600 dark:text-gray-300 capitalize">
-                        {listing.businessType?.replace('_', ' ') || 'N/A'}
-                      </span>
-                    </td>
+                      {/* Type */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600 dark:text-gray-300 capitalize">
+                          {listing.businessType?.replace('_', ' ') || 'N/A'}
+                        </span>
+                      </td>
 
-                    {/* Location */}
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
-                        {listing.location || 'N/A'}
-                      </span>
-                    </td>
+                      {/* ✅ Category */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {listing.category || 'N/A'}
+                        </span>
+                      </td>
 
-                    {/* Price */}
-                    <td className="px-4 py-3">
-                      <span className="font-semibold text-[#0D9488]">
-                        ${listing.price || 0}
-                      </span>
-                    </td>
+                      {/* Location */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {listing.location || 'N/A'}
+                        </span>
+                      </td>
 
-                    {/* Status */}
-                    <td className="px-4 py-3">
-                      <ListingStatusBadge status={listing.status} size="sm" />
-                    </td>
+                      {/* Price */}
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-[#0D9488]">
+                          ${listing.price || 0}
+                        </span>
+                      </td>
 
-                    {/* Created */}
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-500">
-                        {formatDate(listing.createdAt)}
-                      </span>
-                    </td>
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        <ListingStatusBadge status={listing.status} size="sm" />
+                      </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {/* View */}
-                        <button
-                          onClick={() => {
-                            setSelectedListing(listing);
-                            setShowDetailsDrawer(true);
-                          }}
-                          className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-400 hover:text-[#0D9488]"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-
-                        {/* Approve */}
-                        {listing.status === 'pending' && (
-                          <button
-                            onClick={() => handleApprove(listing._id)}
-                            disabled={actionLoading === listing._id}
-                            className="p-2 rounded-xl hover:bg-[#0D9488]/10 transition text-gray-400 hover:text-[#0D9488] disabled:opacity-50"
-                            title="Approve"
-                          >
-                            {actionLoading === listing._id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <CheckCircle className="w-4 h-4" />
-                            )}
-                          </button>
-                        )}
-
-                        {/* Reject */}
-                        {listing.status === 'pending' && (
+                      {/* Actions */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* View */}
                           <button
                             onClick={() => {
                               setSelectedListing(listing);
-                              setShowRejectModal(true);
+                              setShowDetailsDrawer(true);
+                            }}
+                            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-400 hover:text-[#0D9488]"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Approve */}
+                          {listing.status === 'pending' && (
+                            <button
+                              onClick={() => handleApprove(listing._id)}
+                              disabled={actionLoading === listing._id}
+                              className="p-2 rounded-xl hover:bg-[#0D9488]/10 transition text-gray-400 hover:text-[#0D9488] disabled:opacity-50"
+                              title="Approve"
+                            >
+                              {actionLoading === listing._id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+
+                          {/* Reject */}
+                          {listing.status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                setSelectedListing(listing);
+                                setShowRejectModal(true);
+                              }}
+                              className="p-2 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition text-gray-400 hover:text-red-600"
+                              title="Reject"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Suspend */}
+                          {listing.status === 'approved' && (
+                            <button
+                              onClick={() => {
+                                setSelectedListing(listing);
+                                setShowSuspendModal(true);
+                              }}
+                              className="p-2 rounded-xl hover:bg-[#F59E0B]/10 transition text-gray-400 hover:text-[#F59E0B]"
+                              title="Suspend"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Delete */}
+                          <button
+                            onClick={() => {
+                              setSelectedListing(listing);
+                              setShowDeleteModal(true);
                             }}
                             className="p-2 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition text-gray-400 hover:text-red-600"
-                            title="Reject"
+                            title="Delete"
                           >
-                            <XCircle className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        )}
-
-                        {/* Suspend */}
-                        {listing.status === 'approved' && (
-                          <button
-                            onClick={() => {
-                              setSelectedListing(listing);
-                              setShowSuspendModal(true);
-                            }}
-                            className="p-2 rounded-xl hover:bg-[#F59E0B]/10 transition text-gray-400 hover:text-[#F59E0B]"
-                            title="Suspend"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* Delete */}
-                        <button
-                          onClick={() => {
-                            setSelectedListing(listing);
-                            setShowDeleteModal(true);
-                          }}
-                          className="p-2 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition text-gray-400 hover:text-red-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

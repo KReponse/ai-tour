@@ -1,4 +1,5 @@
-// src/contexts/AuthContext.jsx
+// frontend/src/contexts/AuthContext.jsx
+// ✅ UPDATED - Handle accessToken and refreshToken
 
 import {
   createContext,
@@ -25,11 +26,12 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 // ===============================
 // ROLE MAPPING
 // ===============================
-// Backend: user, provider, admin
+// Backend: traveler, provider, admin
 // Frontend: traveler, provider, admin
 // ===============================
 
 const ROLE_MAP = {
+  'traveler': 'traveler',
   'user': 'traveler',
   'provider': 'provider',
   'admin': 'admin',
@@ -42,6 +44,7 @@ const mapRole = (role) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   /*
@@ -52,8 +55,10 @@ export const AuthProvider = ({ children }) => {
   const clearSession = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     setUser(null);
     setToken(null);
+    setRefreshToken(null);
   };
 
   /*
@@ -78,15 +83,21 @@ export const AuthProvider = ({ children }) => {
       if (response.data.user) {
         const userData = response.data.user;
         
-        // ✅ Keep role as is from backend (user, provider, admin)
-        // Frontend will map when needed
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         
-        console.log("✅ User refreshed:", userData);
+        console.log("✅ User refreshed:", userData.email);
+        return true;
       }
+      return false;
     } catch (error) {
-      console.log("❌ Refresh user failed:", error);
+      console.log("❌ Refresh user failed:", error.response?.status, error.message);
+      
+      // ✅ If token is invalid (401), clear session
+      if (error.response?.status === 401) {
+        clearSession();
+      }
+      return false;
     }
   };
 
@@ -100,10 +111,14 @@ export const AuthProvider = ({ children }) => {
       try {
         const savedUser = localStorage.getItem("user");
         const savedToken = localStorage.getItem("token");
+        const savedRefreshToken = localStorage.getItem("refreshToken");
 
         if (savedUser && savedToken) {
           setUser(JSON.parse(savedUser));
           setToken(savedToken);
+          if (savedRefreshToken) {
+            setRefreshToken(savedRefreshToken);
+          }
           await refreshUser();
         }
       } catch (error) {
@@ -122,17 +137,24 @@ export const AuthProvider = ({ children }) => {
   LOGIN
   =========================
   */
-  const login = (userData, userToken) => {
-    if (!userData || !userToken) {
+  const login = (userData, accessToken, refreshTokenData = null) => {
+    if (!userData || !accessToken) {
       return false;
     }
 
     setUser(userData);
-    setToken(userToken);
+    setToken(accessToken);
+    if (refreshTokenData) {
+      setRefreshToken(refreshTokenData);
+    }
 
     localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("token", userToken);
+    localStorage.setItem("token", accessToken);
+    if (refreshTokenData) {
+      localStorage.setItem("refreshToken", refreshTokenData);
+    }
 
+    console.log("✅ User logged in:", userData.email);
     return true;
   };
 
@@ -143,11 +165,12 @@ export const AuthProvider = ({ children }) => {
   */
   const logout = () => {
     clearSession();
+    console.log("👋 User logged out");
   };
 
   /*
   =========================
-  ✅ UPDATE USER (For EditProfile)
+  UPDATE USER (For EditProfile)
   =========================
   */
   const updateUser = (userData) => {
@@ -155,12 +178,51 @@ export const AuthProvider = ({ children }) => {
     
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
-    console.log("✅ User updated:", userData);
+    console.log("✅ User updated:", userData.email);
   };
 
   /*
   =========================
-  ROLE HELPERS (Updated)
+  REFRESH TOKEN
+  =========================
+  */
+  const refreshAccessToken = async () => {
+    try {
+      const savedRefreshToken = localStorage.getItem("refreshToken");
+      if (!savedRefreshToken) {
+        console.warn("⚠️ No refresh token available");
+        return false;
+      }
+
+      const response = await axios.post(
+        `${API_URL}/auth/refresh-token`,
+        { refreshToken: savedRefreshToken }
+      );
+
+      if (response.data.accessToken) {
+        const newToken = response.data.accessToken;
+        setToken(newToken);
+        localStorage.setItem("token", newToken);
+        
+        if (response.data.refreshToken) {
+          setRefreshToken(response.data.refreshToken);
+          localStorage.setItem("refreshToken", response.data.refreshToken);
+        }
+        
+        console.log("✅ Token refreshed successfully");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("❌ Token refresh failed:", error.message);
+      clearSession();
+      return false;
+    }
+  };
+
+  /*
+  =========================
+  ROLE HELPERS
   =========================
   */
 
@@ -170,26 +232,32 @@ export const AuthProvider = ({ children }) => {
     return mapRole(user.role);
   };
 
-  // Check if user has a specific role (works with both formats)
+  // Check if user has a specific role
   const hasRole = (role) => {
     if (!user) return false;
     const userRole = user.role;
     
-    // Check both formats
-    if (role === 'traveler' && userRole === 'user') return true;
-    return userRole === role;
+    // Map frontend role to backend role
+    const roleMap = {
+      'traveler': ['traveler', 'user'],
+      'provider': ['provider'],
+      'admin': ['admin'],
+    };
+    
+    const backendRoles = roleMap[role] || [role];
+    return backendRoles.includes(userRole);
   };
 
-  // ✅ Updated: Check if user is admin
+  // Check if user is admin
   const isAdmin = hasRole('admin');
 
-  // ✅ Updated: Check if user is provider
+  // Check if user is provider
   const isProvider = hasRole('provider');
 
-  // ✅ Updated: Check if user is traveler (includes 'user' from backend)
-  const isTraveler = hasRole('traveler') || user?.role === 'user';
+  // Check if user is traveler
+  const isTraveler = hasRole('traveler');
 
-  // ✅ Updated: Check if provider is approved
+  // Check if provider is approved
   const isApprovedProvider = isProvider && user?.verificationStatus === "approved";
 
   // Check if provider is pending
@@ -204,12 +272,14 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
+    refreshToken,
     loading,
 
     login,
     logout,
     refreshUser,
-    updateUser, // ✅ Added for EditProfile
+    updateUser,
+    refreshAccessToken,
 
     isAuthenticated: Boolean(token),
 

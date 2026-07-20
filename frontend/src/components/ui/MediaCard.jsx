@@ -1,4 +1,5 @@
 // src/components/ui/MediaCard.jsx
+// ✅ UPDATED - Cover Media (Image + Video) support with autoplay
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -33,16 +34,29 @@ const MediaCard = ({
   duration,
   rating,
   type, // 'experience' or 'video'
-  videoUrl,
+  videoUrl, // For cover video or standalone video
+  coverMediaType, // 'image' or 'video'
   views,
   likes,
   onSelect,
   className,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const isVideo = type === 'video';
+  const isCoverVideo = coverMediaType === 'video' && videoUrl;
 
+  // Determine what to display
+  const displayVideo = isVideo || isCoverVideo;
+  const displayImage = !displayVideo;
+
+  // Image URL with fallback
   const imageUrl = (!image || imageError) ? getFallbackImage(id) : image;
+
+  // Handle video error - fallback to image
+  const handleVideoError = () => {
+    setVideoError(true);
+  };
 
   return (
     <div 
@@ -56,42 +70,50 @@ const MediaCard = ({
       <div className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
         {/* Media Container */}
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-200 dark:bg-gray-700">
-          {isVideo ? (
-            <div className="w-full h-full bg-black flex items-center justify-center">
-              {videoUrl ? (
-                <video
-                  src={videoUrl}
-                  className="w-full h-full object-cover"
-                  muted
-                  loop
-                  playsInline
-                />
-              ) : (
-                <Play className="w-10 h-10 text-white/50" />
-              )}
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition" />
+          {displayVideo && videoUrl && !videoError ? (
+            // ✅ Video display with autoplay, muted, loop
+            <div className="w-full h-full bg-black">
+              <video
+                src={videoUrl}
+                className="w-full h-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                poster={imageUrl}
+                onError={handleVideoError}
+              />
+              {/* Video overlay - play button */}
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition" />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="w-12 h-12 rounded-full bg-[#0D9488]/80 backdrop-blur flex items-center justify-center group-hover:scale-110 transition">
-                  <Play className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-full bg-[#0D9488]/80 backdrop-blur flex items-center justify-center group-hover:scale-110 transition">
+                  <Play className="w-4 h-4 text-white" />
                 </div>
               </div>
-              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+              {/* Video badge */}
+              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Play className="w-3 h-3" />
                 Video
               </div>
             </div>
           ) : (
-            <img
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
+            // ✅ Image display (fallback for video errors too)
+            <>
+              <img
+                src={imageUrl}
+                alt={title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                onError={() => setImageError(true)}
+                loading="lazy"
+              />
+              {/* Image overlay gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </>
           )}
 
-          {/* Price Badge */}
-          {price !== undefined && !isVideo && (
-            <div className="absolute bottom-2 left-2 bg-[#0D9488] text-white px-2.5 py-0.5 rounded-full text-xs font-bold">
+          {/* Price Badge - only for experiences */}
+          {price !== undefined && !isVideo && !isCoverVideo && (
+            <div className="absolute bottom-2 left-2 bg-[#0D9488] text-white px-2.5 py-0.5 rounded-full text-xs font-bold shadow-lg">
               ${price}
             </div>
           )}
@@ -119,7 +141,7 @@ const MediaCard = ({
           )}
 
           <div className="flex items-center justify-between text-xs text-gray-400">
-            {duration && !isVideo && (
+            {duration && !isVideo && !isCoverVideo && (
               <div className="flex items-center gap-0.5">
                 <Clock className="w-3 h-3 text-[#0D9488]" />
                 <span>{duration}</span>
@@ -135,6 +157,12 @@ const MediaCard = ({
               <div className="flex items-center gap-0.5">
                 <Heart className="w-3 h-3 text-[#F59E0B]" />
                 <span>{likes}</span>
+              </div>
+            )}
+            {isCoverVideo && (
+              <div className="flex items-center gap-0.5 text-[#0D9488]">
+                <Play className="w-3 h-3" />
+                <span>Preview</span>
               </div>
             )}
           </div>

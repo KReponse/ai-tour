@@ -1,4 +1,5 @@
 // src/pages/provider/Profile.jsx
+// ✅ UPDATED - Added Business Hours display
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -37,6 +38,26 @@ import { useAuth } from '../../contexts/AuthContext';
 // AI TOUR COLORS
 // ===============================
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// ✅ Format business hours for display
+const formatBusinessHours = (businessHours) => {
+  if (!businessHours) return null;
+  
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  return days.map((day, index) => {
+    const hours = businessHours[day];
+    if (!hours) return null;
+    if (hours.closed) {
+      return { day: dayLabels[index], hours: 'Closed' };
+    }
+    return {
+      day: dayLabels[index],
+      hours: `${hours.open || '08:00'} – ${hours.close || '18:00'}`,
+    };
+  }).filter(Boolean);
+};
 
 const Profile = () => {
   const { user } = useAuth();
@@ -109,13 +130,14 @@ const Profile = () => {
     }).format(amount);
   };
 
-  // ✅ CORRECT: getImageUrl for uploaded files
   const getImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     if (path.startsWith('/uploads/')) return `${API_URL}${path}`;
     return `${API_URL}/uploads/${path}`;
   };
+
+  const businessHoursList = formatBusinessHours(profile?.businessHours);
 
   if (loading) {
     return (
@@ -296,7 +318,7 @@ const Profile = () => {
                   <div>
                     <p className="text-sm text-gray-500">Email</p>
                     <h3 className="font-semibold text-[#374151] dark:text-white">
-                      {profile.email || profile.user?.email || 'N/A'}
+                      {profile.businessEmail || profile.email || profile.user?.email || 'N/A'}
                     </h3>
                   </div>
                 </div>
@@ -310,7 +332,7 @@ const Profile = () => {
                   <div>
                     <p className="text-sm text-gray-500">Phone</p>
                     <h3 className="font-semibold text-[#374151] dark:text-white">
-                      {profile.phone || profile.user?.phone || 'N/A'}
+                      {profile.businessPhone || profile.phone || profile.user?.phone || 'N/A'}
                     </h3>
                   </div>
                 </div>
@@ -398,6 +420,23 @@ const Profile = () => {
                       {profile.yearsOfExperience}
                     </h3>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ Business Hours */}
+            {businessHoursList && businessHoursList.length > 0 && (
+              <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                <p className="text-sm text-gray-500 mb-2">Business Hours</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {businessHoursList.map((item) => (
+                    <div key={item.day} className="text-xs">
+                      <span className="font-semibold text-[#374151] dark:text-white">{item.day}:</span>
+                      <span className={`ml-1 ${item.hours === 'Closed' ? 'text-red-500' : 'text-gray-600 dark:text-gray-300'}`}>
+                        {item.hours}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

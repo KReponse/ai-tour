@@ -1,4 +1,5 @@
-// src/components/listing/ListingCard.jsx
+// frontend/src/components/listing/ListingCard.jsx
+// ✅ UPDATED - Added Cover Media support (Image + Video)
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,7 +13,9 @@ import {
   DollarSign,
   Sparkles,
   XCircle,
-  Pencil,  // ✅ ADDED for Edit
+  Pencil,
+  Play,
+  Image as ImageIcon,
 } from 'lucide-react';
 import ListingStatusBadge from './ListingStatusBadge';
 
@@ -40,11 +43,13 @@ const ListingCard = ({
   showActions = true,
   onToggleFavorite,
   onDelete,
+  onToggleStatus,
   isFavorite = false,
   compact = false,
   className = '',
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   const {
     _id,
@@ -53,6 +58,8 @@ const ListingCard = ({
     price,
     currency = 'USD',
     coverImage,
+    coverMedia,        // ✅ NEW: Cover Media (image or video)
+    coverMediaType,    // ✅ NEW: 'image' or 'video'
     galleryImages,
     averageRating,
     totalReviews,
@@ -65,12 +72,69 @@ const ListingCard = ({
     createdAt,
   } = listing;
 
-  const imageUrl = imageError
-    ? null
-    : getImageUrl(coverImage) || getImageUrl(galleryImages?.[0]);
+  // ✅ Get the best available cover media
+  const getCoverUrl = () => {
+    // Prefer coverMedia over coverImage
+    const media = coverMedia || coverImage || galleryImages?.[0];
+    return getImageUrl(media);
+  };
+
+  const isVideoCover = coverMediaType === 'video' && coverMedia;
+  const coverUrl = getCoverUrl();
 
   const ratingDisplay = averageRating > 0 ? averageRating.toFixed(1) : 'New';
   const isApproved = status === 'approved';
+
+  // ── Render Cover Media ──
+  const renderCoverMedia = () => {
+    // If it's a video cover
+    if (isVideoCover && coverUrl && !videoError) {
+      return (
+        <div className="relative w-full h-full bg-black">
+          <video
+            src={coverUrl}
+            className="w-full h-full object-cover"
+            muted
+            loop
+            playsInline
+            autoPlay
+            onError={() => setVideoError(true)}
+          />
+          {/* Play icon overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-[#0D9488]/80 backdrop-blur flex items-center justify-center">
+              <Play className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          {/* Video badge */}
+          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+            <Play className="w-3 h-3" />
+            Video
+          </div>
+        </div>
+      );
+    }
+
+    // If it's an image or fallback
+    if (coverUrl && !imageError) {
+      return (
+        <img
+          src={coverUrl}
+          alt={title}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          onError={() => setImageError(true)}
+          loading="lazy"
+        />
+      );
+    }
+
+    // Fallback
+    return (
+      <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-gray-800">
+        <Sparkles className="w-16 h-16" />
+      </div>
+    );
+  };
 
   // ── Compact View ──
   if (compact) {
@@ -81,10 +145,18 @@ const ListingCard = ({
       >
         <div className="flex gap-4 p-4">
           {/* Image */}
-          <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
-            {imageUrl ? (
+          <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0 relative">
+            {isVideoCover && coverUrl ? (
+              <video
+                src={coverUrl}
+                className="w-full h-full object-cover"
+                muted
+                loop
+                playsInline
+              />
+            ) : coverUrl ? (
               <img
-                src={imageUrl}
+                src={coverUrl}
                 alt={title}
                 className="w-full h-full object-cover"
                 onError={() => setImageError(true)}
@@ -93,6 +165,12 @@ const ListingCard = ({
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
                 <Sparkles className="w-8 h-8" />
+              </div>
+            )}
+            {isVideoCover && (
+              <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                <Play className="w-2 h-2" />
+                Video
               </div>
             )}
           </div>
@@ -142,19 +220,7 @@ const ListingCard = ({
       {/* ── Image ── */}
       <Link to={`/listing/${_id}`} className="block relative overflow-hidden group">
         <div className="relative h-56 overflow-hidden bg-gray-100 dark:bg-gray-800">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              onError={() => setImageError(true)}
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              <Sparkles className="w-16 h-16" />
-            </div>
-          )}
+          {renderCoverMedia()}
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -176,8 +242,23 @@ const ListingCard = ({
             </div>
           )}
 
+          {/* Cover Media Type Badge */}
+          <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1">
+            {isVideoCover ? (
+              <>
+                <Play className="w-3 h-3" />
+                Video Cover
+              </>
+            ) : (
+              <>
+                <ImageIcon className="w-3 h-3" />
+                Image Cover
+              </>
+            )}
+          </div>
+
           {/* Stats overlay */}
-          <div className="absolute bottom-4 right-4 flex items-center gap-3 text-white/90 text-xs bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+          <div className="absolute bottom-4 right-24 flex items-center gap-3 text-white/90 text-xs bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
             {views > 0 && (
               <span className="flex items-center gap-1">
                 <Eye className="w-3 h-3" />
@@ -224,6 +305,12 @@ const ListingCard = ({
           )}
           <span className="text-gray-300 dark:text-gray-600">•</span>
           <span className="capitalize">{businessType?.replace('_', ' ') || 'Service'}</span>
+          {isVideoCover && (
+            <span className="flex items-center gap-1 text-[#0D9488]">
+              <Play className="w-3 h-3" />
+              Video Cover
+            </span>
+          )}
         </div>
 
         {/* ── Actions ── */}
@@ -238,7 +325,7 @@ const ListingCard = ({
               View Details
             </Link>
 
-            {/* ✅ Edit Button */}
+            {/* Edit Button */}
             <Link
               to={`/provider/listings/edit/${_id}`}
               className="w-10 h-10 rounded-xl bg-[#374151] text-white flex items-center justify-center hover:bg-[#374151]/80 transition"
@@ -246,6 +333,28 @@ const ListingCard = ({
             >
               <Pencil className="w-4 h-4" />
             </Link>
+
+            {/* Toggle Status (if provided) */}
+            {onToggleStatus && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onToggleStatus(_id);
+                }}
+                className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition ${
+                  status === 'approved'
+                    ? 'border-[#0D9488] text-[#0D9488] hover:bg-[#0D9488]/10'
+                    : status === 'pending'
+                    ? 'border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10'
+                    : 'border-gray-300 text-gray-400 hover:bg-gray-100'
+                }`}
+                title={`Toggle Status (currently ${status})`}
+              >
+                <span className="text-xs font-bold">
+                  {status === 'approved' ? '✓' : status === 'pending' ? '⏳' : '✕'}
+                </span>
+              </button>
+            )}
 
             {/* Favorite */}
             {onToggleFavorite && (

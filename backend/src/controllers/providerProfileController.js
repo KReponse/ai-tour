@@ -1,5 +1,4 @@
 // backend/src/controllers/providerProfileController.js
-// ✅ UPDATED - Uses Listing instead of Tour
 
 import ProviderProfile from "../models/ProviderProfile.js";
 import ProviderRequest from "../models/ProviderRequest.js";
@@ -221,7 +220,7 @@ export const getMyProviderProfile = async (req, res) => {
   }
 };
 
-// ─── UPDATE MY PROVIDER PROFILE ────────────────────────────────
+/* ================= UPDATE MY PROVIDER PROFILE ================= */
 
 export const updateMyProviderProfile = async (req, res) => {
   try {
@@ -229,7 +228,6 @@ export const updateMyProviderProfile = async (req, res) => {
     console.log("📁 Body keys:", Object.keys(req.body));
     console.log("📁 Files:", req.files ? Object.keys(req.files) : "No files");
 
-    // ─── 1. Find profile ──────────────────────────────────────────
     const profile = await ProviderProfile.findOne({ userId: req.user._id });
 
     if (!profile) {
@@ -239,17 +237,7 @@ export const updateMyProviderProfile = async (req, res) => {
       });
     }
 
-    // ─── 2. Non-editable fields ──────────────────────────────────
-    const NON_EDITABLE = [
-      "businessName",
-      "businessType",
-      "country",
-      "verified",
-      "status",
-      "userId",
-    ];
-
-    // ─── 3. Parse request body ────────────────────────────────────
+    // ─── Parse request body ────────────────────────────────────
     const {
       description,
       city,
@@ -258,6 +246,8 @@ export const updateMyProviderProfile = async (req, res) => {
       yearsOfExperience,
       phone,
       email,
+      // ✅ NEW: WhatsApp field
+      whatsapp,
       facebook,
       instagram,
       twitter,
@@ -267,7 +257,7 @@ export const updateMyProviderProfile = async (req, res) => {
       businessHours,
     } = req.body;
 
-    // ─── 4. Update editable fields ──────────────────────────────
+    // ─── Update editable fields ──────────────────────────────
     if (description !== undefined && description !== null && description !== "") {
       profile.description = description;
     }
@@ -284,7 +274,15 @@ export const updateMyProviderProfile = async (req, res) => {
       profile.email = email;
     }
 
-    // ─── 5. Parse arrays ──────────────────────────────────────────
+    // ✅ NEW: Update WhatsApp
+    if (whatsapp !== undefined && whatsapp !== null && whatsapp !== "") {
+      profile.whatsapp = whatsapp;
+    } else if (whatsapp === "") {
+      // Allow clearing the WhatsApp field
+      profile.whatsapp = "";
+    }
+
+    // ─── Parse arrays ──────────────────────────────────────────
     if (languages !== undefined && languages !== null && languages !== "") {
       const parsed = safeParseJSON(languages, null);
       if (parsed !== null && Array.isArray(parsed)) {
@@ -310,7 +308,7 @@ export const updateMyProviderProfile = async (req, res) => {
       profile.yearsOfExperience = yearsOfExperience;
     }
 
-    // ─── 6. Update social links ──────────────────────────────────
+    // ─── Update social links ──────────────────────────────────
     const socialLinks = {};
 
     if (facebook !== undefined && facebook !== null && facebook !== "") {
@@ -339,7 +337,7 @@ export const updateMyProviderProfile = async (req, res) => {
       };
     }
 
-    // ─── 7. Handle Logo upload ───────────────────────────────────
+    // ─── Handle Logo upload ───────────────────────────────────
     if (req.files?.logo && req.files.logo[0]) {
       const newLogo = req.files.logo[0].filename;
       console.log(`✅ New logo uploaded: ${newLogo}`);
@@ -351,7 +349,7 @@ export const updateMyProviderProfile = async (req, res) => {
       profile.logo = newLogo;
     }
 
-    // ─── 8. Handle Cover Image upload ────────────────────────────
+    // ─── Handle Cover Image upload ────────────────────────────
     if (req.files?.coverImage && req.files.coverImage[0]) {
       const newCover = req.files.coverImage[0].filename;
       console.log(`✅ New cover image uploaded: ${newCover}`);
@@ -363,12 +361,12 @@ export const updateMyProviderProfile = async (req, res) => {
       profile.coverImage = newCover;
     }
 
-    // ─── 9. Save profile ─────────────────────────────────────────
+    // ─── Save profile ─────────────────────────────────────────
     await profile.save();
 
     console.log(`✅ Profile updated for user: ${req.user._id}`);
 
-    // ─── 10. Return response ─────────────────────────────────────
+    // ─── Return response ─────────────────────────────────────
     const updatedProfile = await ProviderProfile.findOne({ userId: req.user._id });
     const user = await User.findById(req.user._id).select("name email phone");
 

@@ -1,19 +1,13 @@
 // src/pages/Explore.jsx
+// ✅ REDESIGNED - Modern Airbnb-style search with sticky filters, category chips, and dynamic categories
 
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-} from 'react';
-
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import {
   Search,
   Filter,
   MapPin,
   Star,
-  SlidersHorizontal,
   X,
   Heart,
   Clock,
@@ -21,31 +15,160 @@ import {
   ChevronDown,
   Grid3x3,
   List,
-  TrendingUp,
   Sparkles,
   Compass,
-  Eye,
-  Award,
   Play,
-  LayoutGrid,
+  RefreshCw,
+  Image as ImageIcon,
+  Video,
+  Hotel,
+  Utensils,
+  Car,
+  Mountain,
+  Calendar,
+  Map,
+  Coffee,
+  Tent,
+  Ship,
+  Bike,
+  Camera,
+  Music,
+  Building,
+  Home,
+  Waves,
+  Bus,
+  Plane,
+  UtensilsCrossed,
+  Bed,
+  CarTaxiFront,
+  Bike as BikeIcon,
+  Landmark,
+  TreePine,
+  PartyPopper,
+  Briefcase,
+  Activity,
+  HeartPulse,
+  Palette,
 } from 'lucide-react';
-
-// ✅ Use listingService instead of tourService
 import { getListings } from '../services/listingService';
-import VideoCard from "../components/ui/VideoCard";
-import MediaCard from '../components/ui/MediaCard';
-import SectionTitle from '../components/ui/SectionTitle';
 
 // ===============================
 // AI TOUR COLORS
 // ===============================
-// Teal  : #0D9488
-// Gold  : #F59E0B
-// Slate : #374151
-// White : #FFFFFF
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// ===============================
+// CONSTANTS
 // ===============================
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Category chips with Lucide icons
+const CATEGORY_CHIPS = [
+  { id: 'all', label: 'All', icon: Compass },
+  { id: 'tour', label: 'Tours', icon: Map },
+  { id: 'experience', label: 'Experiences', icon: Sparkles },
+  { id: 'accommodation', label: 'Hotels', icon: Hotel },
+  { id: 'transport', label: 'Transport', icon: Car },
+  { id: 'restaurant', label: 'Food', icon: UtensilsCrossed },
+  { id: 'activity', label: 'Adventure', icon: Mountain },
+  { id: 'guide', label: 'Guides', icon: Map },
+  { id: 'event', label: 'Events', icon: Calendar },
+];
+
+// Dynamic categories based on listing type
+const DYNAMIC_CATEGORIES = {
+  tour: [
+    { value: 'wildlife_safari', label: 'Wildlife Safari', icon: TreePine },
+    { value: 'city_tour', label: 'City Tour', icon: Building },
+    { value: 'cultural_tour', label: 'Cultural Tour', icon: Landmark },
+    { value: 'nature_tour', label: 'Nature Tour', icon: TreePine },
+    { value: 'adventure_tour', label: 'Adventure Tour', icon: Mountain },
+    { value: 'photography_tour', label: 'Photography Tour', icon: Camera },
+  ],
+  experience: [
+    { value: 'cultural', label: 'Cultural Experience', icon: Landmark },
+    { value: 'culinary', label: 'Culinary Experience', icon: UtensilsCrossed },
+    { value: 'artistic', label: 'Artistic Experience', icon: Palette },
+    { value: 'wellness', label: 'Wellness Experience', icon: HeartPulse },
+    { value: 'nightlife', label: 'Nightlife Experience', icon: Music },
+  ],
+  accommodation: [
+    { value: 'hotel', label: 'Hotel', icon: Hotel },
+    { value: 'resort', label: 'Resort', icon: Building },
+    { value: 'lodge', label: 'Lodge', icon: Tent },
+    { value: 'apartment', label: 'Apartment', icon: Building },
+    { value: 'guesthouse', label: 'Guesthouse', icon: Home },
+    { value: 'camping', label: 'Camping', icon: Tent },
+  ],
+  transport: [
+    { value: 'car_rental', label: 'Car Rental', icon: CarTaxiFront },
+    { value: 'airport_transfer', label: 'Airport Transfer', icon: Plane },
+    { value: 'shuttle', label: 'Shuttle Service', icon: Bus },
+    { value: 'bike_rental', label: 'Bike Rental', icon: BikeIcon },
+    { value: 'boat_transfer', label: 'Boat Transfer', icon: Ship },
+  ],
+  restaurant: [
+    { value: 'fine_dining', label: 'Fine Dining', icon: UtensilsCrossed },
+    { value: 'casual', label: 'Casual Dining', icon: Utensils },
+    { value: 'cafe', label: 'Café', icon: Coffee },
+    { value: 'street_food', label: 'Street Food', icon: UtensilsCrossed },
+    { value: 'traditional', label: 'Traditional Cuisine', icon: Landmark },
+  ],
+  activity: [
+    { value: 'hiking', label: 'Hiking', icon: Mountain },
+    { value: 'biking', label: 'Biking', icon: BikeIcon },
+    { value: 'water_sports', label: 'Water Sports', icon: Waves },
+    { value: 'fishing', label: 'Fishing', icon: Waves },
+    { value: 'skiing', label: 'Skiing', icon: Mountain },
+  ],
+  guide: [
+    { value: 'city_guide', label: 'City Guide', icon: Building },
+    { value: 'nature_guide', label: 'Nature Guide', icon: TreePine },
+    { value: 'cultural_guide', label: 'Cultural Guide', icon: Landmark },
+    { value: 'adventure_guide', label: 'Adventure Guide', icon: Mountain },
+  ],
+  event: [
+    { value: 'festival', label: 'Festival', icon: PartyPopper },
+    { value: 'concert', label: 'Concert', icon: Music },
+    { value: 'workshop', label: 'Workshop', icon: Briefcase },
+    { value: 'sports_event', label: 'Sports Event', icon: Activity },
+    { value: 'cultural_event', label: 'Cultural Event', icon: Landmark },
+  ],
+};
+
+// Sort options
+const SORT_OPTIONS = [
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'trending', label: 'Trending' },
+  { value: 'popular', label: 'Most Popular' },
+  { value: 'rating', label: 'Highest Rated' },
+  { value: 'price-low', label: 'Lowest Price' },
+  { value: 'price-high', label: 'Highest Price' },
+];
+
+// Listing types for filter
+const LISTING_TYPES = [
+  { value: 'all', label: 'All Types' },
+  { value: 'tour', label: 'Tour' },
+  { value: 'experience', label: 'Experience' },
+  { value: 'accommodation', label: 'Accommodation' },
+  { value: 'transport', label: 'Transport' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'activity', label: 'Activity' },
+  { value: 'guide', label: 'Guide' },
+  { value: 'event', label: 'Event' },
+];
+
+// Media type filter
+const MEDIA_TYPES = [
+  { value: 'all', label: 'All Media', icon: ImageIcon },
+  { value: 'image', label: 'Images', icon: ImageIcon },
+  { value: 'video', label: 'Videos', icon: Video },
+];
+
+// ===============================
+// HELPERS
+// ===============================
 
 const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500',
@@ -66,32 +189,69 @@ const getImageUrl = (image) => {
   return `${API_URL}/uploads/${image}`;
 };
 
-const getExperienceImage = (experience) => {
-  if (experience.coverImage) return getImageUrl(experience.coverImage);
-  if (experience.galleryImages && experience.galleryImages.length > 0) return getImageUrl(experience.galleryImages[0]);
-  if (experience.images && experience.images.length > 0) return getImageUrl(experience.images[0]);
+const getCoverMedia = (listing) => {
+  if (listing.coverMedia) {
+    return getImageUrl(listing.coverMedia);
+  }
+  if (listing.coverImage) {
+    return getImageUrl(listing.coverImage);
+  }
+  if (listing.galleryImages && listing.galleryImages.length > 0) {
+    return getImageUrl(listing.galleryImages[0]);
+  }
+  if (listing.images && listing.images.length > 0) {
+    return getImageUrl(listing.images[0]);
+  }
   return null;
 };
 
+const getCoverMediaType = (listing) => {
+  if (listing.coverMediaType === 'video') return 'video';
+  if (listing.coverMediaType === 'image') return 'image';
+  if (listing.videos && listing.videos.length > 0) return 'video';
+  return 'image';
+};
+
+const getExperienceImage = (experience) => {
+  if (experience.coverMedia) {
+    return getImageUrl(experience.coverMedia);
+  }
+  if (experience.coverImage) {
+    return getImageUrl(experience.coverImage);
+  }
+  if (experience.galleryImages && experience.galleryImages.length > 0) {
+    return getImageUrl(experience.galleryImages[0]);
+  }
+  if (experience.images && experience.images.length > 0) {
+    return getImageUrl(experience.images[0]);
+  }
+  return null;
+};
+
+// ===============================
+// MAIN COMPONENT
+// ===============================
+
 const Explore = () => {
   const navigate = useNavigate();
+  const searchRef = useRef(null);
   const [experiences, setExperiences] = useState([]);
-  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSort, setShowSort] = useState(false);
   const [favorites, setFavorites] = useState([]);
-  const [sortBy, setSortBy] = useState('recommended');
   const [imageErrors, setImageErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('all');
-  const [filters, setFilters] = useState({
-    minPrice: 0,
-    maxPrice: 5000,
-    location: '',
-    minRating: 0,
-  });
+  
+  // Filter states
+  const [selectedChip, setSelectedChip] = useState('all');
+  const [listingTypeFilter, setListingTypeFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 5000 });
+  const [ratingFilter, setRatingFilter] = useState(0);
+  const [sortBy, setSortBy] = useState('recommended');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
 
   // ================= FETCH DATA =================
   useEffect(() => {
@@ -102,22 +262,28 @@ const Explore = () => {
     }
   }, []);
 
+  // ================= STICKY SEARCH =================
+  useEffect(() => {
+    const handleScroll = () => {
+      const searchElement = searchRef.current;
+      if (searchElement) {
+        const rect = searchElement.getBoundingClientRect();
+        setIsSticky(rect.top <= 0);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const fetchAllData = async () => {
     try {
       setLoading(true);
-
-      const listingsData = await getListings({ limit: 50 });
+      const listingsData = await getListings({ limit: 100 });
       const listingsList = listingsData?.listings || [];
       setExperiences(listingsList);
-
-      const videosRes = await fetch(`${API_URL}/api/videos`);
-      const videosData = await videosRes.json();
-      setVideos(videosData?.videos || []);
-
     } catch (error) {
       console.error('❌ Error fetching data:', error);
       setExperiences([]);
-      setVideos([]);
     } finally {
       setLoading(false);
     }
@@ -135,96 +301,7 @@ const Explore = () => {
     localStorage.setItem('favoriteTours', JSON.stringify(updated));
   };
 
-  // ================= AI RECOMMENDED EXPERIENCES =================
-  const aiRecommendedExperiences = useMemo(() => {
-    const sorted = [...experiences].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-    return sorted.slice(0, 3);
-  }, [experiences]);
-
-  // ================= FILTERED ITEMS =================
-  const filteredItems = useMemo(() => {
-    let result = [];
-
-    let experienceResult = [...experiences];
-
-    if (searchTerm) {
-      experienceResult = experienceResult.filter(
-        (exp) =>
-          exp.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          exp.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          exp.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    experienceResult = experienceResult.filter(
-      (exp) => exp.price >= filters.minPrice && exp.price <= filters.maxPrice
-    );
-
-    if (filters.location) {
-      experienceResult = experienceResult.filter((exp) =>
-        exp.location?.toLowerCase().includes(filters.location.toLowerCase())
-      );
-    }
-
-    switch (sortBy) {
-      case 'price-low':
-        experienceResult.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        experienceResult.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        experienceResult.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
-        break;
-      case 'recommended':
-        experienceResult.sort((a, b) => {
-          const scoreA = (a.views || 0) + (a.averageRating || 0) * 10;
-          const scoreB = (b.views || 0) + (b.averageRating || 0) * 10;
-          return scoreB - scoreA;
-        });
-        break;
-      default:
-        experienceResult.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }
-
-    let videoResult = [...videos];
-    if (searchTerm) {
-      videoResult = videoResult.filter((video) =>
-        video.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        video.location?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (activeTab === 'experiences') {
-      result = experienceResult.map(item => ({ ...item, type: 'experience' }));
-    } else if (activeTab === 'videos') {
-      result = videoResult.map(item => ({ ...item, type: 'video' }));
-    } else if (activeTab === 'ai-picks') {
-      const aiPicks = experienceResult.filter(exp => (exp.averageRating || 0) >= 4.0).slice(0, 6);
-      result = aiPicks.map(item => ({ ...item, type: 'experience' }));
-    } else {
-      const mixed = [];
-      const experienceItems = experienceResult.map(exp => ({ ...exp, type: 'experience' }));
-      const videoItems = videoResult.map(v => ({ ...v, type: 'video' }));
-      
-      let experienceIndex = 0;
-      let videoIndex = 0;
-      
-      while (experienceIndex < experienceItems.length || videoIndex < videoItems.length) {
-        for (let i = 0; i < 2 && experienceIndex < experienceItems.length; i++) {
-          mixed.push(experienceItems[experienceIndex++]);
-        }
-        if (videoIndex < videoItems.length) {
-          mixed.push(videoItems[videoIndex++]);
-        }
-      }
-      
-      result = mixed;
-    }
-
-    return result;
-  }, [experiences, videos, searchTerm, filters, sortBy, activeTab]);
-
+  // ================= HANDLERS =================
   const handleImageError = (experienceId) => {
     setImageErrors((prev) => ({ ...prev, [experienceId]: true }));
   };
@@ -237,32 +314,155 @@ const Explore = () => {
     return image || getFallbackImage(experience._id);
   };
 
-  // ================= RENDER EXPERIENCE CARD (Compact/Gallery Style) =================
-  const ExperienceCardCompact = ({ experience }) => {
+  const handleChipClick = (chipId) => {
+    setSelectedChip(chipId);
+    if (chipId === 'all') {
+      setListingTypeFilter('all');
+    } else {
+      setListingTypeFilter(chipId);
+    }
+    setCategoryFilter('all');
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSelectedChip('all');
+    setListingTypeFilter('all');
+    setCategoryFilter('all');
+    setMediaTypeFilter('all');
+    setPriceRange({ min: 0, max: 5000 });
+    setRatingFilter(0);
+    setSortBy('recommended');
+  };
+
+  // ================= FILTERING LOGIC =================
+  const filteredItems = useMemo(() => {
+    let result = [...experiences];
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((exp) =>
+        exp.title?.toLowerCase().includes(term) ||
+        exp.description?.toLowerCase().includes(term) ||
+        exp.location?.toLowerCase().includes(term) ||
+        exp.listingType?.toLowerCase().includes(term) ||
+        exp.category?.toLowerCase().includes(term)
+      );
+    }
+
+    if (selectedChip !== 'all') {
+      result = result.filter((exp) => exp.listingType === selectedChip);
+    }
+
+    if (listingTypeFilter !== 'all' && listingTypeFilter !== selectedChip) {
+      result = result.filter((exp) => exp.listingType === listingTypeFilter);
+    }
+
+    if (categoryFilter !== 'all') {
+      result = result.filter((exp) => exp.category === categoryFilter);
+    }
+
+    result = result.filter((exp) =>
+      exp.price >= priceRange.min && exp.price <= priceRange.max
+    );
+
+    if (ratingFilter > 0) {
+      result = result.filter((exp) => (exp.averageRating || 0) >= ratingFilter);
+    }
+
+    if (mediaTypeFilter === 'image') {
+      result = result.filter((exp) => getCoverMediaType(exp) === 'image');
+    } else if (mediaTypeFilter === 'video') {
+      result = result.filter((exp) => getCoverMediaType(exp) === 'video');
+    }
+
+    switch (sortBy) {
+      case 'recommended':
+        result.sort((a, b) => {
+          const scoreA = (a.views || 0) + (a.averageRating || 0) * 10 + (a.totalBookings || 0) * 5;
+          const scoreB = (b.views || 0) + (b.averageRating || 0) * 10 + (b.totalBookings || 0) * 5;
+          return scoreB - scoreA;
+        });
+        break;
+      case 'newest':
+        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+      case 'trending':
+        result.sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'popular':
+        result.sort((a, b) => (b.totalBookings || 0) - (a.totalBookings || 0));
+        break;
+      case 'rating':
+        result.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+        break;
+      case 'price-low':
+        result.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        result.sort((a, b) => b.price - a.price);
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [experiences, searchTerm, selectedChip, listingTypeFilter, categoryFilter, priceRange, ratingFilter, mediaTypeFilter, sortBy]);
+
+  const currentDynamicCategories = useMemo(() => {
+    const type = listingTypeFilter !== 'all' ? listingTypeFilter : selectedChip;
+    if (type === 'all') return [];
+    return DYNAMIC_CATEGORIES[type] || [];
+  }, [listingTypeFilter, selectedChip]);
+
+  // ================= RENDER EXPERIENCE CARD =================
+  const ExperienceCard = ({ experience }) => {
     const isFavorite = favorites.includes(experience._id);
     const imageUrl = getImageWithFallback(experience);
     const rating = experience.averageRating || 0;
     const ratingDisplay = rating > 0 ? rating.toFixed(1) : 'New';
+    const coverType = getCoverMediaType(experience);
+    const coverUrl = getCoverMedia(experience);
 
     return (
       <div
-        onClick={() => navigate(`/listing/${experience._id}`)}
-        className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer border border-gray-100 dark:border-gray-800"
+        onClick={() => navigate(`/listing/${experience._id}`, { state: { coverMediaType: coverType } })}
+        className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer border border-gray-100 dark:border-gray-800 hover:-translate-y-1"
       >
         <div className="relative overflow-hidden h-56 bg-gray-100 dark:bg-gray-800">
-          <img
-            src={imageUrl}
-            alt={experience.title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-            onError={() => handleImageError(experience._id)}
-            loading="lazy"
-          />
+          {coverType === 'video' && coverUrl ? (
+            <video
+              src={coverUrl}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+              muted
+              loop
+              playsInline
+              autoPlay
+              poster={imageUrl}
+            />
+          ) : (
+            <img
+              src={imageUrl}
+              alt={experience.title}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+              onError={() => handleImageError(experience._id)}
+              loading="lazy"
+            />
+          )}
+          
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           
           {rating >= 4.0 && (
             <div className="absolute top-4 left-4 bg-[#0D9488] text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
-              AI Pick
+              Top Pick
+            </div>
+          )}
+
+          {coverType === 'video' && (
+            <div className="absolute top-4 left-24 bg-black/60 text-white text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+              <Play className="w-3 h-3" />
+              Video
             </div>
           )}
 
@@ -285,10 +485,8 @@ const Explore = () => {
           </div>
 
           {experience.status === 'pending' && (
-            <div className="absolute top-4 left-24">
-              <span className="bg-[#F59E0B] text-white text-xs px-3 py-1 rounded-full font-semibold">
-                Pending
-              </span>
+            <div className="absolute top-4 left-32 bg-[#F59E0B] text-white text-xs px-3 py-1 rounded-full font-semibold">
+              Pending
             </div>
           )}
         </div>
@@ -319,29 +517,14 @@ const Explore = () => {
               </span>
             </div>
           </div>
+          {experience.category && (
+            <div className="mt-2">
+              <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                {experience.category}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
-    );
-  };
-
-  // ================= RENDER VIDEO CARD =================
-  const VideoCardWrapper = ({ video }) => {
-    const videoProps = {
-      id: video._id,
-      title: video.title,
-      thumbnail: video.thumbnail || video.videoUrl,
-      views: video.views || 0,
-      likes: video.likes || 0,
-      duration: video.duration || 0,
-      location: video.location || '',
-    };
-
-    return (
-      <div className="h-full">
-        <VideoCard
-          video={videoProps}
-          onClick={() => navigate(`/video/${video._id}`)}
-        />
       </div>
     );
   };
@@ -360,218 +543,428 @@ const Explore = () => {
     );
   }
 
-  // ================= MAIN =================
+  // ================= RENDER =================
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-
-      {/* HERO */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#0D9488] via-[#F59E0B] to-[#374151]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10">
-          <div className="text-center text-white">
-            <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full mb-6 backdrop-blur-md">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-semibold">AI Powered Tourism</span>
+      {/* ================= HERO / SEARCH SECTION ================= */}
+      <div 
+        ref={searchRef}
+        className={`relative overflow-hidden bg-gradient-to-r from-[#0D9488] via-[#F59E0B] to-[#374151] transition-all duration-300 ${
+          isSticky ? 'pb-4 pt-4' : 'py-6 sm:py-12 lg:py-20'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {!isSticky && (
+            <div className="text-center text-white mb-6 sm:mb-8">
+              <div className="inline-flex items-center gap-2 bg-white/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-4 sm:mb-6 backdrop-blur-md">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-xs sm:text-sm font-semibold">AI Powered Tourism</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-black mb-2 sm:mb-4">Explore Rwanda</h1>
+              <p className="text-sm sm:text-base md:text-lg text-white/90 max-w-2xl mx-auto px-2">
+                Discover unforgettable experiences, adventures and hidden gems with AI Tour Rwanda.
+              </p>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black mb-4">Explore Rwanda</h1>
-            <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto">
-              Discover unforgettable experiences, adventures and hidden gems with AI Tour Rwanda.
-            </p>
-          </div>
+          )}
 
-          <div className="max-w-3xl mx-auto mt-10">
+          {/* Search Bar */}
+          <div className={`max-w-3xl mx-auto ${isSticky ? 'w-full' : 'mt-4 sm:mt-6'}`}>
             <div className="relative bg-white rounded-2xl shadow-2xl">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Discover experiences, adventures, and hidden gems..."
+                placeholder="Search tours, hotels, experiences..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-16 pl-14 pr-6 rounded-2xl outline-none text-gray-900 font-medium focus:ring-2 focus:ring-[#0D9488]"
+                className={`w-full pl-9 sm:pl-12 pr-3 sm:pr-4 rounded-2xl outline-none text-gray-900 font-medium focus:ring-2 focus:ring-[#0D9488] transition ${
+                  isSticky ? 'h-10 sm:h-12 text-sm' : 'h-12 sm:h-16 text-sm sm:text-base'
+                }`}
               />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                >
+                  <X className="w-4 sm:w-5 h-4 sm:h-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* ================= STICKY FILTERS BAR ================= */}
+      <div className={`sticky top-0 z-20 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 transition-shadow duration-300 ${
+        isSticky ? 'shadow-md' : ''
+      }`}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-2 sm:py-3">
+          {/* Category Chips */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {CATEGORY_CHIPS.map((chip) => {
+              const isActive = selectedChip === chip.id;
+              const Icon = chip.icon;
+              return (
+                <button
+                  key={chip.id}
+                  onClick={() => handleChipClick(chip.id)}
+                  className={`flex-shrink-0 flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    isActive
+                      ? 'bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/25'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Icon className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+                  <span className="hidden xs:inline">{chip.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* TABS */}
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2">
-          {[
-            { id: 'all', label: 'All Experiences', icon: Compass },
-            { id: 'experiences', label: 'Adventures', icon: MapPin },
-            { id: 'videos', label: 'Videos', icon: Play },
-            { id: 'ai-picks', label: 'AI Picks', icon: Sparkles },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/25'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* TOP BAR */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Filter Bar */}
+          <div className="flex items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 overflow-x-auto pb-1 scrollbar-hide">
+            {/* Mobile Filters Button */}
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="px-4 py-3 bg-white dark:bg-gray-900 rounded-xl shadow flex items-center gap-2 hover:shadow-lg transition text-[#374151] dark:text-white"
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="lg:hidden flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#0D9488]/10 text-[#0D9488] font-medium text-xs sm:text-sm whitespace-nowrap"
             >
-              <Filter className="w-4 h-4" />
-              Filters
+              <Filter className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+              <span>Filters</span>
+              {Object.values({ listingType: listingTypeFilter, category: categoryFilter, mediaType: mediaTypeFilter }).some(v => v !== 'all') && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" />
+              )}
             </button>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowSort(!showSort)}
-                className="px-4 py-3 bg-white dark:bg-gray-900 rounded-xl shadow flex items-center gap-2 text-[#374151] dark:text-white"
+            {/* Desktop Filters */}
+            <div className="hidden lg:flex items-center gap-2 xl:gap-3 flex-wrap">
+              {/* Listing Type */}
+              <select
+                value={listingTypeFilter}
+                onChange={(e) => {
+                  setListingTypeFilter(e.target.value);
+                  setCategoryFilter('all');
+                }}
+                className="h-8 xl:h-10 px-2 xl:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
               >
-                <SlidersHorizontal className="w-4 h-4" />
-                Sort
-                <ChevronDown className="w-4 h-4" />
-              </button>
+                {LISTING_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
 
-              {showSort && (
-                <div className="absolute top-full mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl overflow-hidden z-50">
-                  {[
-                    { value: 'recommended', label: 'Recommended' },
-                    { value: 'price-low', label: 'Price Low' },
-                    { value: 'price-high', label: 'Price High' },
-                    { value: 'rating', label: 'Top Rated' },
-                  ].map((item) => (
-                    <button
-                      key={item.value}
-                      onClick={() => {
-                        setSortBy(item.value);
-                        setShowSort(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition text-[#374151] dark:text-white"
-                    >
-                      {item.label}
-                    </button>
+              {/* Dynamic Category */}
+              {currentDynamicCategories.length > 0 && (
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="h-8 xl:h-10 px-2 xl:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                >
+                  <option value="all">All Categories</option>
+                  {currentDynamicCategories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
-                </div>
+                </select>
+              )}
+
+              {/* Media Type */}
+              <select
+                value={mediaTypeFilter}
+                onChange={(e) => setMediaTypeFilter(e.target.value)}
+                className="h-8 xl:h-10 px-2 xl:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+              >
+                {MEDIA_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+
+              {/* Price Range */}
+              <div className="flex items-center gap-1 xl:gap-2">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={priceRange.min || ''}
+                  onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) || 0 })}
+                  className="w-14 xl:w-20 h-8 xl:h-10 px-1.5 xl:px-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                />
+                <span className="text-gray-400 text-xs">-</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={priceRange.max || ''}
+                  onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) || 5000 })}
+                  className="w-14 xl:w-20 h-8 xl:h-10 px-1.5 xl:px-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                />
+              </div>
+
+              {/* Rating */}
+              <select
+                value={ratingFilter}
+                onChange={(e) => setRatingFilter(Number(e.target.value))}
+                className="h-8 xl:h-10 px-2 xl:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+              >
+                <option value={0}>All Ratings</option>
+                <option value={4.5}>4.5+ ★</option>
+                <option value={4}>4.0+ ★</option>
+                <option value={3.5}>3.5+ ★</option>
+                <option value={3}>3.0+ ★</option>
+              </select>
+
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="h-8 xl:h-10 px-2 xl:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs xl:text-sm focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+
+              {/* Reset Filters */}
+              {(searchTerm || selectedChip !== 'all' || listingTypeFilter !== 'all' || categoryFilter !== 'all' || mediaTypeFilter !== 'all' || priceRange.min > 0 || priceRange.max < 5000 || ratingFilter > 0) && (
+                <button
+                  onClick={resetFilters}
+                  className="flex items-center gap-1 px-2 xl:px-3 py-1.5 xl:py-2 rounded-xl text-xs xl:text-sm text-[#0D9488] hover:bg-[#0D9488]/10 transition whitespace-nowrap"
+                >
+                  <RefreshCw className="w-3.5 xl:w-4 h-3.5 xl:h-4" />
+                  <span className="hidden xl:inline">Reset</span>
+                </button>
               )}
             </div>
 
-            <div className="flex bg-white dark:bg-gray-900 rounded-xl shadow p-1">
+            {/* View Toggle - Desktop */}
+            <div className="hidden lg:flex items-center gap-1 ml-auto bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-3 rounded-lg transition ${
+                className={`p-1.5 xl:p-2 rounded-lg transition ${
                   viewMode === 'grid'
-                    ? 'bg-[#0D9488] text-white'
-                    : 'text-[#374151] dark:text-white'
+                    ? 'bg-white dark:bg-gray-900 text-[#0D9488] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
                 <Grid3x3 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-3 rounded-lg transition ${
+                className={`p-1.5 xl:p-2 rounded-lg transition ${
                   viewMode === 'list'
-                    ? 'bg-[#0D9488] text-white'
-                    : 'text-[#374151] dark:text-white'
+                    ? 'bg-white dark:bg-gray-900 text-[#0D9488] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredItems.length} experiences found
+      {/* ================= MOBILE FILTERS PANEL ================= */}
+      {showMobileFilters && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileFilters(false)}>
+          <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-900 rounded-t-3xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white dark:bg-gray-900 p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="font-bold text-[#374151] dark:text-white">Filters</h3>
+              <button onClick={() => setShowMobileFilters(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Listing Type */}
+              <div>
+                <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Listing Type</label>
+                <select
+                  value={listingTypeFilter}
+                  onChange={(e) => {
+                    setListingTypeFilter(e.target.value);
+                    setCategoryFilter('all');
+                  }}
+                  className="w-full h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                >
+                  {LISTING_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dynamic Category */}
+              {currentDynamicCategories.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Category</label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                  >
+                    <option value="all">All Categories</option>
+                    {currentDynamicCategories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Media Type */}
+              <div>
+                <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Media Type</label>
+                <select
+                  value={mediaTypeFilter}
+                  onChange={(e) => setMediaTypeFilter(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                >
+                  {MEDIA_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price Range */}
+              <div>
+                <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Price Range</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={priceRange.min || ''}
+                    onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) || 0 })}
+                    className="flex-1 h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                  />
+                  <span className="text-gray-400">to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={priceRange.max || ''}
+                    onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) || 5000 })}
+                    className="flex-1 h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div>
+                <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Minimum Rating</label>
+                <select
+                  value={ratingFilter}
+                  onChange={(e) => setRatingFilter(Number(e.target.value))}
+                  className="w-full h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                >
+                  <option value={0}>All Ratings</option>
+                  <option value={4.5}>4.5+ ★</option>
+                  <option value={4}>4.0+ ★</option>
+                  <option value={3.5}>3.5+ ★</option>
+                  <option value={3}>3.0+ ★</option>
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div>
+                <label className="block text-sm font-semibold text-[#374151] dark:text-white mb-1.5">Sort By</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full h-11 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent outline-none"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <button
+                  onClick={resetFilters}
+                  className="flex-1 h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  Reset All
+                </button>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="flex-1 h-12 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= RESULTS ================= */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+        {/* Results Header */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-[#374151] dark:text-white">
+              {filteredItems.length === 0 ? 'No experiences found' : `Showing ${filteredItems.length} experiences`}
+            </h2>
+            {filteredItems.length > 0 && (
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                {searchTerm && `Search: "${searchTerm}" • `}
+                {selectedChip !== 'all' && `Category: ${CATEGORY_CHIPS.find(c => c.id === selectedChip)?.label} • `}
+                {mediaTypeFilter !== 'all' && `Media: ${mediaTypeFilter === 'video' ? 'Videos' : 'Images'} • `}
+                {filteredItems.length} results
+              </p>
+            )}
+          </div>
+
+          {/* Mobile View Toggle */}
+          <div className="flex lg:hidden items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-900 text-[#0D9488] shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <Grid3x3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg transition ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-gray-900 text-[#0D9488] shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* FILTERS PANEL */}
-        {showFilters && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input
-                type="text"
-                placeholder="Location"
-                value={filters.location}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    location: e.target.value,
-                  })
-                }
-                className="h-12 px-4 rounded-xl border dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
-              />
-              <input
-                type="number"
-                placeholder="Min Price"
-                value={filters.minPrice}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    minPrice: Number(e.target.value),
-                  })
-                }
-                className="h-12 px-4 rounded-xl border dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
-              />
-              <input
-                type="number"
-                placeholder="Max Price"
-                value={filters.maxPrice}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    maxPrice: Number(e.target.value),
-                  })
-                }
-                className="h-12 px-4 rounded-xl border dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* RESULTS */}
+        {/* Results Grid */}
         {filteredItems.length === 0 ? (
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-16 text-center shadow-lg">
-            <div className="w-24 h-24 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-4">
-              <Compass className="w-12 h-12 text-[#0D9488]" />
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 sm:p-16 text-center shadow-lg border border-gray-100 dark:border-gray-800">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-full bg-[#0D9488]/10 flex items-center justify-center mb-4">
+              <Compass className="w-10 h-10 sm:w-12 sm:h-12 text-[#0D9488]" />
             </div>
-            <h2 className="text-2xl font-bold text-[#374151] dark:text-white mb-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#374151] dark:text-white mb-2">
               No Experiences Found
             </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              Try adjusting your search, filters, or tab selection.
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-6">
+              {searchTerm || selectedChip !== 'all' || listingTypeFilter !== 'all' || categoryFilter !== 'all' || mediaTypeFilter !== 'all' || priceRange.min > 0 || priceRange.max < 5000 || ratingFilter > 0
+                ? 'Try adjusting your search or filters'
+                : 'No experiences available at the moment. Check back soon!'}
             </p>
+            {(searchTerm || selectedChip !== 'all' || listingTypeFilter !== 'all' || categoryFilter !== 'all' || mediaTypeFilter !== 'all' || priceRange.min > 0 || priceRange.max < 5000 || ratingFilter > 0) && (
+              <button
+                onClick={resetFilters}
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition flex items-center gap-2 mx-auto text-sm sm:text-base"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset Filters
+              </button>
+            )}
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map((item) => {
-              if (item.type === 'video') {
-                return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
-              } else {
-                return <ExperienceCardCompact key={`experience-${item._id}`} experience={item} />;
-              }
-            })}
+          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+            {filteredItems.map((item) => (
+              <ExperienceCard key={item._id} experience={item} />
+            ))}
           </div>
         ) : (
-          <div className="space-y-6">
-            {filteredItems.map((item) => {
-              if (item.type === 'video') {
-                return <VideoCardWrapper key={`video-${item._id || item.id}`} video={item} />;
-              } else {
-                return <ExperienceCardCompact key={`experience-${item._id}`} experience={item} />;
-              }
-            })}
+          <div className="space-y-3 sm:space-y-4">
+            {filteredItems.map((item) => (
+              <ExperienceCard key={item._id} experience={item} />
+            ))}
           </div>
         )}
       </div>

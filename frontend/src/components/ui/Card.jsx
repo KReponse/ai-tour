@@ -1,8 +1,9 @@
 // src/components/ui/Card.jsx
+// ✅ UPDATED - Added video support to CardImage
 
 import React, { useState } from 'react';
 import clsx from 'clsx';
-import { MapPin } from 'lucide-react';
+import { MapPin, Play, Video } from 'lucide-react';
 
 // =====================================
 // AI TOUR COLORS
@@ -26,6 +27,32 @@ const FALLBACK_IMAGES = [
 const getFallbackImage = (seed) => {
   const index = typeof seed === 'number' ? seed : Math.floor(Math.random() * FALLBACK_IMAGES.length);
   return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
+};
+
+// =====================================
+// MEDIA HELPERS
+// =====================================
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const getImageUrl = (image) => {
+  if (!image) return null;
+  if (image.startsWith('http')) return image;
+  if (image.startsWith('/')) return image;
+  if (image.startsWith('blob:')) return image;
+  return `${API_URL}/uploads/${image}`;
+};
+
+const isVideoFile = (url) => {
+  if (!url) return false;
+  const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp'];
+  return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+};
+
+const getMediaType = (src) => {
+  if (!src) return 'image';
+  if (isVideoFile(src)) return 'video';
+  return 'image';
 };
 
 // =====================================
@@ -84,7 +111,7 @@ const Card = ({
 };
 
 // =====================================
-// CARD IMAGE
+// CARD IMAGE - ✅ UPDATED with video support
 // =====================================
 export const CardImage = ({ 
   src, 
@@ -94,16 +121,39 @@ export const CardImage = ({
   fallback = true,
   children,
   seed,
+  videoPoster,
 }) => {
   const [error, setError] = useState(false);
+  const [isVideo, setIsVideo] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
+  // Determine if this is a video
+  const mediaType = getMediaType(src);
+  const isVideoFile_ = mediaType === 'video';
+
+  // Get image URL for fallback/poster
+  const imageUrl = getImageUrl(src);
+  const finalPoster = videoPoster || imageUrl || getFallbackImage(seed);
   const finalSrc = (!src || error) && fallback 
     ? getFallbackImage(seed) 
-    : src;
+    : imageUrl;
 
   const handleError = () => {
     if (fallback) {
       setError(true);
+    }
+  };
+
+  const handleVideoError = (e) => {
+    e.target.style.display = 'none';
+    // Show fallback image
+    const parent = e.target.parentElement;
+    if (parent) {
+      const img = document.createElement('img');
+      img.src = finalPoster;
+      img.className = 'w-full h-full object-cover';
+      img.alt = alt || 'Media';
+      parent.appendChild(img);
     }
   };
 
@@ -113,7 +163,21 @@ export const CardImage = ({
       height,
       className
     )}>
-      {finalSrc ? (
+      {isVideoFile_ && src ? (
+        // ✅ Video display
+        <video
+          src={src}
+          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+          muted
+          autoPlay
+          loop
+          playsInline
+          poster={finalPoster}
+          onError={handleVideoError}
+          onLoadedData={() => setVideoLoaded(true)}
+        />
+      ) : finalSrc ? (
+        // ✅ Image display
         <img
           src={finalSrc}
           alt={alt || 'Tour image'}
@@ -126,6 +190,15 @@ export const CardImage = ({
           🏔️
         </div>
       )}
+      
+      {/* Video badge */}
+      {isVideoFile_ && src && (
+        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+          <Play className="w-3 h-3" />
+          Video
+        </div>
+      )}
+      
       {children}
     </div>
   );
@@ -149,7 +222,7 @@ export const CardContent = ({
 );
 
 // =====================================
-// CARD BADGE ✅
+// CARD BADGE
 // =====================================
 export const CardBadge = ({ 
   children, 
@@ -176,7 +249,7 @@ export const CardBadge = ({
 };
 
 // =====================================
-// CARD TITLE ✅
+// CARD TITLE
 // =====================================
 export const CardTitle = ({ 
   children, 
@@ -193,7 +266,7 @@ export const CardTitle = ({
 );
 
 // =====================================
-// CARD SUBTITLE ✅
+// CARD SUBTITLE
 // =====================================
 export const CardSubtitle = ({ 
   children, 
@@ -322,6 +395,9 @@ export const TourCard = ({
     price, 
     images, 
     coverImage, 
+    coverMedia,
+    coverMediaType,
+    videos,
     duration, 
     travelers, 
     views, 
@@ -330,21 +406,27 @@ export const TourCard = ({
     bookings 
   } = tour || {};
 
-  const getImage = () => {
+  // Get image/video source
+  const getMediaSrc = () => {
+    if (coverMedia && coverMediaType === 'video') return coverMedia;
     if (coverImage) return coverImage;
     if (images?.length > 0) return images[0];
     return null;
   };
+
+  const mediaSrc = getMediaSrc();
+  const mediaType = coverMediaType === 'video' ? 'video' : 'image';
 
   const badgeVariant = getStatusBadgeVariant(status);
 
   return (
     <Card variant="default" hover={true} padding={false}>
       <CardImage 
-        src={getImage()} 
+        src={mediaSrc} 
         alt={title || 'Tour'}
         height="h-56"
         seed={_id}
+        videoPoster={coverImage || (images?.length > 0 ? images[0] : null)}
       >
         {status && (
           <div className="absolute top-4 right-4">
@@ -358,6 +440,12 @@ export const TourCard = ({
             <CardBadge variant="info">
               📊 {bookings} Bookings
             </CardBadge>
+          </div>
+        )}
+        {mediaType === 'video' && (
+          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Play className="w-3 h-3" />
+            Video Cover
           </div>
         )}
       </CardImage>

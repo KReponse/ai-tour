@@ -1,4 +1,5 @@
-// src/pages/PaymentPage.jsx
+// frontend/src/pages/PaymentPage.jsx
+// ✅ UPDATED - Multi-provider payment support with dynamic provider selection
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -22,10 +23,15 @@ import {
   Building2,
   Mail,
   Phone,
+  ChevronDown,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { createCheckout } from '../services/paymentService';
+import { 
+  createCheckout, 
+  getPaymentProviders,
+  getWalletBalance,
+} from '../services/paymentService';
 import { getBookingById } from '../services/bookingService';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -39,7 +45,64 @@ import toast from 'react-hot-toast';
 // White : #FFFFFF
 // ===============================
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Provider configuration
+const PROVIDER_CONFIG = {
+  stripe: {
+    id: 'stripe',
+    name: 'Stripe',
+    icon: CreditCard,
+    color: 'from-blue-500 to-blue-600',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    borderColor: 'border-blue-200 dark:border-blue-800',
+    textColor: 'text-blue-600',
+    description: 'Pay with credit or debit card',
+    supportedCurrencies: ['USD', 'EUR', 'GBP'],
+  },
+  momo: {
+    id: 'momo',
+    name: 'MTN Mobile Money',
+    icon: Smartphone,
+    color: 'from-yellow-500 to-yellow-600',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    borderColor: 'border-yellow-200 dark:border-yellow-800',
+    textColor: 'text-yellow-600',
+    description: 'Pay with MTN Mobile Money',
+    supportedCurrencies: ['RWF', 'USD'],
+  },
+  airtel: {
+    id: 'airtel',
+    name: 'Airtel Money',
+    icon: Smartphone,
+    color: 'from-red-500 to-red-600',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    borderColor: 'border-red-200 dark:border-red-800',
+    textColor: 'text-red-600',
+    description: 'Pay with Airtel Money',
+    supportedCurrencies: ['RWF', 'USD'],
+  },
+  paypal: {
+    id: 'paypal',
+    name: 'PayPal',
+    icon: Wallet,
+    color: 'from-blue-400 to-indigo-500',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    borderColor: 'border-blue-200 dark:border-blue-800',
+    textColor: 'text-blue-600',
+    description: 'Pay with PayPal account',
+    supportedCurrencies: ['USD', 'EUR', 'GBP'],
+  },
+  bankTransfer: {
+    id: 'bankTransfer',
+    name: 'Bank Transfer',
+    icon: Building2,
+    color: 'from-green-500 to-green-600',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    borderColor: 'border-green-200 dark:border-green-800',
+    textColor: 'text-green-600',
+    description: 'Pay via bank transfer',
+    supportedCurrencies: ['RWF', 'USD', 'EUR', 'GBP'],
+  },
+};
 
 const PaymentPage = () => {
   const { bookingId } = useParams();
@@ -50,12 +113,16 @@ const PaymentPage = () => {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
   const [booking, setBooking] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [selectedProvider, setSelectedProvider] = useState('stripe');
+  const [providers, setProviders] = useState([]);
+  const [loadingProviders, setLoadingProviders] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(null);
 
-  // ✅ Fetch booking from backend
+  // ✅ Fetch booking and providers
   useEffect(() => {
     if (bookingId) {
       fetchBooking();
+      fetchProviders();
     } else {
       setError('No booking found');
       setFetching(false);
@@ -89,6 +156,41 @@ const PaymentPage = () => {
       }
     } finally {
       setFetching(false);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      setLoadingProviders(true);
+      const response = await getPaymentProviders();
+      
+      if (response.success && response.providers) {
+        setProviders(response.providers);
+        // Set default to first enabled provider
+        if (response.providers.length > 0) {
+          setSelectedProvider(response.providers[0].id);
+        }
+      } else {
+        // Fallback: use local provider config
+        const defaultProviders = Object.keys(PROVIDER_CONFIG).map(id => ({
+          id,
+          name: PROVIDER_CONFIG[id].name,
+          supportedCurrencies: PROVIDER_CONFIG[id].supportedCurrencies,
+          isTestMode: true,
+        }));
+        setProviders(defaultProviders);
+      }
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+      // Fallback: show Stripe only
+      setProviders([{
+        id: 'stripe',
+        name: 'Stripe',
+        supportedCurrencies: ['USD', 'EUR', 'GBP'],
+        isTestMode: true,
+      }]);
+    } finally {
+      setLoadingProviders(false);
     }
   };
 
@@ -147,14 +249,12 @@ const PaymentPage = () => {
       return;
     }
 
-    // ✅ Check if booking is already paid
     if (booking.paymentStatus === 'paid') {
       toast.error('This booking has already been paid');
       navigate(`/trip/${booking._id}`);
       return;
     }
 
-    // ✅ Check if booking is cancelled
     if (booking.status === 'cancelled' || booking.status === 'rejected') {
       toast.error('This booking has been cancelled and cannot be paid');
       return;
@@ -164,19 +264,19 @@ const PaymentPage = () => {
       setLoading(true);
       setError('');
 
-      const response = await createCheckout(booking._id);
+      const response = await createCheckout(booking._id, selectedProvider);
       
       console.log('✅ Checkout response:', response);
       
       if (response.url) {
-        // ✅ Redirect to Stripe checkout
+        // Redirect to payment provider
         window.location.href = response.url;
       } else if (response.sessionId) {
-        // ✅ Navigate to success with session ID
         navigate('/payment-success', {
           state: {
             sessionId: response.sessionId,
             bookingId: booking._id,
+            provider: selectedProvider,
           },
         });
       } else {
@@ -204,7 +304,7 @@ const PaymentPage = () => {
   };
 
   // Loading state
-  if (fetching) {
+  if (fetching || loadingProviders) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="relative w-16 h-16">
@@ -229,7 +329,7 @@ const PaymentPage = () => {
         <p className="text-gray-500 dark:text-gray-400 max-w-md">
           {error || 'Unable to process payment. Please try again.'}
         </p>
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-3 mt-6 flex-wrap justify-center">
           <button
             onClick={() => navigate('/my-trips')}
             className="px-6 py-3 rounded-xl bg-[#0D9488] text-white font-bold hover:bg-[#0D9488]/90 transition"
@@ -254,8 +354,12 @@ const PaymentPage = () => {
   const entityImage = getEntityImage();
   const providerName = getProviderName();
 
-  // ✅ Check if already paid
+  // Check if already paid
   const isPaid = booking.paymentStatus === 'paid';
+
+  // Get selected provider config
+  const selectedProviderConfig = PROVIDER_CONFIG[selectedProvider] || PROVIDER_CONFIG.stripe;
+  const SelectedIcon = selectedProviderConfig.icon;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4 sm:px-6 lg:px-8">
@@ -373,41 +477,72 @@ const PaymentPage = () => {
               </div>
             </Card>
 
-            {/* Payment Method */}
+            {/* Payment Method Selection */}
             {!isPaid && (
               <Card className="p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
                 <h2 className="text-xl font-bold text-[#374151] dark:text-white mb-4 flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-[#0D9488]" />
-                  Payment Method
+                  Select Payment Method
                 </h2>
 
-                <form onSubmit={handlePayment} className="space-y-5">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[
-                      { id: 'card', label: '💳 Card', color: '#0D9488' },
-                      { id: 'mobile', label: '📱 Mobile Money', color: '#F59E0B' },
-                      { id: 'paypal', label: '💰 PayPal', color: '#374151' },
-                    ].map((method) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                  {providers.map((provider) => {
+                    const config = PROVIDER_CONFIG[provider.id];
+                    if (!config) return null;
+                    const Icon = config.icon;
+                    const isSelected = selectedProvider === provider.id;
+                    const isDisabled = !provider.supportedCurrencies?.includes('USD') && !provider.supportedCurrencies?.includes('RWF');
+
+                    return (
                       <button
-                        key={method.id}
+                        key={provider.id}
                         type="button"
-                        onClick={() => setPaymentMethod(method.id)}
+                        onClick={() => !isDisabled && setSelectedProvider(provider.id)}
+                        disabled={isDisabled}
                         className={`p-4 rounded-2xl border-2 transition-all duration-200 text-center ${
-                          paymentMethod === method.id
-                            ? `border-[${method.color}] bg-[${method.color}]/10 shadow-md`
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
+                          isSelected
+                            ? `border-[#0D9488] bg-[#0D9488]/10 dark:bg-[#0D9488]/20 shadow-md`
+                            : `border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600`
+                        } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
-                        <span className="text-sm font-medium">{method.label}</span>
-                        {paymentMethod === method.id && (
-                          <div className="mt-1">
-                            <CheckCircle className="w-3 h-3 mx-auto text-[#0D9488]" />
-                          </div>
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${config.color} flex items-center justify-center mx-auto mb-2`}>
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <p className={`text-sm font-medium ${isSelected ? 'text-[#0D9488]' : 'text-gray-600 dark:text-gray-300'}`}>
+                          {config.name}
+                        </p>
+                        {provider.isTestMode && (
+                          <span className="text-[8px] text-gray-400 block mt-1">Test Mode</span>
+                        )}
+                        {isDisabled && (
+                          <span className="text-[8px] text-gray-400 block mt-1">Currency not supported</span>
+                        )}
+                        {isSelected && (
+                          <CheckCircle className="w-4 h-4 mx-auto mt-1 text-[#0D9488]" />
                         )}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
+                </div>
 
+                {/* Selected Provider Details */}
+                {selectedProviderConfig && (
+                  <div className={`p-4 rounded-2xl ${selectedProviderConfig.bgColor} border ${selectedProviderConfig.borderColor} mb-5`}>
+                    <div className="flex items-center gap-3">
+                      <SelectedIcon className={`w-6 h-6 ${selectedProviderConfig.textColor}`} />
+                      <div>
+                        <p className="font-semibold text-[#374151] dark:text-white">
+                          {selectedProviderConfig.name}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {selectedProviderConfig.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handlePayment} className="space-y-5">
                   {/* Submit Button */}
                   <Button
                     type="submit"
@@ -422,7 +557,7 @@ const PaymentPage = () => {
                     ) : (
                       <>
                         <Lock className="w-5 h-5 mr-2" />
-                        Pay ${total} Securely
+                        Pay ${total} with {selectedProviderConfig?.name || 'Stripe'}
                       </>
                     )}
                   </Button>

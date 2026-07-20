@@ -1,4 +1,5 @@
 // src/components/admin/AdminSidebar.jsx
+// ✅ UPDATED - Added Footer Settings menu item
 
 import React from "react";
 import { NavLink } from "react-router-dom";
@@ -31,6 +32,8 @@ import {
   BookOpen,
   CalendarDays,
   Receipt,
+  // ✅ ADD: Footer icon
+  FileText,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -43,7 +46,7 @@ import clsx from "clsx";
 // White : #FFFFFF
 // ===============================
 
-// ✅ UPDATED: Added Payment and Booking menu items
+// ✅ UPDATED: Added Payment, Booking, and Footer Settings menu items
 const menuItems = [
   // ── Primary ──
   { 
@@ -77,7 +80,7 @@ const menuItems = [
     isLegacy: true 
   },
   
-  // ── Bookings (NEW) ──
+  // ── Bookings ──
   { 
     name: "Bookings", 
     path: "/admin/bookings", 
@@ -86,7 +89,7 @@ const menuItems = [
     badge: "All"
   },
   
-  // ── Payments (NEW) ──
+  // ── Payments ──
   { 
     name: "Payments", 
     path: "/admin/payments", 
@@ -101,8 +104,6 @@ const menuItems = [
     path: "/admin/providers", 
     icon: UserCheck 
   },
-  
-  
   
   // ── Provider Requests ──
   { 
@@ -124,10 +125,48 @@ const menuItems = [
     path: "/admin/notifications", 
     icon: Bell 
   },
+  
+  // ── Settings Group ──
+  { 
+    name: "Settings", 
+    path: "/admin/settings", 
+    icon: Settings,
+    isPrimary: false
+  },
+  
+  // ── Footer Settings (NEW) ──
+  { 
+    name: "Footer Settings", 
+    path: "/admin/footer-settings", 
+    icon: FileText,
+    isPrimary: false
+  },
 ];
 
 // ✅ Filter out hidden/legacy items from sidebar display
 const visibleMenuItems = menuItems.filter(item => !item.hidden);
+
+// ✅ Group items for better organization (optional)
+const groupedMenuItems = [
+  { 
+    group: "Main", 
+    items: visibleMenuItems.filter(item => 
+      ['Dashboard', 'Listings', 'Bookings', 'Payments'].includes(item.name)
+    ) 
+  },
+  { 
+    group: "Management", 
+    items: visibleMenuItems.filter(item => 
+      ['Users', 'Providers', 'Provider Requests', 'Reviews', 'Notifications'].includes(item.name)
+    ) 
+  },
+  { 
+    group: "Settings", 
+    items: visibleMenuItems.filter(item => 
+      ['Settings', 'Footer Settings'].includes(item.name)
+    ) 
+  },
+];
 
 const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
   return (
@@ -178,63 +217,82 @@ const AdminSidebar = ({ collapsed, onToggle, onClose, mobile = false }) => {
         </div>
 
         {/* MENU */}
-        <nav className="flex-1 py-6 space-y-1.5 px-3 overflow-y-auto">
-          {visibleMenuItems.map((item) => {
-            const isPrimary = item.isPrimary || false;
-            const hasBadge = item.badge || false;
+        <nav className="flex-1 py-6 space-y-4 px-3 overflow-y-auto">
+          {/* Render grouped menu items */}
+          {groupedMenuItems.map((group, groupIndex) => {
+            // Skip empty groups
+            if (group.items.length === 0) return null;
             
             return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => {
-                  if (mobile) onClose();
-                }}
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group",
-                    collapsed && "justify-center",
-                    isActive
-                      ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
-                    isPrimary && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
-                    isPrimary && isActive && "border-l-2 border-[#0D9488]"
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon
-                      className={clsx(
-                        "w-5 h-5 transition-all duration-200",
-                        isActive
-                          ? "text-[#0D9488]"
-                          : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
-                      )}
-                    />
-                    {!collapsed && (
-                      <span
-                        className={clsx(
-                          "font-medium transition-colors duration-200 flex-1",
-                          isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300",
-                          isPrimary && "font-semibold"
-                        )}
-                      >
-                        {item.name}
-                      </span>
-                    )}
-                    {/* ✅ Badge for items like Bookings, Payments */}
-                    {hasBadge && !collapsed && !isActive && (
-                      <span className="ml-auto text-[9px] font-bold text-white bg-[#0D9488] px-2 py-0.5 rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
-                    {isActive && !collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
-                    )}
-                  </>
+              <div key={groupIndex} className="space-y-1">
+                {/* Group header - only show when not collapsed */}
+                {!collapsed && (
+                  <div className="px-4 py-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                      {group.group}
+                    </span>
+                  </div>
                 )}
-              </NavLink>
+                
+                {group.items.map((item) => {
+                  const isPrimary = item.isPrimary || false;
+                  const hasBadge = item.badge || false;
+                  
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => {
+                        if (mobile) onClose();
+                      }}
+                      className={({ isActive }) =>
+                        clsx(
+                          "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group",
+                          collapsed && "justify-center",
+                          isActive
+                            ? "bg-[#0D9488]/10 dark:bg-[#0D9488]/20 text-[#0D9488] shadow-md shadow-[#0D9488]/10"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-[#0D9488]/5 dark:hover:bg-[#0D9488]/10 hover:text-[#0D9488]",
+                          isPrimary && !isActive && "border-l-2 border-transparent hover:border-[#0D9488]/30",
+                          isPrimary && isActive && "border-l-2 border-[#0D9488]"
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <item.icon
+                            className={clsx(
+                              "w-5 h-5 transition-all duration-200",
+                              isActive
+                                ? "text-[#0D9488]"
+                                : "text-gray-500 dark:text-gray-400 group-hover:text-[#0D9488]"
+                            )}
+                          />
+                          {!collapsed && (
+                            <span
+                              className={clsx(
+                                "font-medium transition-colors duration-200 flex-1",
+                                isActive ? "text-[#0D9488]" : "text-gray-700 dark:text-gray-300",
+                                isPrimary && "font-semibold"
+                              )}
+                            >
+                              {item.name}
+                            </span>
+                          )}
+                          {/* Badge for items like Bookings, Payments */}
+                          {hasBadge && !collapsed && !isActive && (
+                            <span className="ml-auto text-[9px] font-bold text-white bg-[#0D9488] px-2 py-0.5 rounded-full">
+                              {item.badge}
+                            </span>
+                          )}
+                          {isActive && !collapsed && (
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-[#0D9488]" />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

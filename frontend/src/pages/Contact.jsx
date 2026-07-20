@@ -1,10 +1,12 @@
 // src/pages/Contact.jsx
+// ✅ UPDATED - Connected to Contact CMS API
 
-import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, MessageCircle, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Phone, MapPin, Send, MessageCircle, Clock, CheckCircle, Loader2, Globe } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { getContactContent } from '../services/contactService';
 
 // ===============================
 // AI TOUR COLORS
@@ -15,8 +17,19 @@ import Input from '../components/ui/Input';
 // White : #FFFFFF
 // ===============================
 
+// ─── Icon Mapper ──────────────────────────────────────────────
+const iconMap = {
+  'Mail': Mail,
+  'Phone': Phone,
+  'MapPin': MapPin,
+  'Clock': Clock,
+  'Globe': Globe,
+};
+
 const Contact = () => {
-  const [loading, setLoading] = useState(false);
+  const [contactData, setContactData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -25,22 +38,49 @@ const Contact = () => {
     message: '',
   });
 
+  useEffect(() => {
+    fetchContactContent();
+  }, []);
+
+  const fetchContactContent = async () => {
+    try {
+      const response = await getContactContent();
+      if (response?.success && response?.data) {
+        setContactData(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading contact content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     setSubmitted(true);
-    setLoading(false);
+    setFormLoading(false);
     setFormData({ name: '', email: '', subject: '', message: '' });
     setTimeout(() => setSubmitted(false), 4000);
   };
 
-  const contactInfo = [
-    { icon: Mail, label: 'Email', value: 'info@aitour.rw', href: 'mailto:info@aitour.rw' },
-    { icon: Phone, label: 'Phone', value: '+250 791 468 299', href: 'tel:+250791468299' },
-    { icon: MapPin, label: 'Address', value: 'Kigali, Rwanda', href: '#' },
-    { icon: Clock, label: 'Hours', value: 'Mon-Fri: 8AM - 6PM', href: '#' },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  const data = contactData || {};
+  const hero = data.hero || {};
+  const contactInfo = data.contactInfo || [];
+  const workingHours = data.workingHours || {};
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto px-4 py-8">
@@ -48,9 +88,11 @@ const Contact = () => {
       {/* HERO */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] p-12 text-white text-center">
         <div className="relative z-10">
-          <h1 className="text-4xl md:text-6xl font-black mb-4">Get in Touch</h1>
+          <h1 className="text-4xl md:text-6xl font-black mb-4">
+            {hero.title || 'Get in Touch'}
+          </h1>
           <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Have questions? We're here to help you plan your perfect Rwanda adventure.
+            {hero.subtitle || 'Have questions? We\'re here to help you plan your perfect Rwanda adventure.'}
           </p>
         </div>
       </section>
@@ -58,12 +100,12 @@ const Contact = () => {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* CONTACT INFO */}
         <div className="lg:col-span-1 space-y-4">
-          {contactInfo.map((item, idx) => {
-            const Icon = item.icon;
+          {contactInfo.filter(info => info.active !== false).map((item, idx) => {
+            const Icon = iconMap[item.icon] || Mail;
             return (
               <a
                 key={idx}
-                href={item.href}
+                href={item.href || '#'}
                 className="flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition group"
               >
                 <div className="w-12 h-12 rounded-xl bg-[#0D9488]/10 flex items-center justify-center group-hover:bg-[#0D9488] transition">
@@ -76,6 +118,21 @@ const Contact = () => {
               </a>
             );
           })}
+
+          {/* Working Hours */}
+          {workingHours.enabled !== false && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-3 mb-2">
+                <Clock className="w-5 h-5 text-[#0D9488]" />
+                <span className="font-semibold text-[#374151] dark:text-white">Working Hours</span>
+              </div>
+              <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
+                <p>{workingHours.weekdays || 'Mon-Fri: 8AM - 6PM'}</p>
+                <p>{workingHours.weekends || 'Sat-Sun: 9AM - 4PM'}</p>
+                <p className="text-xs text-gray-400">{workingHours.holidays || 'Closed on Public Holidays'}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* FORM */}
@@ -134,8 +191,8 @@ const Contact = () => {
                   required
                 />
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition">
-                {loading ? (
+              <Button type="submit" disabled={formLoading} className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white font-bold shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition">
+                {formLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Sending...

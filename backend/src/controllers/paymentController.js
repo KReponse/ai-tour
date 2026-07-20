@@ -1,10 +1,14 @@
 // backend/src/controllers/paymentController.js
+// ✅ FIXED - Proper metadata assignment, status mapping, and idempotent verification
 
 import Stripe from "stripe";
 import Booking from "../models/Booking.js";
 import Payment from "../models/Payment.js";
 import Earning from "../models/Earning.js";
 import { createNotification } from "../utils/notificationService.js";
+import paymentService from "../services/paymentService.js";
+import walletService from "../services/walletService.js";
+import { PAYMENT_STATUS } from "../services/paymentProvider.interface.js";
 
 // =========================
 // ✅ STRIPE INITIALIZATION
@@ -16,35 +20,111 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 // =========================
-// ✅ HELPERS
+// ✅ STATUS MAPPING
 // =========================
 
-const getEntityDetails = (booking) => {
-  const entity = booking.listing || booking.tour;
-  if (!entity) return null;
-  
-  return {
-    title: entity.title || 'Experience',
-    price: entity.price || 0,
-    type: booking.listing ? 'listing' : 'tour'
-  };
+const STRIPE_STATUS_MAP = {
+  'succeeded': 'paid',
+  'requires_payment_method': 'pending',
+  'requires_confirmation': 'pending',
+  'requires_action': 'pending',
+  'processing': 'processing',
+  'canceled': 'failed',
+  'failed': 'failed',
+  'complete': 'paid',
+  'expired': 'failed',
+  'open': 'pending',
+  'paid': 'paid',
+  'unpaid': 'pending',
+  'no_payment_required': 'pending',
 };
 
-const createPaymentRecord = async (booking, sessionId = null) => {
-  const payment = await Payment.create({
-    user: booking.user,
-    booking: booking._id,
-    provider: booking.provider,
-    amount: booking.totalPrice,
-    currency: "USD",
-    status: sessionId ? "pending" : "paid",
-    stripeSessionId: sessionId,
-    metadata: {
-      bookingId: booking._id.toString(),
-      entityType: booking.listing ? 'listing' : 'tour'
+const mapStripeStatus = (stripeStatus) => {
+  return STRIPE_STATUS_MAP[stripeStatus] || 'pending';
+};
+
+// =========================
+// ✅ LIGHTWEIGHT PROVIDER DATA EXTRACTOR
+// =========================
+
+const extractLightweightProviderData = (session, paymentIntent) => {
+  const data = {};
+  
+  if (session) {
+    data.sessionId = session.id || null;
+    data.sessionStatus = session.status || null;
+    data.sessionPaymentStatus = session.payment_status || null;
+    data.customerEmail = session.customer_details?.email || session.customer_email || null;
+    data.customerName = session.customer_details?.name || null;
+    data.created = session.created || null;
+    data.expiresAt = session.expires_at || null;
+  }
+  
+  if (paymentIntent) {
+    data.paymentIntentId = paymentIntent.id || null;
+    data.paymentIntentStatus = paymentIntent.status || null;
+    data.amount = paymentIntent.amount ? paymentIntent.amount / 100 : null;
+    data.currency = paymentIntent.currency || null;
+    data.paymentMethod = paymentIntent.payment_method || null;
+    data.latestCharge = paymentIntent.latest_charge || null;
+    data.created = paymentIntent.created || null;
+  }
+  
+  return data;
+};
+
+// =========================
+// ✅ SAFE BOOKING UPDATE
+// =========================
+
+const safelyUpdateBooking = async (bookingId, updateData) => {
+  try {
+    const booking = await Booking.findByIdAndUpdate(
+      bookingId,
+      updateData,
+      { 
+        new: true,
+        runValidators: false,
+        context: 'query'
+      }
+    );
+    return booking;
+  } catch (error) {
+    console.warn('⚠️ Could not update booking with validation:', error.message);
+    const booking = await Booking.findById(bookingId);
+    if (booking) {
+      Object.assign(booking, updateData);
+      booking.markModified('status');
+      booking.markModified('paymentStatus');
+      booking.markModified('paidAt');
+      await booking.save({ validateBeforeSave: false });
     }
+    return booking;
+  }
+};
+
+// =========================
+// ✅ IDEMPOTENCY CHECK
+// =========================
+
+const isPaymentAlreadyProcessed = async (bookingId) => {
+  const existingPayment = await Payment.findOne({
+    booking: bookingId,
+    status: { $in: ['paid', 'processing'] }
   });
-  return payment;
+  
+  if (existingPayment) {
+    console.log(`ℹ️ Payment already processed for booking: ${bookingId}`);
+    return true;
+  }
+  
+  const booking = await Booking.findById(bookingId);
+  if (booking && booking.paymentStatus === 'paid') {
+    console.log(`ℹ️ Booking already marked as paid: ${bookingId}`);
+    return true;
+  }
+  
+  return false;
 };
 
 // =========================
@@ -53,7 +133,7 @@ const createPaymentRecord = async (booking, sessionId = null) => {
 
 export const createCheckoutSession = async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, providerId = 'stripe', paymentMethod = 'card' } = req.body;
 
     if (!bookingId) {
       return res.status(400).json({
@@ -62,7 +142,6 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // ✅ Get booking with populated entity
     const booking = await Booking.findById(bookingId)
       .populate("tour", "title price location")
       .populate("listing", "title price location")
@@ -75,7 +154,6 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // ✅ SECURITY - Check if user owns this booking
     if (booking.user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -83,7 +161,6 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // ✅ Check if already paid
     if (booking.paymentStatus === "paid") {
       return res.status(400).json({
         success: false,
@@ -91,77 +168,57 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // ✅ Get entity details
     const entity = booking.listing || booking.tour;
     if (!entity) {
-      console.error('❌ No entity found for booking:', bookingId);
       return res.status(404).json({
         success: false,
-        message: "No experience associated with this booking. Please contact support."
+        message: "No experience associated with this booking."
       });
     }
 
     const entityTitle = entity.title || 'Experience';
-    const entityPrice = entity.price || 0;
-    const amount = booking.totalPrice || entityPrice || 100;
+    const amount = booking.totalPrice || entity.price || 100;
 
-    // ✅ Create payment record
-    const payment = await Payment.create({
-      user: req.user._id,
-      booking: booking._id,
-      provider: booking.provider,
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const successUrl = `${clientUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking._id}`;
+    const cancelUrl = `${clientUrl}/payment-cancel?booking_id=${booking._id}`;
+
+    const result = await paymentService.createPayment({
+      bookingId: booking._id,
+      providerId: providerId,
+      userId: req.user._id,
       amount: amount,
-      currency: "USD",
-      status: "pending"
-    });
-
-    console.log('✅ Payment record created:', payment._id);
-
-    // ✅ Create Stripe session
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: entityTitle,
-              description: `Booking for ${entityTitle} - ${booking.numberOfPeople || 1} traveler(s)`
-            },
-            unit_amount: Math.round(amount * 100)
-          },
-          quantity: 1
-        }
-      ],
+      currency: 'USD',
+      paymentMethod: paymentMethod,
+      description: `${entityTitle} - Booking #${booking.bookingCode}`,
       metadata: {
-        bookingId: booking._id.toString(),
-        paymentId: payment._id.toString()
+        entityType: booking.listing ? 'listing' : 'tour',
+        entityTitle: entityTitle,
+        numberOfPeople: booking.numberOfPeople || 1,
+        bookingCode: booking.bookingCode,
       },
-      success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/payment-cancel?session_id={CHECKOUT_SESSION_ID}`,
-      customer_email: req.user.email,
-      client_reference_id: booking._id.toString()
+      successUrl: successUrl,
+      cancelUrl: cancelUrl,
     });
 
-    console.log('✅ Stripe session created:', session.id);
-
-    // ✅ Update payment with session ID
-    payment.stripeSessionId = session.id;
-    await payment.save();
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: result.error || "Failed to create payment"
+      });
+    }
 
     res.json({
       success: true,
-      url: session.url,
-      sessionId: session.id,
-      paymentId: payment._id
+      url: result.payment.paymentUrl || result.providerResult.paymentUrl,
+      sessionId: result.payment.providerReference,
+      paymentId: result.payment.id,
+      provider: providerId,
+      status: result.payment.status,
     });
 
   } catch (error) {
     console.error("❌ Create Checkout Session Error:", error);
-    console.error("Stack:", error.stack);
     res.status(500).json({
       success: false,
       message: error.message || "Failed to create payment session"
@@ -169,9 +226,8 @@ export const createCheckoutSession = async (req, res) => {
   }
 };
 
-
 // =========================
-// ✅ VERIFY PAYMENT
+// ✅ VERIFY PAYMENT (FIXED)
 // =========================
 
 export const verifyPayment = async (req, res) => {
@@ -187,89 +243,238 @@ export const verifyPayment = async (req, res) => {
 
     console.log('🔍 Verifying payment for session:', sessionId);
 
-    // ✅ Retrieve session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // ✅ Find payment by session ID
+    let payment = await Payment.findOne({
+      $or: [
+        { stripeSessionId: sessionId },
+        { providerReference: sessionId }
+      ]
+    });
 
-    if (!session) {
+    if (!payment) {
       return res.status(404).json({
         success: false,
-        message: "Session not found"
+        message: "Payment not found"
       });
     }
 
-    console.log('📊 Session payment status:', session.payment_status);
-    console.log('📊 Session metadata:', session.metadata);
+    // ✅ IDEMPOTENCY CHECK - If already paid, return success
+    if (payment.status === 'paid') {
+      console.log(`ℹ️ Payment ${payment._id} already marked as paid`);
+      const booking = await Booking.findById(payment.booking)
+        .populate('listing', 'title price location')
+        .populate('tour', 'title price location');
+      
+      return res.json({
+        success: true,
+        alreadyProcessed: true,
+        paymentStatus: 'paid',
+        booking: booking ? {
+          _id: booking._id,
+          status: booking.status,
+          totalPrice: booking.totalPrice,
+          bookingCode: booking.bookingCode,
+          numberOfPeople: booking.numberOfPeople,
+          startDate: booking.startDate,
+        } : null,
+      });
+    }
 
-    // ✅ Get booking from metadata
-    const bookingId = session.metadata?.bookingId;
-    if (!bookingId) {
+    // ✅ Check if booking already paid
+    const bookingCheck = await Booking.findById(payment.booking);
+    if (bookingCheck && bookingCheck.paymentStatus === 'paid') {
+      console.log(`ℹ️ Booking ${payment.booking} already marked as paid`);
+      payment.status = 'paid';
+      await payment.save();
+      
+      return res.json({
+        success: true,
+        alreadyProcessed: true,
+        paymentStatus: 'paid',
+        booking: {
+          _id: bookingCheck._id,
+          status: bookingCheck.status,
+          totalPrice: bookingCheck.totalPrice,
+          bookingCode: bookingCheck.bookingCode,
+        },
+      });
+    }
+
+    // ✅ Retrieve Stripe session
+    let session;
+    let paymentIntent;
+    
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log(`✅ Stripe session: ${session.id}, status: ${session.status}, payment_status: ${session.payment_status}`);
+      
+      if (session.payment_intent) {
+        paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+        console.log(`✅ Payment intent: ${paymentIntent.id}, status: ${paymentIntent.status}`);
+      }
+    } catch (stripeError) {
+      console.error('❌ Stripe retrieval error:', stripeError.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to verify payment with Stripe"
+      });
+    }
+
+    // ✅ Check if payment is successful
+    const isSuccessful = 
+      (paymentIntent && paymentIntent.status === 'succeeded') ||
+      (session && session.payment_status === 'paid') ||
+      (session && session.status === 'complete');
+
+    if (!isSuccessful) {
+      const stripeStatus = paymentIntent?.status || session?.payment_status || session?.status || 'unknown';
+      const mappedStatus = mapStripeStatus(stripeStatus);
+      
+      payment.status = mappedStatus;
+      payment.errorMessage = `Payment not successful. Stripe status: ${stripeStatus}`;
+      payment.providerData = extractLightweightProviderData(session, paymentIntent);
+      await payment.save();
+      
       return res.status(400).json({
         success: false,
-        message: "No booking associated with this session"
+        message: `Payment not successful. Status: ${stripeStatus}`,
+        paymentStatus: mappedStatus
       });
     }
 
-    // ✅ Find booking WITHOUT populating
-    const booking = await Booking.findById(bookingId);
+    // ✅ UPDATE PAYMENT
+    const paymentIntentId = paymentIntent?.id || session?.payment_intent || null;
+    const latestCharge = paymentIntent?.latest_charge || null;
+    const customerEmail = session?.customer_details?.email || session?.customer_email || null;
+    const paymentMethodId = paymentIntent?.payment_method || null;
 
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found"
-      });
-    }
+    payment.status = 'paid';
+    payment.stripePaymentId = paymentIntentId;
+    payment.transactionId = paymentIntentId || sessionId;
+    payment.paidAt = new Date();
+    payment.providerAmount = payment.amount - (payment.platformFee || 0);
+    payment.providerReference = sessionId;
+    payment.providerData = extractLightweightProviderData(session, paymentIntent);
+    
+    const existingMetadata = payment.metadata instanceof Map 
+      ? Object.fromEntries(payment.metadata) 
+      : (payment.metadata || {});
+    
+    const newMetadata = {
+      ...existingMetadata,
+      stripePaymentIntentId: paymentIntentId,
+      stripeLatestCharge: latestCharge,
+      stripeCustomerEmail: customerEmail,
+      stripePaymentMethod: paymentMethodId,
+      verifiedAt: new Date().toISOString(),
+      sessionId: sessionId,
+    };
+    
+    payment.set('metadata', newMetadata);
+    await payment.save();
 
-    console.log('📊 Current booking status:', booking.status);
-    console.log('📊 Current payment status:', booking.paymentStatus);
-    console.log('📊 Start Date:', booking.startDate);
-    console.log('📊 End Date:', booking.endDate);
-
-    // ✅ If payment succeeded, update booking
-    if (session.payment_status === 'paid') {
-      // ✅ Update ONLY the fields needed (avoid validation issues)
-      booking.paymentStatus = "paid";
-      booking.status = "paid";
-      booking.paymentId = session.payment_intent;
+    // ✅ Update booking
+    const booking = await Booking.findById(payment.booking);
+    if (booking) {
+      booking.paymentStatus = 'paid';
+      booking.status = 'confirmed';
+      booking.paymentId = paymentIntentId;
       booking.paidAt = new Date();
-      
-      // ✅ Skip validation for this save
-      await booking.save({ validateBeforeSave: false });
-
-      // ✅ Update payment record
-      const Payment = await import('../models/Payment.js');
-      const payment = await Payment.default.findOne({ stripeSessionId: sessionId });
-      if (payment) {
-        payment.status = "paid";
-        payment.stripePaymentId = session.payment_intent;
-        payment.transactionId = session.payment_intent;
-        payment.paidAt = new Date();
-        payment.providerAmount = payment.amount - (payment.platformFee || 0);
-        await payment.save();
-        console.log('✅ Payment record updated:', payment._id);
-      }
-
-      console.log('✅ Booking updated to paid:', bookingId);
-      
-      // ✅ Populate for response
-      await booking.populate('listing', 'title price location');
-      await booking.populate('tour', 'title price location');
-    } else {
-      console.log('⚠️ Payment not completed. Status:', session.payment_status);
+      await booking.save();
     }
+
+    // ✅ Get booking details for notification
+    const bookingDetails = await Booking.findById(payment.booking)
+      .populate('listing', 'title')
+      .populate('tour', 'title')
+      .populate('user', 'name email')
+      .populate('provider', 'name email');
+
+    const entityTitle = bookingDetails?.listing?.title || bookingDetails?.tour?.title || 'experience';
+    const amount = payment.amount || 0;
+
+    // ✅ Determine booking type
+    const bookingType = bookingDetails?.listing ? 'listing' : 'tour';
+
+    // ✅ Create earning for provider
+    const platformFee = payment.platformFee || (amount * 0.1);
+    const providerAmount = amount - platformFee;
+    
+    const existingEarning = await Earning.findOne({ 
+      booking: payment.booking,
+      paymentId: paymentIntentId,
+    });
+    
+    if (!existingEarning) {
+      await Earning.create({
+        provider: payment.provider,
+        booking: payment.booking,
+        payment: payment._id,
+        amount: providerAmount,
+        platformFee: platformFee,
+        netAmount: providerAmount,
+        bookingType: bookingType, // ✅ REQUIRED FIELD
+        status: 'available',
+        paymentId: paymentIntentId,
+        paidAt: new Date()
+      });
+      console.log(`✅ Earning created for provider: ${payment.provider}`);
+    } else {
+      console.log(`ℹ️ Earning already exists for booking: ${payment.booking}`);
+    }
+
+    // ✅ Send notifications
+    if (bookingDetails) {
+      await Promise.all([
+        createNotification({
+          recipient: bookingDetails.provider,
+          sender: bookingDetails.user,
+          type: 'payment_success',
+          title: 'Payment Received 💰',
+          message: `You received a payment of $${amount} for ${entityTitle}`,
+          data: { bookingId: payment.booking },
+          link: `/provider/earnings`
+        }),
+        createNotification({
+          recipient: bookingDetails.user,
+          sender: bookingDetails.provider,
+          type: 'payment_success',
+          title: 'Payment Successful ✅',
+          message: `Your payment of $${amount} for ${entityTitle} was successful!`,
+          data: { bookingId: payment.booking },
+          link: `/my-bookings/${payment.booking}`
+        })
+      ]);
+    }
+
+    console.log(`✅ Payment verified and processed: ${payment.booking}`);
+
+    // ✅ Return success response
+    const finalBooking = await Booking.findById(payment.booking)
+      .populate('listing', 'title price location')
+      .populate('tour', 'title price location');
 
     res.json({
       success: true,
-      paymentStatus: session.payment_status,
-      bookingStatus: booking.status,
-      booking: {
-        _id: booking._id,
-        status: booking.status,
-        totalPrice: booking.totalPrice,
-        bookingCode: booking.bookingCode,
-        numberOfPeople: booking.numberOfPeople,
-        startDate: booking.startDate,
-        listing: booking.listing || null,
-        tour: booking.tour || null
+      paymentStatus: 'paid',
+      bookingStatus: finalBooking?.status || 'confirmed',
+      booking: finalBooking ? {
+        _id: finalBooking._id,
+        status: finalBooking.status,
+        totalPrice: finalBooking.totalPrice,
+        bookingCode: finalBooking.bookingCode,
+        numberOfPeople: finalBooking.numberOfPeople,
+        startDate: finalBooking.startDate,
+        listing: finalBooking.listing || null,
+        tour: finalBooking.tour || null
+      } : null,
+      payment: {
+        id: payment._id,
+        status: payment.status,
+        amount: payment.amount,
+        currency: payment.currency,
+        provider: payment.paymentMethod,
+        paidAt: payment.paidAt
       }
     });
 
@@ -282,7 +487,6 @@ export const verifyPayment = async (req, res) => {
     });
   }
 };
-
 // =========================
 // ✅ STRIPE WEBHOOK
 // =========================
@@ -302,7 +506,6 @@ export const stripeWebhook = async (req, res) => {
   let event;
 
   try {
-    // ✅ Verify webhook signature
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
@@ -316,52 +519,64 @@ export const stripeWebhook = async (req, res) => {
     });
   }
 
-  // ✅ Log webhook event
   console.log(`📥 Webhook received: ${event.type}`);
 
-  // ✅ Handle different event types
   try {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object);
-        break;
-      
-      case 'checkout.session.expired':
-        await handleCheckoutExpired(event.data.object);
-        break;
-      
-      case 'payment_intent.succeeded':
-        await handlePaymentIntentSucceeded(event.data.object);
-        break;
-      
-      case 'payment_intent.payment_failed':
-        await handlePaymentFailed(event.data.object);
-        break;
-      
-      case 'charge.refunded':
-        await handleChargeRefunded(event.data.object);
-        break;
-      
-      default:
-        console.log(`ℹ️ Unhandled event type: ${event.type}`);
-    }
+    const result = await paymentService.handleWebhook('stripe', {
+      body: req.body,
+      headers: req.headers,
+      rawBody: req.rawBody,
+      event: event,
+    });
 
-    res.json({ received: true });
+    if (result.success) {
+      res.json({ received: true, processed: true });
+    } else {
+      await handleWebhookLegacy(event);
+      res.json({ received: true, processed: true });
+    }
   } catch (error) {
     console.error('❌ Webhook processing error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    try {
+      await handleWebhookLegacy(event);
+      res.json({ received: true, processed: true });
+    } catch (fallbackError) {
+      res.status(500).json({
+        success: false,
+        message: fallbackError.message
+      });
+    }
   }
 };
 
 // =========================
-// ✅ WEBHOOK HANDLERS
+// ✅ LEGACY WEBHOOK HANDLERS
 // =========================
 
+const handleWebhookLegacy = async (event) => {
+  switch (event.type) {
+    case 'checkout.session.completed':
+      await handleCheckoutCompleted(event.data.object);
+      break;
+    case 'checkout.session.expired':
+      await handleCheckoutExpired(event.data.object);
+      break;
+    case 'payment_intent.succeeded':
+      await handlePaymentIntentSucceeded(event.data.object);
+      break;
+    case 'payment_intent.payment_failed':
+      await handlePaymentFailed(event.data.object);
+      break;
+    case 'charge.refunded':
+      await handleChargeRefunded(event.data.object);
+      break;
+    default:
+      console.log(`ℹ️ Unhandled legacy event type: ${event.type}`);
+  }
+};
+
 const handleCheckoutCompleted = async (session) => {
-  const { bookingId, paymentId } = session.metadata;
+  const bookingId = session.metadata?.bookingId;
   
   console.log(`💰 Payment successful for session: ${session.id}`);
   console.log(`📦 Booking ID: ${bookingId}`);
@@ -371,92 +586,72 @@ const handleCheckoutCompleted = async (session) => {
     return;
   }
 
-  // ✅ Use transaction to ensure atomicity
-  const booking = await Booking.findById(bookingId)
-    .populate("tour", "title")
-    .populate("listing", "title");
+  const alreadyProcessed = await isPaymentAlreadyProcessed(bookingId);
+  if (alreadyProcessed) {
+    console.log(`ℹ️ Booking ${bookingId} already processed, skipping`);
+    return;
+  }
 
+  const booking = await Booking.findById(bookingId).lean();
   if (!booking) {
     console.error("❌ Booking not found:", bookingId);
     return;
   }
 
-  // ✅ Check if already processed (idempotency)
-  if (booking.paymentStatus === 'paid') {
-    console.log(`ℹ️ Booking ${bookingId} already marked as paid, skipping`);
-    return;
-  }
-
-  // ✅ Update payment
-  const payment = await Payment.findById(paymentId);
-  if (payment) {
-    payment.status = "paid";
+  let payment = await Payment.findOne({ booking: bookingId });
+  
+  if (!payment) {
+    payment = await Payment.create({
+      user: booking.user,
+      booking: booking._id,
+      provider: booking.provider,
+      amount: booking.totalPrice,
+      currency: "USD",
+      status: "paid",
+      stripeSessionId: session.id,
+      stripePaymentId: session.payment_intent,
+      transactionId: session.payment_intent,
+      paidAt: new Date(),
+      paymentMethod: 'stripe',
+      source: 'webhook',
+      providerReference: session.id,
+      platformFee: booking.totalPrice * 0.1,
+      providerAmount: booking.totalPrice * 0.9,
+      providerData: extractLightweightProviderData(session, null),
+      metadata: {
+        bookingId: booking._id.toString(),
+        entityType: booking.listing ? 'listing' : 'tour',
+        webhookProcessed: true,
+        webhookProcessedAt: new Date().toISOString(),
+      }
+    });
+  } else if (payment.status !== 'paid') {
+    payment.status = 'paid';
+    payment.stripeSessionId = session.id;
     payment.stripePaymentId = session.payment_intent;
     payment.transactionId = session.payment_intent;
     payment.paidAt = new Date();
+    payment.providerData = extractLightweightProviderData(session, null);
     await payment.save();
-  } else {
-    // Create payment if missing (edge case)
-    await createPaymentRecord(booking, session.id);
   }
 
-  // ✅ Update booking
-  booking.paymentStatus = "paid";
-  booking.status = "paid";
-  booking.paymentId = session.payment_intent;
-  booking.paidAt = new Date();
-  await booking.save();
-
-  const entityTitle = booking.listing?.title || booking.tour?.title || 'experience';
-  const amount = booking.totalPrice || 0;
-
-  // ✅ Create earning for provider (90%)
-  const earning = await Earning.create({
-    provider: booking.provider,
-    booking: booking._id,
-    amount: amount * 0.9,
-    platformFee: amount * 0.1,
-    status: "available",
+  await safelyUpdateBooking(bookingId, {
+    paymentStatus: "paid",
+    status: "confirmed",
     paymentId: session.payment_intent,
     paidAt: new Date()
   });
 
-  // ✅ Send notifications
-  await Promise.all([
-    createNotification({
-      recipient: booking.provider,
-      sender: booking.user,
-      type: 'payment_success',
-      title: 'Payment Received 💰',
-      message: `You received a payment of $${amount} for ${entityTitle}`,
-      data: { bookingId: booking._id, earningId: earning._id },
-      link: `/provider/earnings`
-    }),
-    createNotification({
-      recipient: booking.user,
-      sender: booking.provider,
-      type: 'payment_success',
-      title: 'Payment Successful ✅',
-      message: `Your payment of $${amount} for ${entityTitle} was successful!`,
-      data: { bookingId: booking._id },
-      link: `/my-bookings/${booking._id}`
-    })
-  ]);
-
-  // ✅ Emit socket events
-  const io = req.app?.get('io');
-  if (io) {
-    io.to(booking.user.toString()).emit('newNotification', {
-      title: 'Payment Successful ✅',
-      message: `Your payment of $${amount} was successful!`,
-      type: 'payment_success',
-      data: { bookingId: booking._id }
-    });
-    io.to(booking.provider.toString()).emit('newNotification', {
-      title: 'Payment Received 💰',
-      message: `You received a payment of $${amount}`,
-      type: 'payment_success',
-      data: { bookingId: booking._id }
+  const existingEarning = await Earning.findOne({ booking: bookingId });
+  if (!existingEarning) {
+    await Earning.create({
+      provider: booking.provider,
+      booking: booking._id,
+      amount: booking.totalPrice * 0.9,
+      platformFee: booking.totalPrice * 0.1,
+      status: "available",
+      paymentId: session.payment_intent,
+      paidAt: new Date()
     });
   }
 
@@ -464,61 +659,70 @@ const handleCheckoutCompleted = async (session) => {
 };
 
 const handleCheckoutExpired = async (session) => {
-  const { bookingId } = session.metadata;
+  const bookingId = session.metadata?.bookingId;
   console.log(`⏰ Checkout expired for booking: ${bookingId}`);
   
   if (bookingId) {
-    const booking = await Booking.findById(bookingId);
-    if (booking && booking.status === 'pending_payment') {
-      booking.status = 'failed_payment';
-      booking.adminNotes = 'Payment session expired';
-      await booking.save();
+    const alreadyProcessed = await isPaymentAlreadyProcessed(bookingId);
+    if (!alreadyProcessed) {
+      await safelyUpdateBooking(bookingId, {
+        status: 'failed_payment',
+        adminNotes: 'Payment session expired'
+      });
     }
   }
 };
 
 const handlePaymentIntentSucceeded = async (paymentIntent) => {
   console.log(`✅ Payment intent succeeded: ${paymentIntent.id}`);
-  // Additional handling if needed
 };
 
 const handlePaymentFailed = async (paymentIntent) => {
   console.log(`❌ Payment failed: ${paymentIntent.id}`);
-  const { bookingId } = paymentIntent.metadata;
+  const bookingId = paymentIntent.metadata?.bookingId;
   
   if (bookingId) {
-    const booking = await Booking.findById(bookingId);
-    if (booking) {
-      await booking.markAsFailed(paymentIntent.last_payment_error?.message || 'Payment failed');
+    const alreadyProcessed = await isPaymentAlreadyProcessed(bookingId);
+    if (!alreadyProcessed) {
+      await safelyUpdateBooking(bookingId, {
+        status: 'failed_payment',
+        adminNotes: paymentIntent.last_payment_error?.message || 'Payment failed'
+      });
     }
   }
 };
 
 const handleChargeRefunded = async (charge) => {
   console.log(`💸 Charge refunded: ${charge.id}`);
-  const { bookingId } = charge.metadata;
+  const bookingId = charge.metadata?.bookingId;
   
   if (bookingId) {
-    const booking = await Booking.findById(bookingId);
-    if (booking) {
-      booking.paymentStatus = 'refunded';
-      booking.status = 'cancelled';
-      booking.cancelledAt = new Date();
-      booking.refundAmount = charge.amount_refunded / 100;
-      booking.refundedAt = new Date();
-      await booking.save();
+    await safelyUpdateBooking(bookingId, {
+      paymentStatus: 'refunded',
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      refundAmount: charge.amount_refunded / 100,
+      refundedAt: new Date()
+    });
+    
+    const payment = await Payment.findOne({ booking: bookingId });
+    if (payment && payment.status === 'paid') {
+      payment.status = 'refunded';
+      payment.refundAmount = charge.amount_refunded / 100;
+      payment.refundedAt = new Date();
+      payment.refundId = charge.id;
+      await payment.save();
     }
   }
 };
 
 // =========================
-// ✅ GET PAYMENT BY ID
+// ✅ OTHER CONTROLLER FUNCTIONS
 // =========================
 
 export const getPaymentById = async (req, res) => {
   try {
     const { id } = req.params;
-
     const payment = await Payment.findById(id)
       .populate('user', 'name email')
       .populate('booking', 'tour listing startDate endDate totalPrice status')
@@ -531,7 +735,6 @@ export const getPaymentById = async (req, res) => {
       });
     }
 
-    // ✅ Authorization check
     const isAuthorized = 
       payment.user._id.toString() === req.user._id.toString() ||
       payment.provider._id.toString() === req.user._id.toString() ||
@@ -544,10 +747,7 @@ export const getPaymentById = async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      payment
-    });
+    res.json({ success: true, payment });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -555,10 +755,6 @@ export const getPaymentById = async (req, res) => {
     });
   }
 };
-
-// =========================
-// ✅ GET MY PAYMENTS
-// =========================
 
 export const getMyPayments = async (req, res) => {
   try {
@@ -590,13 +786,8 @@ export const getMyPayments = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ GET PROVIDER PAYMENTS
-// =========================
-
 export const getProviderPayments = async (req, res) => {
   try {
-    // ✅ Only providers can access
     if (req.user.role !== 'provider' && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -633,10 +824,6 @@ export const getProviderPayments = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ TEST PAYMENT (Development)
-// =========================
-
 export const testPayment = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -652,7 +839,6 @@ export const testPayment = async (req, res) => {
       });
     }
 
-    // ✅ Security check
     if (booking.user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -660,7 +846,6 @@ export const testPayment = async (req, res) => {
       });
     }
 
-    // ✅ Check if already paid
     if (booking.paymentStatus === 'paid') {
       return res.status(400).json({
         success: false,
@@ -668,13 +853,12 @@ export const testPayment = async (req, res) => {
       });
     }
 
-    // ✅ Mark as paid
-    booking.paymentStatus = 'paid';
-    booking.status = 'paid';
-    booking.paidAt = new Date();
-    await booking.save();
+    await safelyUpdateBooking(bookingId, {
+      paymentStatus: 'paid',
+      status: 'confirmed',
+      paidAt: new Date()
+    });
 
-    // ✅ Create payment record
     await Payment.create({
       user: booking.user,
       booking: booking._id,
@@ -683,10 +867,16 @@ export const testPayment = async (req, res) => {
       currency: "USD",
       status: "paid",
       paidAt: new Date(),
-      isTestMode: true
+      isTestMode: true,
+      paymentMethod: 'test',
+      platformFee: booking.totalPrice * 0.1,
+      providerAmount: booking.totalPrice * 0.9,
+      metadata: {
+        testPayment: true,
+        processedAt: new Date().toISOString(),
+      }
     });
 
-    // ✅ Create earning record
     await Earning.create({
       provider: booking.provider,
       booking: booking._id,
@@ -710,17 +900,12 @@ export const testPayment = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ REQUEST REFUND
-// =========================
-
 export const requestRefund = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const { reason } = req.body;
 
     const booking = await Booking.findById(bookingId);
-
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -728,7 +913,6 @@ export const requestRefund = async (req, res) => {
       });
     }
 
-    // ✅ Authorization: Only user or admin can request refund
     const isAuthorized = 
       booking.user.toString() === req.user._id.toString() ||
       req.user.role === 'admin';
@@ -740,7 +924,6 @@ export const requestRefund = async (req, res) => {
       });
     }
 
-    // ✅ Check if refundable
     if (booking.paymentStatus !== 'paid') {
       return res.status(400).json({
         success: false,
@@ -755,49 +938,53 @@ export const requestRefund = async (req, res) => {
       });
     }
 
-    // ✅ Process refund via Stripe
-    try {
-      const refund = await stripe.refunds.create({
-        payment_intent: booking.paymentId,
-        reason: 'requested_by_customer',
-        metadata: {
-          bookingId: booking._id.toString(),
-          reason: reason || 'Customer requested refund'
-        }
-      });
-
-      // ✅ Update booking
-      booking.paymentStatus = 'refunded';
-      booking.status = 'cancelled';
-      booking.cancelledAt = new Date();
-      booking.cancellationReason = reason || 'Refund requested';
-      booking.refundAmount = booking.totalPrice;
-      booking.refundedAt = new Date();
-      booking.refundId = refund.id;
-      await booking.save();
-
-      // ✅ Send notification
-      await createNotification({
-        recipient: booking.provider,
-        type: 'refund_processed',
-        title: 'Refund Processed 💸',
-        message: `Refund of $${booking.totalPrice} processed for booking ${booking.bookingCode}`,
-        data: { bookingId: booking._id }
-      });
-
-      res.json({
-        success: true,
-        message: "Refund processed successfully",
-        refund,
-        booking
-      });
-    } catch (stripeError) {
-      console.error('❌ Stripe refund error:', stripeError);
-      return res.status(500).json({
+    const payment = await Payment.findOne({ booking: booking._id });
+    if (!payment) {
+      return res.status(404).json({
         success: false,
-        message: stripeError.message || "Failed to process refund"
+        message: "No payment found for this booking"
       });
     }
+
+    const refund = await stripe.refunds.create({
+      payment_intent: booking.paymentId,
+      reason: 'requested_by_customer',
+      metadata: {
+        bookingId: booking._id.toString(),
+        reason: reason || 'Customer requested refund'
+      }
+    });
+
+    await safelyUpdateBooking(bookingId, {
+      paymentStatus: 'refunded',
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancellationReason: reason || 'Refund requested',
+      refundAmount: booking.totalPrice,
+      refundedAt: new Date(),
+      refundId: refund.id
+    });
+
+    payment.status = 'refunded';
+    payment.refundAmount = booking.totalPrice;
+    payment.refundedAt = new Date();
+    payment.refundId = refund.id;
+    await payment.save();
+
+    await createNotification({
+      recipient: booking.provider,
+      type: 'refund_processed',
+      title: 'Refund Processed 💸',
+      message: `Refund of $${booking.totalPrice} processed for booking ${booking.bookingCode}`,
+      data: { bookingId: booking._id }
+    });
+
+    res.json({
+      success: true,
+      message: "Refund processed successfully",
+      refund,
+      booking
+    });
   } catch (error) {
     console.error('❌ Request refund error:', error);
     res.status(500).json({
@@ -807,13 +994,8 @@ export const requestRefund = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ GET PROVIDER EARNINGS SUMMARY
-// =========================
-
 export const getProviderEarnings = async (req, res) => {
   try {
-    // Only providers can access
     if (req.user.role !== 'provider' && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -822,13 +1004,10 @@ export const getProviderEarnings = async (req, res) => {
     }
 
     const providerId = req.user._id;
+    const summary = await Earning.getDashboardSummary(providerId);
+    const balanceResult = await walletService.getProviderBalanceSummary(providerId);
 
-    // Get earnings from Earning model
-    const Earning = await import('../models/Earning.js');
-    const summary = await Earning.default.getDashboardSummary(providerId);
-
-    // Get recent earnings
-    const recentEarnings = await Earning.default.find({ provider: providerId })
+    const recentEarnings = await Earning.find({ provider: providerId })
       .populate('booking', 'bookingCode startDate totalPrice')
       .sort({ createdAt: -1 })
       .limit(10);
@@ -836,6 +1015,7 @@ export const getProviderEarnings = async (req, res) => {
     res.json({
       success: true,
       summary,
+      wallet: balanceResult.success ? balanceResult.summary : null,
       recent: recentEarnings,
       currency: 'USD'
     });
@@ -848,18 +1028,13 @@ export const getProviderEarnings = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ GET ALL PAYMENTS (Admin)
-// =========================
-
 export const getAllPayments = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
     const filter = {};
     if (status) filter.status = status;
 
-    const Payment = await import('../models/Payment.js');
-    const payments = await Payment.default.find(filter)
+    const payments = await Payment.find(filter)
       .populate('user', 'name email')
       .populate('booking', 'bookingCode totalPrice status')
       .populate('provider', 'name email')
@@ -867,7 +1042,7 @@ export const getAllPayments = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const total = await Payment.default.countDocuments(filter);
+    const total = await Payment.countDocuments(filter);
 
     res.json({
       success: true,
@@ -886,17 +1061,12 @@ export const getAllPayments = async (req, res) => {
   }
 };
 
-// =========================
-// ✅ PROCESS REFUND (Admin)
-// =========================
-
 export const processRefund = async (req, res) => {
   try {
     const { paymentId } = req.params;
     const { amount, reason } = req.body;
 
-    const Payment = await import('../models/Payment.js');
-    const payment = await Payment.default.findById(paymentId)
+    const payment = await Payment.findById(paymentId)
       .populate('booking', 'bookingCode status')
       .populate('user', 'name email');
 
@@ -914,15 +1084,11 @@ export const processRefund = async (req, res) => {
       });
     }
 
-    // Process refund via Stripe
-    const stripe = await import('stripe');
-    const stripeInstance = new stripe.default(process.env.STRIPE_SECRET_KEY);
-
     const refundAmount = amount || payment.amount;
-    const refund = await stripeInstance.refunds.create({
+    const refund = await stripe.refunds.create({
       payment_intent: payment.stripePaymentId,
       amount: Math.round(refundAmount * 100),
-      reason: reason || 'requested_by_admin',
+      reason: 'requested_by_admin',
       metadata: {
         paymentId: payment._id.toString(),
         bookingId: payment.booking._id.toString(),
@@ -930,17 +1096,20 @@ export const processRefund = async (req, res) => {
       }
     });
 
-    // Update payment
-    await payment.processRefund(refund.id, refundAmount);
+    payment.status = 'refunded';
+    payment.refundAmount = refundAmount;
+    payment.refundedAt = new Date();
+    payment.refundId = refund.id;
+    await payment.save();
 
-    // Update booking
     const booking = payment.booking;
     if (booking) {
-      booking.status = 'cancelled';
-      booking.refundAmount = refundAmount;
-      booking.refundedAt = new Date();
-      booking.refundId = refund.id;
-      await booking.save();
+      await safelyUpdateBooking(booking._id, {
+        status: 'cancelled',
+        refundAmount: refundAmount,
+        refundedAt: new Date(),
+        refundId: refund.id
+      });
     }
 
     res.json({

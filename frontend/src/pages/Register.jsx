@@ -1,18 +1,9 @@
-// src/pages/Register.jsx
+// frontend/src/pages/Register.jsx
+// ✅ UPDATED - Handle accessToken and refreshToken from API
 
-import React, {
-  useState,
-} from "react";
-
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
-
-import {
-  motion,
-} from "framer-motion";
-
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   User,
   Mail,
@@ -29,17 +20,9 @@ import {
   CheckCircle,
   ArrowRight,
 } from "lucide-react";
-
 import toast from "react-hot-toast";
-
-import {
-  registerUser,
-} from "../services/authService";
-
-import {
-  useAuth,
-} from "../contexts/AuthContext";
-
+import { registerUser } from "../services/authService";
+import { useAuth } from "../contexts/AuthContext";
 import logo from "../assets/images/logo.png";
 
 // ===============================
@@ -77,8 +60,8 @@ const Register = () => {
     e.preventDefault();
 
     // Validation
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters");
       return;
     }
 
@@ -86,24 +69,47 @@ const Register = () => {
       setLoading(true);
 
       const response = await registerUser(formData);
+      
+      console.log("📝 Registration response:", response);
 
-      login(response.user, response.token);
+      // ✅ Check for accessToken (new API format)
+      if (response.accessToken) {
+        // ✅ Store tokens
+        localStorage.setItem("token", response.accessToken);
+        if (response.refreshToken) {
+          localStorage.setItem("refreshToken", response.refreshToken);
+        }
+        
+        // ✅ Call login function from AuthContext
+        login(response.user, response.accessToken);
 
-      toast.success("Account created successfully 🎉");
+        toast.success("Account created successfully 🎉");
 
-      if (response.user.role === "admin") {
-        navigate("/admin");
-      } else if (response.user.role === "provider") {
-        toast("Provider account waiting for admin approval", {
-          icon: "⏳",
-        });
-        navigate("/provider/dashboard");
+        // ✅ Redirect based on role
+        if (response.user?.role === "admin") {
+          navigate("/admin");
+        } else if (response.user?.role === "provider") {
+          toast("Provider account waiting for admin approval", {
+            icon: "⏳",
+          });
+          navigate("/provider/dashboard");
+        } else {
+          navigate("/");
+        }
       } else {
-        navigate("/");
+        // ✅ Fallback for old API format
+        if (response.token) {
+          login(response.user, response.token);
+          toast.success("Account created successfully 🎉");
+          navigate("/");
+        } else {
+          toast.error("Registration successful but no token received");
+        }
       }
     } catch (error) {
+      console.error("❌ Registration error:", error);
       toast.error(
-        error.response?.data?.message || "Registration failed"
+        error.response?.data?.message || error.message || "Registration failed"
       );
     } finally {
       setLoading(false);
@@ -327,7 +333,7 @@ const Register = () => {
                   onChange={handleChange}
                   placeholder="Create strong password"
                   required
-                  minLength="6"
+                  minLength="8"
                   className="w-full h-14 pl-12 pr-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
                 />
                 <button
@@ -338,7 +344,7 @@ const Register = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              <p className="mt-1.5 text-xs text-gray-400">Minimum 6 characters</p>
+              <p className="mt-1.5 text-xs text-gray-400">Minimum 8 characters</p>
             </div>
 
             {/* SUBMIT - Updated with AI Tour colors */}

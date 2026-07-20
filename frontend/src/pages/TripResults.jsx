@@ -1,4 +1,5 @@
 // src/pages/TripResults.jsx
+// ✅ UPDATED - Full cover media (image + video) support
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -22,6 +23,8 @@ import {
   X,
   Check,
   Eye,
+  Play,
+  Video,
 } from 'lucide-react';
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -109,7 +112,7 @@ const TripResults = () => {
       );
     }
 
-    // ✅ Sort - Updated with averageRating
+    // Sort
     switch (sortBy) {
       case 'recommended':
         result.sort((a, b) => {
@@ -147,13 +150,124 @@ const TripResults = () => {
     return `${API_URL}/uploads/${image}`;
   };
 
+  // ✅ Check if a string is a video file
+  const isVideoFile = (url) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp', '.mpeg', '.mpg'];
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
+
+  // ✅ Get cover media type (image or video)
+  const getCoverMediaType = (tour) => {
+    if (!tour) return 'image';
+    
+    // Check explicit coverMediaType
+    if (tour.coverMediaType === 'video') return 'video';
+    if (tour.coverMediaType === 'image') return 'image';
+    
+    // Check if coverMedia is a video file
+    if (tour.coverMedia && isVideoFile(tour.coverMedia)) return 'video';
+    
+    // Check if videos array exists
+    if (tour.videos && tour.videos.length > 0) return 'video';
+    
+    // Check galleryImages for videos
+    if (tour.galleryImages && tour.galleryImages.length > 0) {
+      for (const img of tour.galleryImages) {
+        if (isVideoFile(img)) return 'video';
+      }
+    }
+    
+    return 'image';
+  };
+
+  // ✅ Get cover video URL
+  const getCoverVideo = (tour) => {
+    if (!tour) return null;
+    
+    if (tour.coverMediaType === 'video' && tour.coverMedia) {
+      return getImageUrl(tour.coverMedia);
+    }
+    if (tour.coverMedia && isVideoFile(tour.coverMedia)) {
+      return getImageUrl(tour.coverMedia);
+    }
+    if (tour.videos && tour.videos.length > 0) {
+      return getImageUrl(tour.videos[0]);
+    }
+    if (tour.galleryImages && tour.galleryImages.length > 0) {
+      for (const img of tour.galleryImages) {
+        if (isVideoFile(img)) {
+          return getImageUrl(img);
+        }
+      }
+    }
+    return null;
+  };
+
+  // ✅ Get tour media (supports both image and video)
+  const getTourMedia = (tour) => {
+    if (!tour) {
+      return {
+        url: 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500',
+        isVideo: false,
+        videoUrl: null,
+        poster: 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500',
+        mediaType: 'image'
+      };
+    }
+
+    const coverType = getCoverMediaType(tour);
+    const videoUrl = getCoverVideo(tour);
+    
+    // Get poster image
+    let poster = null;
+    if (tour.coverImage) {
+      poster = getImageUrl(tour.coverImage);
+    } else if (tour.galleryImages && tour.galleryImages.length > 0) {
+      poster = getImageUrl(tour.galleryImages[0]);
+    } else if (tour.images && tour.images.length > 0) {
+      poster = getImageUrl(tour.images[0]);
+    } else if (tour.image) {
+      poster = getImageUrl(tour.image);
+    }
+    
+    const defaultImage = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    
+    // If it's a video, return video data
+    if (coverType === 'video' && videoUrl) {
+      return {
+        url: videoUrl,
+        isVideo: true,
+        videoUrl: videoUrl,
+        poster: poster || defaultImage,
+        mediaType: 'video'
+      };
+    }
+    
+    // Otherwise return image
+    let imageUrl = defaultImage;
+    if (tour.coverImage) {
+      imageUrl = getImageUrl(tour.coverImage) || defaultImage;
+    } else if (tour.galleryImages && tour.galleryImages.length > 0) {
+      imageUrl = getImageUrl(tour.galleryImages[0]) || defaultImage;
+    } else if (tour.images && tour.images.length > 0) {
+      imageUrl = getImageUrl(tour.images[0]) || defaultImage;
+    } else if (tour.image) {
+      imageUrl = getImageUrl(tour.image) || defaultImage;
+    }
+    
+    return {
+      url: imageUrl,
+      isVideo: false,
+      videoUrl: null,
+      poster: imageUrl,
+      mediaType: 'image'
+    };
+  };
+
   const getTourImage = (tour) => {
-    // ✅ Check coverImage first, then galleryImages, then images
-    if (tour.coverImage) return getImageUrl(tour.coverImage);
-    if (tour.galleryImages && tour.galleryImages.length > 0) return getImageUrl(tour.galleryImages[0]);
-    if (tour.images && tour.images.length > 0) return getImageUrl(tour.images[0]);
-    if (tour.image) return getImageUrl(tour.image);
-    return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    const media = getTourMedia(tour);
+    return media.url;
   };
 
   const getIncludes = (tour) => {
@@ -168,7 +282,6 @@ const TripResults = () => {
     return items.slice(0, 4);
   };
 
-  // ✅ Get rating display
   const getRatingDisplay = (tour) => {
     const rating = tour.averageRating || 0;
     return rating > 0 ? rating.toFixed(1) : 'New';
@@ -336,24 +449,37 @@ const TripResults = () => {
         <div className={`grid ${view === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'} gap-6`}>
           {filteredTours.map((tour) => {
             const includes = getIncludes(tour);
-            const imageUrl = getTourImage(tour);
+            const media = getTourMedia(tour);
             const ratingDisplay = getRatingDisplay(tour);
 
             return (
               <Link to={`/tour/${tour._id}`} key={tour._id}>
                 <Card hover className="h-full border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden">
                   <div className="relative">
+                    {/* ✅ Use CardImage with video support */}
                     <CardImage 
-                      src={imageUrl} 
+                      src={media.isVideo ? media.videoUrl : media.url}
                       alt={tour.title}
-                      className="h-56 object-cover"
+                      height="h-56"
+                      seed={tour._id}
+                      videoPoster={media.poster}
                     />
+                    
+                    {/* Video indicator */}
+                    {media.isVideo && (
+                      <div className="absolute bottom-4 left-4 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Play className="w-3 h-3" />
+                        Video
+                      </div>
+                    )}
+                    
                     {/* Status Badge */}
                     {tour.status === 'pending' && (
                       <div className="absolute top-4 left-4 bg-[#F59E0B] text-white px-3 py-1 rounded-full text-xs font-bold">
                         Pending
                       </div>
                     )}
+                    
                     {/* Rating Badge */}
                     <div className="absolute top-4 right-4 flex items-center gap-1 bg-white/90 dark:bg-gray-900/90 backdrop-blur px-2 py-1 rounded-lg shadow-lg">
                       <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
@@ -375,6 +501,12 @@ const TripResults = () => {
                       <h3 className="text-lg font-bold text-[#374151] dark:text-white line-clamp-1">
                         {tour.title}
                       </h3>
+                      {media.isVideo && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-[#0D9488] bg-[#0D9488]/10 px-1.5 py-0.5 rounded">
+                          <Play className="w-3 h-3" />
+                          Video
+                        </span>
+                      )}
                     </div>
                     
                     <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-3">

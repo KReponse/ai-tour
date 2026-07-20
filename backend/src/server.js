@@ -1,4 +1,5 @@
 // backend/src/server.js
+// ✅ UPDATED - Enhanced Socket.io authentication with tokenUtils
 
 import "dotenv/config";
 
@@ -36,9 +37,21 @@ import listingRoutes from "./routes/listingRoutes.js";
 import publicReviewRoutes from './routes/publicReviewRoutes.js';
 import providerReviewRoutes from './routes/providerReviewRoutes.js';
 import adminReviewRoutes from './routes/adminReviewRoutes.js';
+import newsletterRoutes from './routes/newsletterRoutes.js';
 
 import errorHandler from "./middleware/errorMiddleware.js";
+import footerRoutes from "./routes/footerRoutes.js";
 import { setIo } from './utils/notificationService.js';
+import { verifyToken, TOKEN_TYPES } from "./utils/tokenUtils.js";
+
+import aboutRoutes from './routes/aboutRoutes.js';
+import contactRoutes from './routes/contactRoutes.js';
+import faqRoutes from './routes/faqRoutes.js';
+import helpRoutes from './routes/helpRoutes.js';
+import privacyRoutes from './routes/privacyRoutes.js';
+import termsRoutes from './routes/termsRoutes.js';
+import careersRoutes from './routes/careersRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
 
 /* ================= DATABASE ================= */
 
@@ -59,33 +72,74 @@ const io = new Server(server, {
     origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"],
     credentials: true
+  },
+  // ✅ Add connection state recovery
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+    skipMiddlewares: true,
   }
 });
 
-// Socket.io authentication middleware
+// ✅ Socket.io authentication middleware (Enhanced)
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
     
     if (!token) {
+      console.warn('⚠️ Socket connection rejected: No token provided');
       return next(new Error('Authentication required'));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // ✅ Use tokenUtils for verification (consistent with REST API)
+    const verification = verifyToken(token, TOKEN_TYPES.ACCESS);
+
+    if (!verification.valid) {
+      // ✅ Handle specific error cases
+      if (verification.error === 'Token expired') {
+        console.warn('⚠️ Socket connection rejected: Token expired');
+        return next(new Error('Token expired'));
+      }
+      
+      console.warn(`⚠️ Socket connection rejected: ${verification.error}`);
+      return next(new Error('Invalid token'));
+    }
+
+    const decoded = verification.decoded;
     
     // Import User model dynamically to avoid circular dependency
     const User = (await import('./models/User.js')).default;
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(decoded.id)
+      .select('-password -refreshTokenHash -refreshTokenId -tokenBlacklist')
+      .lean();
     
     if (!user) {
+      console.warn('⚠️ Socket connection rejected: User not found');
       return next(new Error('User not found'));
     }
 
+    // ✅ Check if user is active
+    if (!user.isActive) {
+      console.warn('⚠️ Socket connection rejected: User deactivated');
+      return next(new Error('User deactivated'));
+    }
+
+    // ✅ Check token version
+    if (decoded.version && user.tokenVersion && decoded.version !== user.tokenVersion) {
+      console.warn('⚠️ Socket connection rejected: Token version mismatch');
+      return next(new Error('Token version mismatch'));
+    }
+
+    // ✅ Attach user and token info to socket
     socket.user = user;
+    socket.userId = user._id;
+    socket.tokenDecoded = decoded;
+    socket.token = token;
+
+    console.log(`✅ Socket authenticated: ${user.email} (${user.role})`);
     next();
   } catch (error) {
-    console.error('Socket auth error:', error.message);
-    next(new Error('Invalid token'));
+    console.error('❌ Socket auth error:', error.message);
+    next(new Error('Authentication failed'));
   }
 });
 
@@ -103,7 +157,12 @@ app.use(
 );
 
 // ✅ CORS
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
 
 // ✅ JSON with increased limit for base64 images/videos
 app.use(express.json({ limit: '550mb' }));
@@ -183,6 +242,18 @@ app.use('/api/public', publicReviewRoutes);
 app.use('/api/provider/reviews', providerReviewRoutes);
 app.use('/api/admin/reviews', adminReviewRoutes);
 
+app.use("/api/footer", footerRoutes);
+app.use('/api/newsletter', newsletterRoutes);
+
+app.use("/api/about", aboutRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/faq", faqRoutes);
+app.use("/api/help", helpRoutes);
+app.use("/api/privacy", privacyRoutes);
+app.use("/api/terms", termsRoutes);
+app.use("/api/careers", careersRoutes);
+app.use("/api/blog", blogRoutes);
+
 /* ================= HOME TEST ================= */
 
 app.get("/", (req, res) => {
@@ -206,6 +277,57 @@ io.on("connection", (socket) => {
     socket.join(`user-${socket.user._id}`);
     console.log(`📢 User ${socket.user.name} joined personal room`);
   }
+
+  // ✅ Handle token refresh for socket
+  socket.on("refresh-token", async (data) => {
+    try {
+      const { refreshToken } = data;
+      
+      if (!refreshToken) {
+        socket.emit('token-refresh-error', { message: 'Refresh token required' });
+        return;
+      }
+
+      // Verify refresh token
+      const verification = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
+      
+      if (!verification.valid) {
+        socket.emit('token-refresh-error', { message: 'Invalid refresh token' });
+        return;
+      }
+
+      const decoded = verification.decoded;
+      
+      // Check if user exists and is active
+      const User = (await import('./models/User.js')).default;
+      const user = await User.findById(decoded.id)
+        .select('-password -refreshTokenHash -refreshTokenId')
+        .lean();
+      
+      if (!user || !user.isActive) {
+        socket.emit('token-refresh-error', { message: 'User not found or inactive' });
+        return;
+      }
+
+      // Generate new access token
+      const { generateAccessToken } = await import('./utils/tokenUtils.js');
+      const newToken = generateAccessToken(user);
+      
+      // Update socket token
+      socket.token = newToken;
+      
+      // Emit new token to client
+      socket.emit('token-refreshed', {
+        accessToken: newToken,
+        expiresIn: 15 * 60 // 15 minutes in seconds
+      });
+
+      console.log(`🔄 Token refreshed for socket user: ${user.email}`);
+    } catch (error) {
+      console.error('❌ Socket token refresh error:', error.message);
+      socket.emit('token-refresh-error', { message: 'Token refresh failed' });
+    }
+  });
 
   // Join specific chat room
   socket.on("join-room", (roomId) => {

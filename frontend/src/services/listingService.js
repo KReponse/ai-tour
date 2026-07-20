@@ -1,4 +1,5 @@
-// src/services/listingService.js
+// frontend/src/services/listingService.js
+// ✅ UPDATED - Added Cover Media support (image + video)
 
 import axios from "axios";
 
@@ -67,9 +68,19 @@ export const getMyListings = async (token) => {
 
 // ===============================
 // ✅ CREATE LISTING (Provider - Requires Auth)
+// ✅ Updated: Supports coverMedia and coverMediaType
 // ===============================
 export const createListing = async (data, token, onProgress) => {
   try {
+    // ✅ If data is FormData, append coverMediaType if not already there
+    if (data instanceof FormData) {
+      // Ensure coverMediaType is sent
+      if (!data.has('coverMediaType')) {
+        // Default to 'image' if not set
+        data.append('coverMediaType', 'image');
+      }
+    }
+
     const response = await axios.post(`${API_URL}/listings`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -91,9 +102,17 @@ export const createListing = async (data, token, onProgress) => {
 
 // ===============================
 // ✅ UPDATE LISTING (Provider - Requires Auth)
+// ✅ Updated: Supports coverMedia and coverMediaType
 // ===============================
 export const updateListing = async (id, data, token, onProgress) => {
   try {
+    // ✅ If data is FormData, append coverMediaType if not already there
+    if (data instanceof FormData) {
+      if (!data.has('coverMediaType')) {
+        data.append('coverMediaType', 'image');
+      }
+    }
+
     const response = await axios.put(`${API_URL}/listings/${id}`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -206,3 +225,44 @@ export const getProviderListings = async (token) => {
     throw error;
   }
 };
+
+// ===============================
+// ✅ ✅ HELPER: Build FormData for Listing (NEW)
+// ===============================
+export const buildListingFormData = (formData, coverMediaFile, coverMediaType = 'image') => {
+  const data = new FormData();
+
+  // Add all form fields
+  Object.keys(formData).forEach((key) => {
+    if (key !== 'coverMedia' && key !== 'coverMediaType' && key !== 'galleryImages' && key !== 'videos') {
+      if (formData[key] !== null && formData[key] !== undefined) {
+        data.append(key, formData[key]);
+      }
+    }
+  });
+
+  // ✅ Add Cover Media with type
+  if (coverMediaFile) {
+    data.append('coverMedia', coverMediaFile);
+    data.append('coverMediaType', coverMediaType);
+    // Keep for backward compatibility
+    data.append('coverImage', coverMediaFile);
+  }
+
+  // Add gallery images
+  if (formData.galleryImages && formData.galleryImages.length > 0) {
+    formData.galleryImages.forEach((file) => {
+      data.append('galleryImages', file);
+    });
+  }
+
+  // Add videos
+  if (formData.videos && formData.videos.length > 0) {
+    formData.videos.forEach((file) => {
+      data.append('videos', file);
+    });
+  }
+
+  return data;
+};
+

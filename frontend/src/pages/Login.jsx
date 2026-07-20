@@ -1,4 +1,5 @@
-// src/pages/Login.jsx
+// frontend/src/pages/Login.jsx
+// ✅ UPDATED - Handle accessToken and refreshToken from API
 
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -43,17 +44,40 @@ const Login = () => {
       setError("");
 
       const data = await loginUser(formData);
-      login(data.user, data.token);
+      
+      console.log("🔐 Login response:", data);
 
-      if (data.user.role === "provider") {
-        navigate("/provider/dashboard");
-      } else if (data.user.role === "admin") {
-        navigate("/admin");
+      // ✅ Check for accessToken (new API format)
+      if (data.accessToken) {
+        // ✅ Store tokens
+        localStorage.setItem("token", data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem("refreshToken", data.refreshToken);
+        }
+        
+        // ✅ Call login function from AuthContext
+        login(data.user, data.accessToken);
+
+        // ✅ Redirect based on role
+        if (data.user?.role === "admin") {
+          navigate("/admin");
+        } else if (data.user?.role === "provider") {
+          navigate("/provider/dashboard");
+        } else {
+          navigate("/");
+        }
       } else {
-        navigate("/");
+        // ✅ Fallback for old API format
+        if (data.token) {
+          login(data.user, data.token);
+          navigate("/");
+        } else {
+          setError("Login successful but no token received");
+        }
       }
     } catch (error) {
-      setError(error.response?.data?.message || "Login failed");
+      console.error("❌ Login error:", error);
+      setError(error.response?.data?.message || error.message || "Login failed");
     } finally {
       setLoading(false);
     }

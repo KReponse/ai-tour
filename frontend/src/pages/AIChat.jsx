@@ -1,5 +1,4 @@
 // frontend/src/pages/AIChat.jsx
-// ✅ UPDATED - Changed all "Tour" references to "Experience"
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 

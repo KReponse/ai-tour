@@ -1,4 +1,5 @@
 // src/pages/provider/Travelers.jsx
+// ✅ UPDATED - Removed Actions column
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -216,9 +217,6 @@ const Travelers = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -274,20 +272,17 @@ const Travelers = () => {
                           {statusStyle.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => navigate(`/trip/${bookingId}`)}
-                          className="p-2 rounded-xl hover:bg-[#0D9488]/10 transition text-gray-400 hover:text-[#0D9488]"
-                          title="View Trip"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-sm text-gray-500">
+            <span>Showing {filteredTravelers.length} of {travelers.length} travelers</span>
+            <span>Last updated: {new Date().toLocaleString()}</span>
           </div>
         </div>
       )}

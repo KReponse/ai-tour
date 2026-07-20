@@ -1,4 +1,5 @@
 // backend/src/routes/listingRoutes.js
+// ✅ UPDATED - Added coverMedia support
 
 import express from "express";
 import upload from "../middleware/upload.js";
@@ -18,7 +19,7 @@ import {
   getLikes,
   checkLike,
   updateListing,
-   suspendListing,
+  suspendListing,
 } from "../controllers/listingController.js";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
@@ -28,14 +29,12 @@ const router = express.Router();
 // PUBLIC ROUTES
 // =========================
 
-// Get all approved listings (with optional filters)
 router.get("/", getListings);
 
 // =========================
 // STATIC ROUTES
 // =========================
 
-// ✅ Get my listings (Provider) - STATIC ROUTE
 router.get("/my", protect, getProviderListings);
 
 // =========================
@@ -50,31 +49,34 @@ router.get("/:id/likes/check", protect, checkLike);
 // DYNAMIC ROUTES
 // =========================
 
-// Get single listing by ID
 router.get("/:id", getSingleListing);
 
 // =========================
 // PROVIDER ROUTES (Protected)
 // =========================
 
-// ✅ CREATE LISTING - MUST have upload.fields()
+// ✅ CREATE LISTING - Updated with coverMedia
 router.post(
   "/",
   protect,
   upload.fields([
-    { name: "coverImage", maxCount: 1 },
+    { name: "coverImage", maxCount: 1 },      // ✅ Backward compatibility
+    { name: "coverMedia", maxCount: 1 },      // ✅ NEW: Cover Media
+    { name: "coverMediaType", maxCount: 1 },  // ✅ NEW: Media type ('image' or 'video')
     { name: "galleryImages", maxCount: 15 },
     { name: "videos", maxCount: 3 },
   ]),
   createListing
 );
 
-// Update listing
+// ✅ UPDATE LISTING - Updated with coverMedia
 router.put(
   "/:id",
   protect,
   upload.fields([
     { name: "coverImage", maxCount: 1 },
+    { name: "coverMedia", maxCount: 1 },      // ✅ NEW
+    { name: "coverMediaType", maxCount: 1 },  // ✅ NEW
     { name: "galleryImages", maxCount: 15 },
     { name: "videos", maxCount: 3 },
   ]),

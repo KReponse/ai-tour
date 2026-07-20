@@ -1,66 +1,82 @@
 // src/pages/HelpCenter.jsx
+// ✅ UPDATED - Connected to Help Center CMS API
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
-  MessageCircle, 
   BookOpen, 
+  Calendar, 
+  DollarSign, 
   Users, 
-  Shield, 
-  CreditCard,
-  ChevronDown,
-  ChevronUp,
-  Mail,
-  Phone,
+  MapPin, 
+  Shield,
+  Sparkles,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { Link } from 'react-router-dom';
+import { getHelpContent } from '../services/helpService';
 
-// ===============================
-// AI TOUR COLORS
-// ===============================
-// Teal  : #0D9488
-// Gold  : #F59E0B
-// Slate : #374151
-// White : #FFFFFF
-// ===============================
+// ─── Icon Mapper ──────────────────────────────────────────────
+const iconMap = {
+  'BookOpen': BookOpen,
+  'Calendar': Calendar,
+  'DollarSign': DollarSign,
+  'Users': Users,
+  'MapPin': MapPin,
+  'Shield': Shield,
+  'HelpCircle': BookOpen,
+};
 
 const HelpCenter = () => {
-  const [expanded, setExpanded] = useState(null);
+  const [helpData, setHelpData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const categories = [
-    { icon: BookOpen, label: 'Booking Help', color: '#0D9488' },
-    { icon: Users, label: 'Account & Profile', color: '#F59E0B' },
-    { icon: Shield, label: 'Safety & Trust', color: '#374151' },
-    { icon: CreditCard, label: 'Payments & Refunds', color: '#0D9488' },
-  ];
+  useEffect(() => {
+    fetchHelpContent();
+  }, []);
 
-  const faqs = [
-    {
-      question: 'How do I book a tour?',
-      answer: 'Browse tours on our Explore page, select your preferred tour, and click "Book Now". Follow the steps to complete your booking.',
-    },
-    {
-      question: 'What is the cancellation policy?',
-      answer: 'You can cancel up to 24 hours before the tour for a full refund. Cancellations within 24 hours may incur a 50% fee.',
-    },
-    {
-      question: 'How do I contact a provider?',
-      answer: 'Each tour listing has a provider profile with contact information. You can also use our chat feature to message providers directly.',
-    },
-    {
-      question: 'Is my payment secure?',
-      answer: 'Yes, all payments are processed through secure, encrypted channels. We accept Visa, Mastercard, MTN MoMo, and Airtel Money.',
-    },
-    {
-      question: 'How do I become a provider?',
-      answer: 'Go to your profile and click "Become a Provider". Fill in the application form and wait for admin approval.',
-    },
-    {
-      question: 'What if I have a problem during a tour?',
-      answer: 'Contact our 24/7 support team immediately. We\'ll help resolve any issues with the provider.',
-    },
-  ];
+  const fetchHelpContent = async () => {
+    try {
+      const response = await getHelpContent();
+      if (response?.success && response?.data) {
+        setHelpData(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading help content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  const data = helpData || {};
+  const hero = data.hero || {};
+  const categories = data.categories || [];
+  const articles = data.articles || [];
+  const featuredArticles = data.featuredArticles || [];
+
+  const filteredArticles = articles.filter(article => {
+    const matchesSearch = article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          article.content?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
+    return matchesSearch && matchesCategory && article.active !== false;
+  });
+
+  const featured = articles.filter(a => featuredArticles.includes(a.slug) && a.active !== false);
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto px-4 py-8">
@@ -68,26 +84,17 @@ const HelpCenter = () => {
       {/* HERO */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] p-12 text-white text-center">
         <div className="relative z-10">
-          <h1 className="text-4xl md:text-6xl font-black mb-4">Help Center</h1>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur mb-6">
+            <BookOpen className="w-5 h-5" />
+            <span className="font-medium">Help Center</span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-black mb-6">
+            {hero.title || 'How Can We Help You?'}
+          </h1>
           <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Find answers to your questions and get the support you need.
+            {hero.subtitle || 'Find guides, tutorials, and answers to common questions.'}
           </p>
         </div>
-      </section>
-
-      {/* CATEGORIES */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {categories.map((cat, idx) => {
-          const Icon = cat.icon;
-          return (
-            <button key={idx} className="bg-white dark:bg-gray-900 rounded-3xl p-6 text-center border border-gray-100 dark:border-gray-800 hover:shadow-xl transition group">
-              <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: `${cat.color}15` }}>
-                <Icon className="w-7 h-7" style={{ color: cat.color }} />
-              </div>
-              <p className="font-semibold text-[#374151] dark:text-white">{cat.label}</p>
-            </button>
-          );
-        })}
       </section>
 
       {/* SEARCH */}
@@ -95,65 +102,106 @@ const HelpCenter = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
           type="text"
-          placeholder="Search for help..."
-          className="w-full pl-12 pr-4 h-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none"
+          placeholder="Search for help articles..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-12 pr-4 h-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#0D9488] focus:border-transparent transition outline-none text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
         />
       </div>
 
-      {/* FAQs */}
-      <section>
-        <h2 className="text-3xl font-black text-[#374151] dark:text-white text-center mb-8">
-          Frequently Asked Questions
-        </h2>
-        <div className="max-w-3xl mx-auto space-y-3">
-          {faqs.map((faq, idx) => {
-            const isExpanded = expanded === idx;
-            return (
-              <div
+      {/* FEATURED ARTICLES */}
+      {featured.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-black text-[#374151] dark:text-white mb-4">Featured Articles</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            {featured.map((article, idx) => (
+              <Link
                 key={idx}
-                className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-md transition"
+                to={`/help/${article.slug}`}
+                className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition group"
               >
-                <button
-                  onClick={() => setExpanded(isExpanded ? null : idx)}
-                  className="w-full flex items-center justify-between p-5 text-left"
-                >
-                  <span className="font-semibold text-[#374151] dark:text-white">{faq.question}</span>
-                  {isExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-[#0D9488] flex-shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-[#0D9488] flex-shrink-0" />
-                  )}
-                </button>
-                {isExpanded && (
-                  <div className="px-5 pb-5 text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {faq.answer}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+                <h3 className="text-lg font-bold text-[#374151] dark:text-white group-hover:text-[#0D9488] transition">
+                  {article.title}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{article.excerpt}</p>
+                <div className="mt-4 flex items-center gap-2 text-[#0D9488] font-medium text-sm">
+                  Read More <ChevronRight className="w-4 h-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* CONTACT */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 text-center">
-        <MessageCircle className="w-12 h-12 text-[#0D9488] mx-auto mb-4" />
-        <h2 className="text-2xl font-black text-[#374151] dark:text-white mb-2">
-          Still have questions?
+      {/* CATEGORIES */}
+      {categories.filter(c => c.active !== false).length > 0 && (
+        <section>
+          <h2 className="text-2xl font-black text-[#374151] dark:text-white mb-4">Browse by Category</h2>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                selectedCategory === 'all'
+                  ? 'bg-[#0D9488] text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              All
+            </button>
+            {categories.filter(c => c.active !== false).map((cat) => {
+              const Icon = iconMap[cat.icon] || BookOpen;
+              const isActive = selectedCategory === cat.slug;
+              return (
+                <button
+                  key={cat.slug}
+                  onClick={() => setSelectedCategory(cat.slug)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-[#0D9488] text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ARTICLES LIST */}
+      <section>
+        <h2 className="text-2xl font-black text-[#374151] dark:text-white mb-4">
+          {searchTerm ? 'Search Results' : 'All Articles'}
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">
-          Our support team is here to help you 24/7.
-        </p>
-        <div className="flex flex-wrap justify-center gap-4">
-          <a href="mailto:support@aitour.rw" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#0D9488] text-white font-semibold hover:scale-[1.02] transition">
-            <Mail className="w-5 h-5" />
-            Email Support
-          </a>
-          <a href="tel:+250791468299" className="flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-[#0D9488] text-[#0D9488] font-semibold hover:bg-[#0D9488]/10 transition">
-            <Phone className="w-5 h-5" />
-            Call Us
-          </a>
-        </div>
+        {filteredArticles.length === 0 ? (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800">
+            <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-[#374151] dark:text-white">No articles found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">
+              Try adjusting your search or category filter
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-4">
+            {filteredArticles.map((article, idx) => (
+              <Link
+                key={idx}
+                to={`/help/${article.slug}`}
+                className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition group"
+              >
+                <h3 className="text-lg font-bold text-[#374151] dark:text-white group-hover:text-[#0D9488] transition">
+                  {article.title}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{article.excerpt || article.content?.slice(0, 120) + '...'}</p>
+                <div className="mt-4 flex items-center gap-2 text-[#0D9488] font-medium text-sm">
+                  Read More <ChevronRight className="w-4 h-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -1,5 +1,4 @@
 // backend/src/controllers/providerController.js
-// ✅ UPDATED - Uses Listing instead of Tour
 
 import ProviderRequest from "../models/ProviderRequest.js";
 import User from "../models/User.js";
@@ -763,7 +762,7 @@ export const getPublicProviderProfile = async (req, res) => {
       });
     }
 
-    // ✅ Get provider stats using Listing instead of Tour
+    // ✅ Get provider stats
     const listings = await Listing.find({ 
       provider: provider._id, 
       status: "approved",
@@ -784,6 +783,12 @@ export const getPublicProviderProfile = async (req, res) => {
 
     const isVerified = provider.role === "provider" || provider.verificationStatus === "approved";
 
+    // ✅ Get WhatsApp number (priority: whatsapp > businessPhone > phone)
+    const whatsappNumber = providerRequest?.whatsapp || 
+                          providerRequest?.businessPhone || 
+                          provider.phone || 
+                          "";
+
     res.json({
       success: true,
       provider: {
@@ -794,32 +799,69 @@ export const getPublicProviderProfile = async (req, res) => {
         avatar: provider.avatar || "",
         bio: provider.bio || providerRequest?.description || "",
         location: provider.location || providerRequest?.city || "",
-        socialLinks: provider.socialLinks || {},
         createdAt: provider.createdAt,
+        memberSince: provider.createdAt,
+        
+        // ✅ Social Links
+        socialLinks: {
+          facebook: provider.socialLinks?.facebook || providerRequest?.facebook || "",
+          instagram: provider.socialLinks?.instagram || providerRequest?.instagram || "",
+          twitter: provider.socialLinks?.twitter || providerRequest?.twitter || "",
+          linkedin: provider.socialLinks?.linkedin || providerRequest?.linkedin || "",
+          youtube: provider.socialLinks?.youtube || providerRequest?.youtube || "",
+          tiktok: provider.socialLinks?.tiktok || providerRequest?.tiktok || "",
+        },
+        
+        // ✅ Business Information
         businessName: providerRequest?.businessName || provider.name,
         businessType: providerRequest?.businessType || "tour_operator",
         description: providerRequest?.description || "",
         country: providerRequest?.country || "",
         city: providerRequest?.city || "",
-        price: providerRequest?.price || 0,
-        currency: providerRequest?.currency || "USD",
-        availability: providerRequest?.availability || "Monday-Friday",
-        businessEmail: providerRequest?.businessEmail || provider.email || "",
-        businessPhone: providerRequest?.businessPhone || provider.phone || "",
-        businessAddress: providerRequest?.businessAddress || "",
         province: providerRequest?.province || "",
         district: providerRequest?.district || "",
         street: providerRequest?.street || "",
+        businessAddress: providerRequest?.businessAddress || "",
+        price: providerRequest?.price || 0,
+        currency: providerRequest?.currency || "USD",
+        availability: providerRequest?.availability || "Monday-Friday",
+        
+        // ✅ Contact Information
+        businessEmail: providerRequest?.businessEmail || provider.email || "",
+        businessPhone: providerRequest?.businessPhone || provider.phone || "",
+        // ✅ WhatsApp number (new field)
+        whatsapp: whatsappNumber,
+        website: providerRequest?.website || "",
         googleMaps: providerRequest?.googleMaps || "",
+        
+        // ✅ Branding
         logo: providerRequest?.logo || "",
         coverImage: providerRequest?.coverImage || "",
-        businessHours: providerRequest?.businessHours || null,
-        website: providerRequest?.website || "",
+        
+        // ✅ Languages & Specializations
+        languages: providerRequest?.languages || [],
+        specializations: providerRequest?.specializations || [],
+        yearsOfExperience: providerRequest?.yearsOfExperience || "",
+        
+        // ✅ Business Hours
+        businessHours: providerRequest?.businessHours || {
+          monday: { open: "08:00", close: "18:00", closed: false },
+          tuesday: { open: "08:00", close: "18:00", closed: false },
+          wednesday: { open: "08:00", close: "18:00", closed: false },
+          thursday: { open: "08:00", close: "18:00", closed: false },
+          friday: { open: "08:00", close: "18:00", closed: false },
+          saturday: { open: "08:00", close: "18:00", closed: false },
+          sunday: { open: "08:00", close: "18:00", closed: false }
+        },
+        
+        // ✅ Stats
         totalTours: listings.length,
-        totalReviews,
-        averageRating,
+        totalReviews: totalReviews,
+        averageRating: Math.round(averageRating * 10) / 10,
+        
+        // ✅ Verification
         verified: isVerified,
-        memberSince: provider.createdAt
+        verificationStatus: provider.verificationStatus || "approved",
       }
     });
   } catch (error) {

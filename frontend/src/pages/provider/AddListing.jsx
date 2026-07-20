@@ -1,6 +1,7 @@
-// src/pages/provider/AddListing.jsx
+// frontend/src/pages/provider/AddListing.jsx
+// ✅ UPDATED - Cover Media (Image + Video support)
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MapPin,
@@ -40,6 +41,13 @@ import {
   getBusinessTypeFromProvider,
   getDefaultListingType,
 } from "../../config/listingConfigs";
+// ✅ NEW IMPORT: Unified Listing Types and Categories
+import {
+  LISTING_TYPES,
+  CATEGORIES_BY_TYPE,
+  getCategoriesForType,
+  getListingTypeOptions,
+} from "../../constants/listingCategories";
 
 // ── Brand tokens ─────────────────────────────────────────────────
 const TEAL = "#0D9488";
@@ -197,10 +205,21 @@ const AddListing = () => {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  // Media
+  // ── Media ──────────────────────────────────────────────────────
+  // ✅ NEW: Cover Media (Image or Video)
+  const [coverMediaType, setCoverMediaType] = useState('image'); // 'image' or 'video'
   const [coverPreview, setCoverPreview] = useState(null);
+  const [coverMediaFile, setCoverMediaFile] = useState(null);
+  
+  // Gallery & Videos (unchanged)
   const [galleryPreview, setGalleryPreview] = useState([]);
   const [videoPreview, setVideoPreview] = useState([]);
+
+  // ✅ NEW: customCategory state for "Other" category
+  const [customCategory, setCustomCategory] = useState("");
+
+  // ── Video duration validation ref ─────────────────────────────
+  const videoValidationRef = useRef(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -220,6 +239,10 @@ const AddListing = () => {
     requirements: "",
     refundPolicy: "",
     listingType: "",
+    // ✅ NEW: Cover Media fields
+    coverMedia: null,
+    coverMediaType: 'image',
+    // Keep for backward compatibility
     coverImage: null,
     galleryImages: [],
     videos: [],
@@ -246,16 +269,24 @@ const AddListing = () => {
   const BizIcon = bizCfg.icon;
   const activeSections = bizCfg.sections || [];
 
-  // Set default listing type when business type changes
+  // ✅ UPDATED: Set default listing type from unified list when business type changes
   useEffect(() => {
     if (businessType && !form.listingType) {
-      const defaultType = getDefaultListingType(businessType);
+      const defaultType = LISTING_TYPES[0]?.value || 'experience';
       setForm((f) => ({ ...f, listingType: defaultType }));
     }
   }, [businessType, form.listingType]);
 
+  // ✅ NEW: When listing type changes, reset category and customCategory
+  useEffect(() => {
+    if (form.listingType) {
+      setForm((f) => ({ ...f, category: "" }));
+      setCustomCategory("");
+      setErrors((e) => ({ ...e, category: "", customCategory: "" }));
+    }
+  }, [form.listingType]);
+
   // ── Validation ────────────────────────────────────────────────
-  // ✅ UPDATED: Images 15MB, Videos 500MB
   const validate = useCallback(
     (name, value) => {
       if (name === "title") {
@@ -267,6 +298,11 @@ const AddListing = () => {
       }
       if (name === "category") {
         if (!value) return "Select a category";
+      }
+      if (name === "customCategory") {
+        if (form.category === "Other" && !value?.trim()) {
+          return "Please specify the category";
+        }
       }
       if (name === "price") {
         if (!value) return "Price is required";
@@ -284,12 +320,21 @@ const AddListing = () => {
         if (value.length < 30) return "At least 30 characters";
       }
       
-      // ✅ UPDATED: Images 15MB, Videos 500MB
-      if (name === "coverImage") {
-        if (!value) return "Cover image is required";
-        if (!value.type?.startsWith("image/")) return "Must be an image";
-        if (value.size > 15 * 1024 * 1024) return "Max 15 MB";
+      // ✅ UPDATED: Cover Media validation
+      if (name === "coverMedia") {
+        if (!value) return "Cover media is required";
+        
+        if (coverMediaType === 'image') {
+          if (!value.type?.startsWith("image/")) return "Must be an image (JPG, PNG, WEBP)";
+          if (value.size > 15 * 1024 * 1024) return "Max 15 MB";
+        } else {
+          // Video validation
+          if (!value.type?.startsWith("video/")) return "Must be a video (MP4, MOV, WEBM)";
+          if (value.size > 500 * 1024 * 1024) return "Max 500 MB";
+        }
+        return "";
       }
+      
       if (name === "galleryImages") {
         if (value.length > 15) return "Max 15 images";
         if (value.some((f) => f.size > 15 * 1024 * 1024))
@@ -302,7 +347,7 @@ const AddListing = () => {
       }
       return "";
     },
-    []
+    [form.category, coverMediaType]
   );
 
   const set = (name, value) => {
@@ -314,19 +359,65 @@ const AddListing = () => {
     setErrors((e) => ({ ...e, [name]: validate(name, value) }));
   };
 
-  const handleChange = (e) => set(e.target.name, e.target.value);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    set(name, value);
+  };
+  
   const handleBlur = (e) => touch(e.target.name, e.target.value);
 
   // ── File handlers ─────────────────────────────────────────────
-  const handleCover = (e) => {
+  
+  // ✅ NEW: Handle Cover Media (Image or Video)
+  const handleCoverMedia = (e) => {
     const file = e.target.files[0];
-    const err = validate("coverImage", file);
+    if (!file) return;
+    
+    const err = validate("coverMedia", file);
     if (err) {
-      setErrors((v) => ({ ...v, coverImage: err }));
+      setErrors((v) => ({ ...v, coverMedia: err }));
       return;
     }
-    set("coverImage", file);
-    setCoverPreview(URL.createObjectURL(file));
+    
+    // Check video duration if video
+    if (coverMediaType === 'video' && file.type?.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        if (video.duration > 300) {
+          setErrors((v) => ({ ...v, coverMedia: "Video max 5 minutes" }));
+          return;
+        }
+        // Valid video
+        setCoverMediaFile(file);
+        setCoverPreview(URL.createObjectURL(file));
+        set("coverMedia", file);
+        set("coverImage", file); // For backward compatibility
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      // Image or non-video
+      setCoverMediaFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+      set("coverMedia", file);
+      set("coverImage", file); // For backward compatibility
+    }
+  };
+
+  // ✅ NEW: Reset cover media
+  const resetCoverMedia = () => {
+    setCoverPreview(null);
+    setCoverMediaFile(null);
+    set("coverMedia", null);
+    set("coverImage", null);
+    setErrors((e) => ({ ...e, coverMedia: "" }));
+  };
+
+  // ✅ NEW: Handle media type change
+  const handleMediaTypeChange = (type) => {
+    setCoverMediaType(type);
+    resetCoverMedia();
   };
 
   const handleGallery = (e) => {
@@ -368,8 +459,7 @@ const AddListing = () => {
 
   const removeFile = (type, index) => {
     if (type === "cover") {
-      setCoverPreview(null);
-      set("coverImage", null);
+      resetCoverMedia();
     }
     if (type === "gallery") {
       const n = form.galleryImages.filter((_, i) => i !== index);
@@ -384,75 +474,107 @@ const AddListing = () => {
   };
 
   // ── Submit ────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const required = [
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  const required = [
+    "title",
+    "location",
+    "category",
+    "price",
+    "duration",
+    "capacity",
+    "description",
+    "coverMedia",
+  ];
+  
+  if (form.category === "Other") {
+    required.push("customCategory");
+  }
+  
+  const newErr = {};
+  required.forEach((k) => {
+    const val = k === "customCategory" ? customCategory : form[k];
+    const e = validate(k, val);
+    if (e) newErr[k] = e;
+  });
+  
+  setErrors(newErr);
+  setTouched(Object.fromEntries(required.map((k) => [k, true])));
+  
+  if (Object.keys(newErr).length > 0) {
+    document.getElementById("listing-form-top")?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setUploadProgress(10);
+
+    const data = new FormData();
+    
+    // ✅ FIX: All fields should be single strings
+    const fields = [
       "title",
       "location",
-      "category",
       "price",
       "duration",
       "capacity",
       "description",
-      "coverImage",
+      "highlights",
+      "included",
+      "excluded",
+      "amenities",
+      "menu",
+      "meetingPoint",
+      "cancellationPolicy",
+      "requirements",
+      "refundPolicy",
+      "listingType",
     ];
-    const newErr = {};
-    required.forEach((k) => {
-      const e = validate(k, form[k]);
-      if (e) newErr[k] = e;
+    
+    fields.forEach((k) => {
+      // ✅ Ensure all values are strings, not arrays
+      const value = form[k];
+      if (Array.isArray(value)) {
+        // If it's an array, take the first item or join
+        data.append(k, Array.isArray(value) ? value[0] || "" : value || "");
+      } else {
+        data.append(k, value || "");
+      }
     });
-    setErrors(newErr);
-    setTouched(Object.fromEntries(required.map((k) => [k, true])));
-    if (Object.keys(newErr).length > 0) {
-      document.getElementById("listing-form-top")?.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
 
-    try {
-      setLoading(true);
-      setUploadProgress(10);
+    // ✅ Category - ensure it's a single string
+    const finalCategory = form.category === "Other" 
+      ? customCategory 
+      : (Array.isArray(form.category) ? form.category[0] || "" : form.category || "");
+    data.append("category", finalCategory);
 
-      const data = new FormData();
-      const fields = [
-        "title",
-        "location",
-        "category",
-        "price",
-        "duration",
-        "capacity",
-        "description",
-        "highlights",
-        "included",
-        "excluded",
-        "amenities",
-        "menu",
-        "meetingPoint",
-        "cancellationPolicy",
-        "requirements",
-        "refundPolicy",
-        "listingType",
-      ];
-      fields.forEach((k) => data.append(k, form[k] || ""));
+    // Attach businessType from provider profile
+    data.append("businessType", businessType);
 
-      // Attach businessType from provider profile
-      data.append("businessType", businessType);
+    // ✅ Cover Media
+    data.append("coverMedia", form.coverMedia);
+    data.append("coverMediaType", coverMediaType);
+    
+    // Keep for backward compatibility
+    data.append("coverImage", form.coverMedia);
 
-      data.append("coverImage", form.coverImage);
-      form.galleryImages.forEach((img) => data.append("galleryImages", img));
-      form.videos.forEach((vid) => data.append("videos", vid));
+    form.galleryImages.forEach((img) => data.append("galleryImages", img));
+    form.videos.forEach((vid) => data.append("videos", vid));
 
-      await createListing(data, token, (p) => setUploadProgress(p));
+    await createListing(data, token, (p) => setUploadProgress(p));
 
-      setUploadProgress(100);
-      setTimeout(() => navigate("/provider/listings"), 600);
-    } catch (err) {
-      console.error(err);
-      setErrors({
-        submit: err.response?.data?.message || "Failed to create. Please try again.",
-      });
-      setLoading(false);
-    }
-  };
+    setUploadProgress(100);
+    setTimeout(() => navigate("/provider/listings"), 600);
+  } catch (err) {
+    console.error(err);
+    setErrors({
+      submit: err.response?.data?.message || "Failed to create. Please try again.",
+    });
+    setLoading(false);
+  }
+};
 
   // ── Loading profile ───────────────────────────────────────────
   if (profileLoading)
@@ -558,7 +680,7 @@ const AddListing = () => {
           ════════════════════════════════════ */}
           {activeSections.includes("basic") && (
             <SectionCard id="basic" config={bizCfg}>
-              {/* Listing Type */}
+              {/* ✅ UPDATED: Listing Type - Unified List */}
               <div className="mb-4">
                 <Label required hint="Select the type of listing you're creating">
                   Listing Type
@@ -572,9 +694,9 @@ const AddListing = () => {
                     className={selectClassName(!!errors.listingType)}
                   >
                     <option value="">Select listing type...</option>
-                    {bizCfg.listingTypes?.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
+                    {LISTING_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
                       </option>
                     ))}
                   </select>
@@ -622,9 +744,9 @@ const AddListing = () => {
                 <Err msg={errors.location} />
               </div>
 
-              {/* Category */}
+              {/* ✅ UPDATED: Category - Dynamic based on Listing Type */}
               <div className="mb-4">
-                <Label required hint={`Categories for ${bizCfg.label}`}>
+                <Label required hint="Select a category for your listing">
                   Category
                 </Label>
                 <div className="relative">
@@ -634,9 +756,12 @@ const AddListing = () => {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     className={selectClassName(!!errors.category)}
+                    disabled={!form.listingType}
                   >
-                    <option value="">Select category...</option>
-                    {bizCfg.categories?.map((c) => (
+                    <option value="">
+                      {form.listingType ? 'Select category...' : 'Select listing type first'}
+                    </option>
+                    {form.listingType && getCategoriesForType(form.listingType).map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -649,6 +774,27 @@ const AddListing = () => {
                 </div>
                 <Err msg={errors.category} />
               </div>
+
+              {/* ✅ NEW: Other Category Text Input */}
+              {form.category === 'Other' && (
+                <div className="mb-4">
+                  <Label required hint="Please specify the category for your listing">
+                    Specify Category *
+                  </Label>
+                  <input
+                    name="customCategory"
+                    value={customCategory}
+                    onChange={(e) => {
+                      setCustomCategory(e.target.value);
+                      touch("customCategory", e.target.value);
+                    }}
+                    onBlur={handleBlur}
+                    placeholder="e.g., Yoga Retreat, Photography Expedition, etc."
+                    className={inputClassName(!!errors.customCategory)}
+                  />
+                  <Err msg={errors.customCategory} />
+                </div>
+              )}
 
               {/* Price + Duration */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-4">
@@ -721,27 +867,76 @@ const AddListing = () => {
           ════════════════════════════════════ */}
           {activeSections.includes("media") && (
             <SectionCard id="media" config={bizCfg}>
-              {/* Cover image */}
+              {/* ✅ UPDATED: Cover Media (Image or Video) */}
               <div className="mb-4.5">
-                <Label required hint="Main image shown in search results (max 15 MB)">
-                  Cover Image
+                <Label required hint="Choose image or video for your main cover media">
+                  Cover Media
                 </Label>
+
+                {/* Media Type Selection */}
+                <div className="flex gap-4 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-[#374151] dark:text-white">
+                    <input
+                      type="radio"
+                      name="coverMediaType"
+                      value="image"
+                      checked={coverMediaType === 'image'}
+                      onChange={() => handleMediaTypeChange('image')}
+                      className="w-4 h-4 accent-[#0D9488]"
+                    />
+                    <ImageIcon size={16} className="text-[#0D9488]" />
+                    Image
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-[#374151] dark:text-white">
+                    <input
+                      type="radio"
+                      name="coverMediaType"
+                      value="video"
+                      checked={coverMediaType === 'video'}
+                      onChange={() => handleMediaTypeChange('video')}
+                      className="w-4 h-4 accent-[#0D9488]"
+                    />
+                    <Video size={16} className="text-[#0D9488]" />
+                    Video
+                  </label>
+                </div>
+
+                {/* Upload Zone - Conditional based on type */}
                 {!coverPreview ? (
-                  <UploadZone
-                    label="Upload Cover Image"
-                    hint="JPG, PNG, WEBP · Max 15 MB"
-                    accept="image/*"
-                    onChange={handleCover}
-                    icon={Camera}
-                    color={bizCfg.accent}
-                  />
+                  coverMediaType === 'image' ? (
+                    <UploadZone
+                      label="Upload Cover Image"
+                      hint="JPG, PNG, WEBP · Max 15 MB"
+                      accept="image/*"
+                      onChange={handleCoverMedia}
+                      icon={Camera}
+                      color={bizCfg.accent}
+                    />
+                  ) : (
+                    <UploadZone
+                      label="Upload Cover Video"
+                      hint="MP4, MOV, WEBM · Max 500 MB · Max 5 minutes"
+                      accept="video/*"
+                      onChange={handleCoverMedia}
+                      icon={Video}
+                      color={bizCfg.accent}
+                    />
+                  )
                 ) : (
                   <div className="relative rounded-xl overflow-hidden">
-                    <img
-                      src={coverPreview}
-                      alt="Cover"
-                      className="w-full h-[220px] object-cover block"
-                    />
+                    {coverMediaType === 'image' ? (
+                      <img
+                        src={coverPreview}
+                        alt="Cover"
+                        className="w-full h-[220px] object-cover block"
+                      />
+                    ) : (
+                      <video
+                        src={coverPreview}
+                        controls
+                        className="w-full rounded-xl max-h-[220px] bg-black"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => removeFile("cover")}
@@ -749,12 +944,15 @@ const AddListing = () => {
                     >
                       <X size={16} color="#fff" />
                     </button>
+                    <div className="absolute bottom-2.5 left-2.5 px-2 py-1 rounded bg-black/60 text-white text-xs">
+                      {coverMediaType === 'image' ? '📷 Image' : '🎬 Video'}
+                    </div>
                   </div>
                 )}
-                <Err msg={errors.coverImage} />
+                <Err msg={errors.coverMedia} />
               </div>
 
-              {/* Gallery */}
+              {/* Gallery Images (unchanged) */}
               <div className="mb-4.5">
                 <Label hint="Up to 15 photos showing different aspects of your listing">
                   Gallery Images
@@ -790,7 +988,7 @@ const AddListing = () => {
                 )}
               </div>
 
-              {/* Videos */}
+              {/* Videos (unchanged) */}
               <div>
                 <Label hint="Up to 3 videos · Max 5 min each · Max 500 MB each">
                   Videos (optional)

@@ -1,5 +1,7 @@
 // src/components/layout/Footer.jsx
+// ✅ PRODUCTION READY - Dynamic footer with API integration, TikTok support, and real Newsletter API
 
+import React, { useState, useEffect } from 'react';
 import {
   Facebook,
   Instagram,
@@ -13,12 +15,16 @@ import {
   Send,
   Heart,
   Sparkles,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
-
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-
+import { getFooterContent } from '../../services/footerService';
+import { subscribeToNewsletter } from '../../services/newsletterService';
 import logo from '../../assets/images/logo.png';
+import toast from 'react-hot-toast';
 
 // ===============================
 // AI TOUR COLORS
@@ -29,30 +35,169 @@ import logo from '../../assets/images/logo.png';
 // White : #FFFFFF
 // ===============================
 
+// ─── Static Quick Links (Always visible) ──────────────────────
+const QUICK_LINKS = [
+  { name: 'Home', path: '/' },
+  { name: 'Explore', path: '/explore' },
+  { name: 'AI Planner', path: '/ai-planner' },
+  { name: 'Trips', path: '/trips' },
+  { name: 'Reviews', path: '/reviews' },
+];
+
+// ─── Fallback Data ──────────────────────────────────────────────
+const getFallbackData = () => ({
+  brandName: 'AI Tour Rwanda',
+  brandTagline: 'Smart Tourism Platform',
+  description: 'Discover Rwanda with AI-powered travel planning, smart recommendations, bookings, and unforgettable experiences.',
+  contact: {
+    email: 'aitourrwanda@gmail.com',
+    phone: '+250 791 468 299',
+    address: 'Kigali, Rwanda',
+  },
+  socialLinks: {
+    facebook: '',
+    instagram: '',
+    twitter: '',
+    linkedin: '',
+    youtube: '',
+    tiktok: '',
+  },
+  sections: [
+    {
+      sectionId: 'company',
+      title: 'Company',
+      links: [
+        { label: 'About Us', path: '/about' },
+        { label: 'Careers', path: '/careers' },
+        { label: 'Blog', path: '/blog' },
+        { label: 'Contact', path: '/contact' },
+      ],
+    },
+    {
+      sectionId: 'support',
+      title: 'Support',
+      links: [
+        { label: 'Help Center', path: '/help' },
+        { label: 'FAQs', path: '/faqs' },
+      ],
+    },
+    {
+      sectionId: 'legal',
+      title: 'Legal',
+      links: [
+        { label: 'Privacy Policy', path: '/privacy' },
+        { label: 'Terms & Conditions', path: '/terms' },
+      ],
+    },
+  ],
+  newsletter: {
+    enabled: true,
+    title: 'Travel Smarter with AI',
+    description: 'Subscribe for AI travel tips, destination updates, and exclusive Rwanda experiences.',
+    placeholder: 'Enter your email',
+    buttonText: 'Subscribe',
+  },
+  copyrightText: 'AI Tour Rwanda. All rights reserved.',
+});
+
 const Footer = () => {
-  const quickLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Explore', path: '/explore' },
-    { name: 'AI Planner', path: '/ai-planner' },
-    { name: 'Trips', path: '/trips' },
-    { name: 'Reviews', path: '/reviews' },
+  const [footerData, setFooterData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterError, setNewsletterError] = useState('');
+
+  useEffect(() => {
+    fetchFooterContent();
+  }, []);
+
+  const fetchFooterContent = async () => {
+    try {
+      const data = await getFooterContent();
+      if (data?.success && data?.data) {
+        setFooterData(data.data);
+      } else {
+        setFooterData(getFallbackData());
+      }
+    } catch (error) {
+      console.error('Error loading footer:', error);
+      setFooterData(getFallbackData());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    const email = newsletterEmail.trim();
+    
+    if (!email) {
+      setNewsletterError('Please enter your email address');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNewsletterError('Please enter a valid email address');
+      return;
+    }
+
+    setNewsletterError('');
+    setNewsletterLoading(true);
+
+    try {
+      await subscribeToNewsletter(email);
+      setNewsletterSubscribed(true);
+      setNewsletterEmail('');
+      toast.success('Successfully subscribed to our newsletter! 🎉');
+      
+      // Reset success message after 5 seconds
+      setTimeout(() => setNewsletterSubscribed(false), 5000);
+    } catch (error) {
+      console.error('Newsletter subscription error:', error);
+      
+      if (error.response?.status === 409) {
+        toast.error('This email is already subscribed!');
+      } else {
+        toast.error('Failed to subscribe. Please try again later.');
+      }
+      
+      setNewsletterError(error.response?.data?.message || 'Subscription failed. Please try again.');
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
+
+  // ─── Social Links (including TikTok) ──────────────────────────
+  const socialItems = [
+    { key: 'facebook', Icon: Facebook, color: '#1877F2', label: 'Facebook' },
+    { key: 'instagram', Icon: Instagram, color: '#E4405F', label: 'Instagram' },
+    { key: 'twitter', Icon: Twitter, color: '#1DA1F2', label: 'Twitter' },
+    { key: 'linkedin', Icon: Linkedin, color: '#0A66C2', label: 'LinkedIn' },
+    { key: 'youtube', Icon: Youtube, color: '#FF0000', label: 'YouTube' },
+    { key: 'tiktok', Icon: Globe, color: '#000000', label: 'TikTok' },
   ];
 
-  // ✅ Company Links with proper paths
-  const companyLinks = [
-    { name: 'About Us', path: '/about' },
-    { name: 'Careers', path: '/careers' },
-    { name: 'Blog', path: '/blog' },
-    { name: 'Contact', path: '/contact' },
-  ];
+  const hasSocialLinks = footerData?.socialLinks && 
+    Object.values(footerData.socialLinks).some(url => url && url.trim() !== '');
 
-  // ✅ Support Links with proper paths
-  const supportLinks = [
-    { name: 'Help Center', path: '/help' },
-    { name: 'Privacy Policy', path: '/privacy' },
-    { name: 'Terms & Conditions', path: '/terms' },
-    { name: 'FAQs', path: '/faqs' },
-  ];
+  const currentYear = new Date().getFullYear();
+
+  // ─── Loading State ────────────────────────────────────────────
+  if (loading) {
+    return (
+      <footer className="relative mt-24 bg-gradient-to-br from-[#374151]/95 via-[#1a1a2e] to-[#0D9488]/10 text-white overflow-hidden">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-16">
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
+  const data = footerData || getFallbackData();
+  const sections = data.sections || [];
 
   return (
     <footer className="relative mt-24 bg-gradient-to-br from-[#374151]/95 via-[#1a1a2e] to-[#0D9488]/10 text-white overflow-hidden">
@@ -67,69 +212,81 @@ const Footer = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-16">
 
         {/* TOP GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10">
 
           {/* BRAND */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-3 mb-5">
-              <img src={logo} alt="AI Tour" className="w-12 h-12 object-contain" />
+              <img src={logo} alt={data.brandName} className="w-12 h-12 object-contain" />
               <div>
                 <h2 className="text-2xl font-black bg-gradient-to-r from-[#0D9488] to-[#F59E0B] bg-clip-text text-transparent">
-                  AI Tour Rwanda
+                  {data.brandName}
                 </h2>
-                <p className="text-sm text-gray-400">Smart Tourism Platform</p>
+                <p className="text-sm text-gray-400">{data.brandTagline}</p>
               </div>
             </div>
 
             <p className="text-gray-400 leading-relaxed mb-6 max-w-md">
-              Discover Rwanda with AI-powered travel planning,
-              smart recommendations, bookings, and unforgettable experiences.
+              {data.description}
             </p>
 
             {/* CONTACT */}
             <div className="space-y-3 text-sm text-gray-400">
-              <div className="flex items-center gap-3">
-                <Mail size={16} className="text-[#0D9488]" />
-                <span>aitourrwanda@gmail.com</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone size={16} className="text-[#F59E0B]" />
-                <span>+250 791 468 299</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin size={16} className="text-[#0D9488]" />
-                <span>Kigali, Rwanda</span>
-              </div>
+              {data.contact?.email && (
+                <div className="flex items-center gap-3">
+                  <Mail size={16} className="text-[#0D9488]" />
+                  <a href={`mailto:${data.contact.email}`} className="hover:text-white transition">
+                    {data.contact.email}
+                  </a>
+                </div>
+              )}
+              {data.contact?.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone size={16} className="text-[#F59E0B]" />
+                  <a href={`tel:${data.contact.phone}`} className="hover:text-white transition">
+                    {data.contact.phone}
+                  </a>
+                </div>
+              )}
+              {data.contact?.address && (
+                <div className="flex items-center gap-3">
+                  <MapPin size={16} className="text-[#0D9488]" />
+                  <span>{data.contact.address}</span>
+                </div>
+              )}
             </div>
 
-            {/* SOCIALS */}
-            <div className="flex items-center gap-4 mt-6">
-              {[
-                { Icon: Facebook, color: '#1877F2' },
-                { Icon: Instagram, color: '#E4405F' },
-                { Icon: Twitter, color: '#1DA1F2' },
-                { Icon: Linkedin, color: '#0A66C2' },
-                { Icon: Youtube, color: '#FF0000' },
-              ].map(({ Icon, color }, index) => (
-                <motion.a
-                  key={index}
-                  whileHover={{ scale: 1.15, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                  href="#"
-                  className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center hover:bg-[#0D9488] transition-all duration-300"
-                  style={{ color: 'white' }}
-                >
-                  <Icon size={18} />
-                </motion.a>
-              ))}
-            </div>
+            {/* SOCIALS - Dynamic from backend (including TikTok) */}
+            {hasSocialLinks && (
+              <div className="flex items-center gap-4 mt-6 flex-wrap">
+                {socialItems.map(({ key, Icon, color, label }) => {
+                  const url = data.socialLinks?.[key];
+                  if (!url || url.trim() === '') return null;
+                  return (
+                    <motion.a
+                      key={key}
+                      whileHover={{ scale: 1.15, y: -3 }}
+                      whileTap={{ scale: 0.95 }}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center hover:bg-[#0D9488] transition-all duration-300"
+                      style={{ color: 'white' }}
+                      aria-label={label}
+                    >
+                      <Icon size={18} />
+                    </motion.a>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* QUICK LINKS */}
+          {/* ─── QUICK LINKS (Static) ─── */}
           <div>
             <h3 className="text-lg font-bold mb-5 text-white">Quick Links</h3>
             <div className="space-y-3">
-              {quickLinks.map((link, index) => (
+              {QUICK_LINKS.map((link, index) => (
                 <Link
                   key={index}
                   to={link.path}
@@ -141,70 +298,96 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* COMPANY - ✅ Using Link instead of a */}
-          <div>
-            <h3 className="text-lg font-bold mb-5 text-white">Company</h3>
-            <div className="space-y-3">
-              {companyLinks.map((link, index) => (
-                <Link
-                  key={index}
-                  to={link.path}
-                  className="block text-gray-400 hover:text-[#0D9488] transition duration-300"
-                >
-                  {link.name}
-                </Link>
-              ))}
+          {/* ─── DYNAMIC SECTIONS ─── */}
+          {sections.map((section) => (
+            <div key={section.sectionId}>
+              <h3 className="text-lg font-bold mb-5 text-white">{section.title}</h3>
+              <div className="space-y-3">
+                {section.links?.filter(link => link.active !== false).map((link, index) => (
+                  <Link
+                    key={index}
+                    to={link.path}
+                    className="block text-gray-400 hover:text-[#0D9488] transition duration-300"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* SUPPORT - ✅ Using Link instead of a */}
-          <div>
-            <h3 className="text-lg font-bold mb-5 text-white">Support</h3>
-            <div className="space-y-3">
-              {supportLinks.map((link, index) => (
-                <Link
-                  key={index}
-                  to={link.path}
-                  className="block text-gray-400 hover:text-[#0D9488] transition duration-300"
-                >
-                  {link.name}
-                </Link>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* NEWSLETTER */}
-        <div className="mt-16 rounded-3xl bg-white/5 border border-white/10 p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Sparkles className="text-[#F59E0B]" />
-              <h3 className="text-2xl font-bold text-white">Travel Smarter with AI</h3>
+        {/* NEWSLETTER - With Real API Integration */}
+        {data.newsletter?.enabled !== false && (
+          <div className="mt-16 rounded-3xl bg-white/5 border border-white/10 p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <Sparkles className="text-[#F59E0B]" />
+                <h3 className="text-2xl font-bold text-white">
+                  {data.newsletter?.title || 'Travel Smarter with AI'}
+                </h3>
+              </div>
+              <p className="text-gray-400">
+                {data.newsletter?.description || 'Subscribe for AI travel tips, destination updates, and exclusive Rwanda experiences.'}
+              </p>
             </div>
-            <p className="text-gray-400">
-              Subscribe for AI travel tips, destination updates,
-              and exclusive Rwanda experiences.
-            </p>
-          </div>
 
-          {/* INPUT */}
-          <div className="flex w-full lg:w-auto items-center gap-3">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full lg:w-80 h-14 px-5 rounded-2xl bg-white/10 border border-white/10 outline-none text-white placeholder:text-gray-400 focus:border-[#0D9488] transition focus:ring-2 focus:ring-[#0D9488]/30"
-            />
-            <button className="h-14 px-6 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] font-semibold hover:scale-105 transition duration-300 flex items-center gap-2 shadow-lg shadow-[#0D9488]/30">
-              <Send size={18} />
-              Subscribe
-            </button>
+            <form onSubmit={handleNewsletterSubmit} className="flex flex-col w-full lg:w-auto gap-2">
+              <div className="flex w-full lg:w-auto items-center gap-3">
+                <input
+                  type="email"
+                  placeholder={data.newsletter?.placeholder || 'Enter your email'}
+                  value={newsletterEmail}
+                  onChange={(e) => {
+                    setNewsletterEmail(e.target.value);
+                    setNewsletterError('');
+                  }}
+                  className={`w-full lg:w-80 h-14 px-5 rounded-2xl bg-white/10 border ${
+                    newsletterError ? 'border-red-500' : 'border-white/10'
+                  } outline-none text-white placeholder:text-gray-400 focus:border-[#0D9488] transition focus:ring-2 focus:ring-[#0D9488]/30`}
+                  required
+                  disabled={newsletterLoading || newsletterSubscribed}
+                />
+                <button
+                  type="submit"
+                  disabled={newsletterLoading || newsletterSubscribed}
+                  className="h-14 px-6 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] font-semibold hover:scale-105 transition duration-300 flex items-center gap-2 shadow-lg shadow-[#0D9488]/30 whitespace-nowrap disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {newsletterLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : newsletterSubscribed ? (
+                    <>
+                      <CheckCircle size={18} />
+                      <span>Subscribed</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      {data.newsletter?.buttonText || 'Subscribe'}
+                    </>
+                  )}
+                </button>
+              </div>
+              {newsletterError && (
+                <p className="text-red-400 text-sm flex items-center gap-1">
+                  <AlertCircle size={14} />
+                  {newsletterError}
+                </p>
+              )}
+              {newsletterSubscribed && (
+                <p className="text-green-400 text-sm flex items-center gap-1">
+                  <CheckCircle size={14} />
+                  Thank you for subscribing! Check your email for updates.
+                </p>
+              )}
+            </form>
           </div>
-        </div>
+        )}
 
         {/* BOTTOM */}
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500 text-center md:text-left">
-            © {new Date().getFullYear()} AI Tour Rwanda. All rights reserved.
+            © {currentYear} {data.brandName}. {data.copyrightText || 'All rights reserved.'}
           </p>
 
           <div className="flex items-center gap-2 text-sm text-gray-500">

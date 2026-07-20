@@ -1,4 +1,5 @@
 // src/pages/TripDetails.jsx
+// ✅ UPDATED - Full cover media (image + video) support
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -30,8 +31,10 @@ import {
   Check,
   TrendingUp,
   CalendarDays,
+  Play,
+  Video,
 } from 'lucide-react';
-import Card, { CardContent } from '../components/ui/Card';
+import Card, { CardContent, CardImage } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { getBookingById, cancelBooking } from '../services/bookingService';
 import { createCheckout } from '../services/paymentService';
@@ -122,7 +125,6 @@ const TripDetails = () => {
       console.error('Payment error:', error);
       toast.dismiss();
       
-      // Show more specific error message
       const errorMessage = error.response?.data?.message || 
                           error.message || 
                           'Failed to initiate payment. Please try again.';
@@ -152,6 +154,116 @@ const TripDetails = () => {
     });
   };
 
+  // ===============================
+  // ✅ MEDIA HELPERS (Video Support)
+  // ===============================
+
+  const getImageUrl = (image) => {
+    if (!image) return null;
+    if (image.startsWith('http')) return image;
+    if (image.startsWith('/')) return image;
+    return `${API_URL}/uploads/${image}`;
+  };
+
+  const isVideoFile = (url) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp', '.mpeg', '.mpg'];
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
+  };
+
+  // ✅ Get cover media type (image or video)
+  const getCoverMediaType = (entity) => {
+    if (!entity) return 'image';
+    
+    if (entity.coverMediaType === 'video') return 'video';
+    if (entity.coverMediaType === 'image') return 'image';
+    if (entity.coverMedia && isVideoFile(entity.coverMedia)) return 'video';
+    if (entity.videos && entity.videos.length > 0) return 'video';
+    if (entity.galleryImages && entity.galleryImages.length > 0) {
+      for (const img of entity.galleryImages) {
+        if (isVideoFile(img)) return 'video';
+      }
+    }
+    return 'image';
+  };
+
+  // ✅ Get cover video URL
+  const getCoverVideo = (entity) => {
+    if (!entity) return null;
+    
+    if (entity.coverMediaType === 'video' && entity.coverMedia) {
+      return getImageUrl(entity.coverMedia);
+    }
+    if (entity.coverMedia && isVideoFile(entity.coverMedia)) {
+      return getImageUrl(entity.coverMedia);
+    }
+    if (entity.videos && entity.videos.length > 0) {
+      return getImageUrl(entity.videos[0]);
+    }
+    if (entity.galleryImages && entity.galleryImages.length > 0) {
+      for (const img of entity.galleryImages) {
+        if (isVideoFile(img)) {
+          return getImageUrl(img);
+        }
+      }
+    }
+    return null;
+  };
+
+  // ✅ Get entity media
+  const getEntityMedia = (entity) => {
+    const defaultImage = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    
+    if (!entity) {
+      return { url: defaultImage, isVideo: false, videoUrl: null, poster: defaultImage };
+    }
+
+    const coverType = getCoverMediaType(entity);
+    const videoUrl = getCoverVideo(entity);
+    
+    // Get poster image
+    let poster = defaultImage;
+    if (entity.coverImage) {
+      poster = getImageUrl(entity.coverImage) || defaultImage;
+    } else if (entity.galleryImages && entity.galleryImages.length > 0) {
+      poster = getImageUrl(entity.galleryImages[0]) || defaultImage;
+    } else if (entity.images && entity.images.length > 0) {
+      poster = getImageUrl(entity.images[0]) || defaultImage;
+    } else if (entity.image) {
+      poster = getImageUrl(entity.image) || defaultImage;
+    }
+
+    // Get image URL
+    let imageUrl = defaultImage;
+    if (entity.coverImage) {
+      imageUrl = getImageUrl(entity.coverImage) || defaultImage;
+    } else if (entity.galleryImages && entity.galleryImages.length > 0) {
+      imageUrl = getImageUrl(entity.galleryImages[0]) || defaultImage;
+    } else if (entity.images && entity.images.length > 0) {
+      imageUrl = getImageUrl(entity.images[0]) || defaultImage;
+    } else if (entity.image) {
+      imageUrl = getImageUrl(entity.image) || defaultImage;
+    }
+
+    if (coverType === 'video' && videoUrl) {
+      return {
+        url: videoUrl,
+        isVideo: true,
+        videoUrl: videoUrl,
+        poster: poster,
+        imageUrl: imageUrl,
+      };
+    }
+
+    return {
+      url: imageUrl,
+      isVideo: false,
+      videoUrl: null,
+      poster: imageUrl,
+      imageUrl: imageUrl,
+    };
+  };
+
   // ✅ Get the entity (listing or tour)
   const getEntity = () => {
     return booking?.listing || booking?.tour || null;
@@ -165,18 +277,6 @@ const TripDetails = () => {
   const getEntityLocation = () => {
     const entity = getEntity();
     return entity?.location || 'Location not specified';
-  };
-
-  const getEntityImage = () => {
-    const entity = getEntity();
-    if (!entity) return null;
-    return (
-      entity.coverImage ||
-      entity.galleryImages?.[0] ||
-      entity.images?.[0] ||
-      entity.image ||
-      null
-    );
   };
 
   const getEntityLink = () => {
@@ -311,6 +411,63 @@ const TripDetails = () => {
     return booking?.startDate && new Date(booking.startDate) < new Date();
   };
 
+  // ✅ Render media component (image or video)
+  const renderMedia = (media, title) => {
+    if (media.isVideo && media.videoUrl) {
+      return (
+        <div className="relative w-full h-64 md:h-72 lg:h-80 bg-black rounded-2xl overflow-hidden">
+          <video
+            key={media.videoUrl}
+            src={media.videoUrl}
+            className="w-full h-full object-contain"
+            controls
+            autoPlay
+            muted
+            playsInline
+            poster={media.poster}
+            onError={(e) => {
+              console.error('❌ Video error:', media.videoUrl);
+              e.target.style.display = 'none';
+              const parent = e.target.parentElement;
+              if (parent) {
+                const img = document.createElement('img');
+                img.src = media.poster || 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+                img.className = 'w-full h-full object-cover';
+                img.alt = title || 'Media';
+                parent.appendChild(img);
+              }
+            }}
+          />
+          <div className="absolute top-4 left-4 bg-[#0D9488]/80 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+            <Play className="w-3 h-3" />
+            Cover Video
+          </div>
+          <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+            <Video className="w-3 h-3" />
+            Video
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative w-full h-64 md:h-72 lg:h-80 bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden">
+        <img
+          src={media.url}
+          alt={title || 'Experience image'}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+          }}
+        />
+        <div className="absolute top-4 left-4 bg-[#0D9488]/80 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
+          <span>📷</span>
+          Cover Image
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -350,7 +507,7 @@ const TripDetails = () => {
   const entity = getEntity();
   const entityTitle = getEntityTitle();
   const entityLocation = getEntityLocation();
-  const entityImage = getEntityImage();
+  const media = getEntityMedia(entity);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4 sm:px-6 lg:px-8">
@@ -364,13 +521,16 @@ const TripDetails = () => {
           <span>Back to My Trips</span>
         </button>
 
+        {/* ✅ Experience Media (Image or Video) */}
+        {renderMedia(media, entityTitle)}
+
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 mt-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-[#374151] dark:text-white">
-                  Trip Details
+                  {entityTitle}
                 </h1>
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusConfig.bg} ${statusConfig.color} border ${statusConfig.border}`}>
                   <span className="flex items-center gap-1">
@@ -386,8 +546,18 @@ const TripDetails = () => {
                     </span>
                   </span>
                 )}
+                {media.isVideo && (
+                  <span className="px-3 py-1 rounded-full text-sm font-semibold bg-[#0D9488]/10 text-[#0D9488] border border-[#0D9488]/20 flex items-center gap-1">
+                    <Play className="w-3 h-3" />
+                    Video Cover
+                  </span>
+                )}
               </div>
-              <p className="text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <MapPin className="w-4 h-4 text-[#0D9488]" />
+                <span>{entityLocation}</span>
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
                 Booking Reference: <span className="font-mono font-semibold text-[#0D9488]">{getBookingCode()}</span>
               </p>
             </div>
@@ -489,6 +659,12 @@ const TripDetails = () => {
                       <DollarSign className="w-4 h-4 text-[#0D9488]" />
                       <span>${entity.price || 0} per person</span>
                     </div>
+                    {media.isVideo && (
+                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300 col-span-2">
+                        <Video className="w-4 h-4 text-[#0D9488]" />
+                        <span>Cover Media: <span className="text-[#0D9488] font-semibold">Video</span></span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -632,7 +808,6 @@ const TripDetails = () => {
                   </Link>
                 )}
                 
-                {/* ✅ Pay Now Button */}
                 {canPay() && (
                   <button
                     onClick={handlePayNow}
@@ -648,7 +823,6 @@ const TripDetails = () => {
                   </button>
                 )}
                 
-                {/* ✅ Leave Review Button */}
                 {canReview() && (
                   <Link
                     to={`/review/${bookingId}`}
@@ -659,7 +833,6 @@ const TripDetails = () => {
                   </Link>
                 )}
                 
-                {/* ✅ Cancel Button */}
                 {canCancel() && !isPastTrip() && (
                   <button
                     onClick={handleCancel}
@@ -726,7 +899,6 @@ const TripDetails = () => {
         </div>
       </div>
 
-      {/* ✅ FIXED: Changed jsx to jsx="true" */}
       <style jsx="true">{`
         @media print {
           .no-print {

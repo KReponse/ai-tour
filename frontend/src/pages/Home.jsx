@@ -1,6 +1,7 @@
 // src/pages/Home.jsx
+// ✅ UPDATED - Passes coverMediaType in navigation to ListingDetails
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
@@ -19,23 +20,24 @@ import {
   Users,
   Loader2,
   Play,
-  ChevronLeft,
-  ChevronRight,
   Flame,
+  Calendar,
+  User,
+  Quote,
 } from 'lucide-react';
 
-import Card, { CardImage, CardContent, CardBadge } from '../components/ui/Card';
+import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import VideoCard from "../components/ui/VideoCard";
 import SectionTitle from '../components/ui/SectionTitle';
 import MediaCard from '../components/ui/MediaCard';
 import { getListings } from '../services/listingService';
+import { getPublicReviews } from '../services/reviewService';
 import Heroimg from '../assets/images/heroimg.png';
 
 // ===============================
 // API CONFIGURATION
 // ===============================
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ===============================
 // IMAGE HELPERS
@@ -56,18 +58,53 @@ const getImageUrl = (image) => {
   if (!image) return null;
   if (image.startsWith('http')) return image;
   if (image.startsWith('/')) return image;
-  return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/${image}`;
+  return `${API_URL}/uploads/${image}`;
 };
 
+// ✅ Get cover media (supports both image and video)
+const getCoverMedia = (listing) => {
+  if (listing.coverMedia) {
+    return getImageUrl(listing.coverMedia);
+  }
+  if (listing.coverImage) {
+    return getImageUrl(listing.coverImage);
+  }
+  if (listing.galleryImages && listing.galleryImages.length > 0) {
+    return getImageUrl(listing.galleryImages[0]);
+  }
+  if (listing.images && listing.images.length > 0) {
+    return getImageUrl(listing.images[0]);
+  }
+  return null;
+};
+
+// ✅ Get cover media type
+const getCoverMediaType = (listing) => {
+  if (listing.coverMediaType === 'video') return 'video';
+  if (listing.coverMediaType === 'image') return 'image';
+  if (listing.videos && listing.videos.length > 0) return 'video';
+  return 'image';
+};
+
+// ✅ Get listing image with coverMedia support
 const getListingImage = (listing) => {
-  if (listing.coverImage) return getImageUrl(listing.coverImage);
-  if (listing.galleryImages && listing.galleryImages.length > 0) return getImageUrl(listing.galleryImages[0]);
-  if (listing.images && listing.images.length > 0) return getImageUrl(listing.images[0]);
+  if (listing.coverMedia) {
+    return getImageUrl(listing.coverMedia);
+  }
+  if (listing.coverImage) {
+    return getImageUrl(listing.coverImage);
+  }
+  if (listing.galleryImages && listing.galleryImages.length > 0) {
+    return getImageUrl(listing.galleryImages[0]);
+  }
+  if (listing.images && listing.images.length > 0) {
+    return getImageUrl(listing.images[0]);
+  }
   return null;
 };
 
 // ===============================
-// QUICK ACTIONS (Static Navigation) ✅ MUST BE DEFINED
+// QUICK ACTIONS
 // ===============================
 const quickActions = [
   { 
@@ -101,11 +138,9 @@ const quickActions = [
 // ===============================
 const Home = () => {
   const navigate = useNavigate();
-  const scrollContainerRef = useRef(null);
   
   const [experiences, setExperiences] = useState([]);
-  const [videos, setVideos] = useState([]);
-  const [testimonials, setTestimonials] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [stats, setStats] = useState({
     totalTravelers: 0,
     totalExperiences: 0,
@@ -116,8 +151,6 @@ const Home = () => {
   const [search, setSearch] = useState('');
   const [imageErrors, setImageErrors] = useState({});
   const [heroError, setHeroError] = useState(false);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
 
   // ===============================
   // FETCH ALL DATA
@@ -130,32 +163,29 @@ const Home = () => {
     try {
       setLoading(true);
       
-      const listingsData = await getListings({ limit: 10 });
+      // ✅ Fetch 12 listings for trending grid (2 rows × 6 columns)
+      const listingsData = await getListings({ limit: 12 });
       const listingsList = listingsData?.listings || [];
       setExperiences(listingsList);
 
-      const videosRes = await fetch(`${API_URL}/videos`);
-      const videosData = await videosRes.json();
-      setVideos(videosData?.videos || []);
-
-      // ✅ FIXED: Use correct public reviews endpoint
-      const reviewsRes = await fetch(`${API_URL}/public/reviews?limit=6`);
-      const reviewsData = await reviewsRes.json();
+      // ✅ Fetch latest 6 approved reviews
+      const reviewsData = await getPublicReviews({ limit: 6, sort: 'latest' });
       
-      // ✅ Handle different response structures
-      let reviews = [];
+      let reviewsList = [];
       if (reviewsData.success && reviewsData.reviews) {
-        reviews = reviewsData.reviews;
+        reviewsList = reviewsData.reviews;
       } else if (Array.isArray(reviewsData)) {
-        reviews = reviewsData;
+        reviewsList = reviewsData;
       } else if (reviewsData.data && Array.isArray(reviewsData.data)) {
-        reviews = reviewsData.data;
+        reviewsList = reviewsData.data;
       }
       
-      setTestimonials(reviews);
+      // ✅ Filter only approved reviews
+      const approvedReviews = reviewsList.filter(r => r.status === 'approved' || !r.status);
+      setReviews(approvedReviews);
 
-      // Calculate stats from actual data
-      const totalReviews = reviews.length;
+      // Calculate stats
+      const totalReviews = approvedReviews.length;
       const totalTravelers = listingsList.reduce((acc, listing) => acc + (listing.totalBookings || 0), 0);
 
       setStats({
@@ -166,10 +196,8 @@ const Home = () => {
 
     } catch (error) {
       console.error('❌ Error loading home data:', error);
-      // ✅ Set fallback values so UI still looks good
       setExperiences([]);
-      setVideos([]);
-      setTestimonials([]);
+      setReviews([]);
       setStats({
         totalTravelers: 1247,
         totalExperiences: 48,
@@ -201,54 +229,88 @@ const Home = () => {
   };
 
   // ===============================
-  // SCROLL FUNCTIONS
+  // GET TRENDING EXPERIENCES (12 items max)
   // ===============================
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -220, behavior: 'smooth' });
-    }
+  const getTrendingExperiences = () => {
+    // Sort by rating and booking count for trending
+    const sorted = [...experiences]
+      .filter(exp => exp.status === 'approved')
+      .sort((a, b) => {
+        const ratingDiff = (b.averageRating || 0) - (a.averageRating || 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        return (b.totalBookings || 0) - (a.totalBookings || 0);
+      });
+    
+    // Return top 12 experiences
+    return sorted.slice(0, 12);
   };
 
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 220, behavior: 'smooth' });
-    }
-  };
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setShowLeftArrow(scrollLeft > 20);
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 20);
-    }
-  };
+  const trendingExperiences = getTrendingExperiences();
 
   // ===============================
-  // GET TRENDING ITEMS (5 cards: Experience, Video, Experience, Video, Experience)
+  // RENDER REVIEW CARD
   // ===============================
-  const getTrendingItems = () => {
-    const items = [];
-    const topExperiences = experiences.slice(0, 3);
-    const topVideos = videos.slice(0, 2);
+  const ReviewCard = ({ review }) => {
+    const name = review.user?.name || review.traveler?.name || 'Anonymous Traveler';
+    const avatar = review.user?.profileImage || review.traveler?.profileImage || null;
+    const rating = review.rating || 0;
+    const date = review.createdAt ? new Date(review.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }) : '';
 
-    const pattern = [
-      { type: 'experience', data: topExperiences[0] },
-      { type: 'video', data: topVideos[0] },
-      { type: 'experience', data: topExperiences[1] },
-      { type: 'video', data: topVideos[1] },
-      { type: 'experience', data: topExperiences[2] },
-    ];
-
-    pattern.forEach(item => {
-      if (item.data) {
-        items.push(item);
-      }
-    });
-
-    return items;
+    return (
+      <Card className="p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-800 hover:border-[#0D9488]/20 h-full">
+        <div className="flex items-start gap-3 mb-3">
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={name}
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              onError={(e) => {
+                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D9488&color=fff&size=48`;
+              }}
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0D9488] to-[#F59E0B] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-[#374151] dark:text-white text-sm truncate">
+              {name}
+            </h4>
+            <div className="flex items-center gap-2">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`w-3.5 h-3.5 ${
+                      star <= rating
+                        ? 'text-[#F59E0B] fill-[#F59E0B]'
+                        : 'text-gray-300 dark:text-gray-600'
+                    }`}
+                  />
+                ))}
+              </div>
+              {date && (
+                <span className="text-xs text-gray-400">{date}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed line-clamp-3">
+          "{review.comment || review.text || 'No comment provided.'}"
+        </p>
+        {review.listing && (
+          <p className="text-xs text-gray-400 mt-2">
+            on {review.listing.title || review.listing}
+          </p>
+        )}
+      </Card>
+    );
   };
-
-  const trendingItems = getTrendingItems();
 
   // ===============================
   // RENDER
@@ -343,12 +405,12 @@ const Home = () => {
       </section>
 
       {/* ===============================
-          TRENDING EXPERIENCES - Gallery Style (5 Cards)
+          TRENDING EXPERIENCES - Responsive Grid (2 rows × 6 columns)
       =============================== */}
       <section>
         <SectionTitle
           title="Trending Adventures"
-          subtitle="Experiences you might love"
+          subtitle="12 experiences you might love"
           icon={Flame}
           iconColor="text-[#F59E0B]"
           viewAllLink="/explore"
@@ -362,81 +424,50 @@ const Home = () => {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Loading experiences...</p>
             </div>
           </div>
-        ) : trendingItems.length === 0 ? (
+        ) : trendingExperiences.length === 0 ? (
           <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800">
             <Compass className="w-16 h-16 mx-auto text-[#0D9488] mb-4" />
             <h3 className="text-2xl font-bold text-[#374151] dark:text-white">No Experiences Yet</h3>
             <p className="text-gray-500 mt-2">Check back soon for trending adventures.</p>
           </div>
         ) : (
-          <div className="relative">
-            {/* Left Arrow */}
-            {showLeftArrow && (
-              <button
-                onClick={scrollLeft}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur p-2 rounded-full shadow-xl hover:scale-110 transition-all duration-200 border border-gray-200 dark:border-gray-700"
-                aria-label="Scroll left"
-              >
-                <ChevronLeft className="w-5 h-5 text-[#374151] dark:text-white" />
-              </button>
-            )}
-
-            {/* Gallery-Style Scroll Container */}
-            <div
-              ref={scrollContainerRef}
-              onScroll={handleScroll}
-              className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              }}
-            >
-              {trendingItems.map((item, index) => {
-                if (item.type === 'experience') {
-                  const listing = item.data;
-                  return (
+          <div>
+            {/* ✅ Responsive Grid: 2 cols mobile, 3 cols tablet, 6 cols desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-4">
+              {trendingExperiences.map((listing) => {
+                const coverType = getCoverMediaType(listing);
+                const coverUrl = getCoverMedia(listing);
+                
+                return (
+                  <div key={listing._id} className="w-full">
                     <MediaCard
-                      key={listing._id}
                       id={listing._id}
                       title={listing.title}
-                      image={getImageWithFallback(listing)}
+                      image={coverUrl || getImageWithFallback(listing)}
                       location={listing.location}
                       price={listing.price}
                       duration={listing.duration}
                       rating={listing.averageRating || 0}
                       type="experience"
-                      onSelect={(id) => navigate(`/listing/${id}`)}
+                      coverMediaType={coverType}
+                      videoUrl={coverType === 'video' ? coverUrl : null}
+                      // ✅ FIXED: Pass coverMediaType in navigation state
+                      onSelect={(id) => navigate(`/listing/${id}`, { state: { coverMediaType: coverType } })}
                     />
-                  );
-                } else {
-                  const video = item.data;
-                  return (
-                    <MediaCard
-                      key={video._id}
-                      id={video._id}
-                      title={video.title}
-                      image={video.thumbnail || video.videoUrl}
-                      views={video.views || 0}
-                      likes={video.likes || 0}
-                      type="video"
-                      videoUrl={video.videoUrl}
-                      onSelect={(id) => navigate(`/video/${id}`)}
-                    />
-                  );
-                }
+                  </div>
+                );
               })}
             </div>
 
-            {/* Right Arrow */}
-            {showRightArrow && (
-              <button
-                onClick={scrollRight}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur p-2 rounded-full shadow-xl hover:scale-110 transition-all duration-200 border border-gray-200 dark:border-gray-700"
-                aria-label="Scroll right"
-              >
-                <ChevronRight className="w-5 h-5 text-[#374151] dark:text-white" />
-              </button>
-            )}
+            {/* ✅ View All Listings Button */}
+            <div className="flex justify-center mt-8">
+              <Link to="/explore">
+                <Button className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#F59E0B] text-white shadow-lg shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 text-lg font-bold">
+                  View All Listings
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </section>
@@ -460,59 +491,46 @@ const Home = () => {
       </section>
 
       {/* ===============================
-          TESTIMONIALS
+          COMMUNITY REVIEWS - Latest 6 Approved Reviews
       =============================== */}
       <section>
         <SectionTitle
-          title="What Travelers Say"
+          title="Community Reviews"
           subtitle="Real experiences from our community"
           icon={MessageCircle}
           iconColor="text-[#0D9488]"
+          viewAllLink="/reviews"
+          viewAllText="View All"
         />
 
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="w-8 h-8 animate-spin text-[#0D9488]" />
           </div>
-        ) : testimonials.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">No reviews yet. Be the first to share your experience!</p>
+        ) : reviews.length === 0 ? (
+          <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <MessageCircle className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-xl font-bold text-[#374151] dark:text-white">No Reviews Yet</h3>
+            <p className="text-gray-500 dark:text-gray-400">Be the first to share your experience!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {testimonials.map((review) => (
-              <Card key={review._id} className="p-6 hover:shadow-xl transition">
-                <div className="flex items-center mb-4">
-                  <img 
-                    src={review.user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || 'Traveler')}&background=0D9488&color=fff&size=128`}
-                    className="w-12 h-12 rounded-full mr-4 object-cover" 
-                    alt={review.user?.name || 'Traveler'}
-                    onError={(e) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || 'Traveler')}&background=0D9488&color=fff&size=128`;
-                    }}
-                  />
-                  <div>
-                    <h4 className="font-semibold text-[#374151] dark:text-white">
-                      {review.user?.name || 'Anonymous Traveler'}
-                    </h4>
-                    <div className="flex text-[#F59E0B]">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'fill-none'}`} />
-                      ))}
-                    </div>
-                    {review.tour && (
-                      <p className="text-xs text-gray-400 mt-0.5">on {review.tour.title}</p>
-                    )}
-                    {review.listing && (
-                      <p className="text-xs text-gray-400 mt-0.5">on {review.listing.title}</p>
-                    )}
-                  </div>
-                </div>
-                <p className="text-gray-600 dark:text-gray-300 line-clamp-3">
-                  "{review.comment}"
-                </p>
-              </Card>
-            ))}
+          <div>
+            {/* ✅ Responsive Grid: 1 col mobile, 2 cols tablet, 3 cols desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {reviews.map((review) => (
+                <ReviewCard key={review._id} review={review} />
+              ))}
+            </div>
+
+            {/* ✅ View All Community Reviews Button */}
+            <div className="flex justify-center mt-8">
+              <Link to="/reviews">
+                <Button className="px-8 py-4 rounded-2xl bg-white dark:bg-gray-900 text-[#0D9488] border-2 border-[#0D9488] hover:bg-[#0D9488] hover:text-white transition-all duration-300 text-lg font-bold shadow-lg shadow-[#0D9488]/10 hover:shadow-[#0D9488]/30">
+                  View All Community Reviews
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </section>

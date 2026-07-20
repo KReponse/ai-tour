@@ -1,4 +1,5 @@
 // backend/src/models/Listing.js
+// ✅ UPDATED - Added Cover Media fields (image + video support)
 
 import mongoose from "mongoose";
 
@@ -141,6 +142,20 @@ const listingSchema = new mongoose.Schema(
     // =========================
     // MEDIA
     // =========================
+    // ✅ NEW: Cover Media (Image or Video)
+    coverMedia: {
+      type: String,
+      default: "",
+    },
+
+    // ✅ NEW: Cover Media Type ('image' or 'video')
+    coverMediaType: {
+      type: String,
+      enum: ['image', 'video'],
+      default: 'image',
+    },
+
+    // ✅ Keep for backward compatibility
     coverImage: {
       type: String,
       default: "",
@@ -159,66 +174,66 @@ const listingSchema = new mongoose.Schema(
     ],
 
     // =========================
-// STATUS
-// =========================
-status: {
-  type: String,
-  enum: ["pending", "approved", "rejected", "suspended"],  // ✅ ADD "suspended"
-  default: "pending",
-  index: true,
-},
-
-// =========================
-// ADMIN TRACKING
-// =========================
-approvedBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-},
-
-approvedAt: {
-  type: Date,
-},
-
-rejectedBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-},
-
-rejectedAt: {
-  type: Date,
-},
-
-rejectReason: {
-  type: String,
-  default: "",
-  trim: true,
-},
-
-suspendedBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-},
-
-suspendedAt: {
-  type: Date,
-},
-
-suspendReason: {
-  type: String,
-  default: "",
-  trim: true,
-},
+    // STATUS
+    // =========================
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "suspended"],
+      default: "pending",
+      index: true,
+    },
 
     // =========================
-// RELATIONSHIPS
-// =========================
-provider: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-  required: true,
-  index: true,
-},
+    // ADMIN TRACKING
+    // =========================
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    approvedAt: {
+      type: Date,
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectedAt: {
+      type: Date,
+    },
+
+    rejectReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    suspendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    suspendedAt: {
+      type: Date,
+    },
+
+    suspendReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // =========================
+    // RELATIONSHIPS
+    // =========================
+    provider: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     // =========================
     // RATING & REVIEWS
@@ -282,10 +297,10 @@ provider: {
     },
 
     category: {
-  type: String,
-  trim: true,
-  default: "",
-},
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,
@@ -302,8 +317,10 @@ listingSchema.index({ averageRating: -1 });
 listingSchema.index({ likesCount: -1 });
 listingSchema.index({ price: 1 });
 
+// ✅ NEW: Index for coverMediaType for filtering
+listingSchema.index({ coverMediaType: 1 });
+
 // ✅ REMOVE duplicate slug index - unique: true already creates it
-// listingSchema.index({ slug: 1 }); // ← REMOVED
 
 // =========================
 // VIRTUAL: Full address
@@ -324,6 +341,21 @@ listingSchema.virtual("isApproved").get(function () {
 // =========================
 listingSchema.virtual("isPending").get(function () {
   return this.status === "pending";
+});
+
+// ✅ NEW: Virtual to check if cover media is video
+listingSchema.virtual("isCoverVideo").get(function () {
+  return this.coverMediaType === 'video' && this.coverMedia;
+});
+
+// ✅ NEW: Virtual to check if cover media is image
+listingSchema.virtual("isCoverImage").get(function () {
+  return this.coverMediaType === 'image' && this.coverMedia;
+});
+
+// ✅ NEW: Virtual to get the actual cover media (prefer coverMedia over coverImage)
+listingSchema.virtual("coverMediaUrl").get(function () {
+  return this.coverMedia || this.coverImage || "";
 });
 
 // =========================
@@ -351,6 +383,16 @@ listingSchema.methods.updateBookingStats = async function (amount) {
   this.totalRevenue += amount;
   await this.save();
   return this;
+};
+
+// ✅ NEW: Method to get cover media for display
+listingSchema.methods.getCoverMedia = function () {
+  return {
+    url: this.coverMedia || this.coverImage || "",
+    type: this.coverMediaType || 'image',
+    isVideo: this.coverMediaType === 'video',
+    isImage: this.coverMediaType === 'image',
+  };
 };
 
 // =========================

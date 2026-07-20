@@ -1,4 +1,5 @@
-// src/pages/Payment.jsx
+// frontend/src/pages/Payment.jsx
+// ✅ UPDATED - Multi-provider payment support
 
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -16,11 +17,16 @@ import {
   Calendar,
   Users,
   DollarSign,
+  Building2,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { createCheckout } from '../services/paymentService';
+import { 
+  createCheckoutSession, 
+  getPaymentProviders,
+  getWalletBalance 
+} from '../services/paymentService';
 import { getBookingById } from '../services/bookingService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -34,7 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 // ===============================
 
 const Payment = () => {
-  const { bookingId } = useParams(); // ✅ Get booking ID from URL
+  const { bookingId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -43,16 +49,38 @@ const Payment = () => {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
   const [booking, setBooking] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('card'); // ✅ Added missing state
+  const [paymentMethod, setPaymentMethod] = useState('stripe');
+  const [providers, setProviders] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(null);
+  const [loadingProviders, setLoadingProviders] = useState(false);
 
-  // ✅ Fetch booking from backend
+  // Provider icons mapping
+  const providerIcons = {
+    stripe: CreditCard,
+    momo: Smartphone,
+    airtel: Smartphone,
+    paypal: Wallet,
+    bankTransfer: Building2,
+  };
+
+  // Provider colors
+  const providerColors = {
+    stripe: 'from-blue-500 to-blue-600',
+    momo: 'from-yellow-500 to-yellow-600',
+    airtel: 'from-red-500 to-red-600',
+    paypal: 'from-blue-400 to-indigo-500',
+    bankTransfer: 'from-green-500 to-green-600',
+  };
+
+  // ✅ Fetch booking and providers
   useEffect(() => {
     if (bookingId) {
       fetchBooking();
+      fetchProviders();
     } else if (location.state?.booking) {
-      // Fallback: use location state
       setBooking(location.state.booking);
       setFetching(false);
+      fetchProviders();
     } else {
       setError('No booking found');
       setFetching(false);
@@ -73,7 +101,27 @@ const Payment = () => {
     }
   };
 
-  // ✅ Get the entity (listing or tour)
+  const fetchProviders = async () => {
+    try {
+      setLoadingProviders(true);
+      const response = await getPaymentProviders();
+      if (response.success) {
+        setProviders(response.providers || []);
+        // Set default provider to first enabled one
+        if (response.providers?.length > 0) {
+          setPaymentMethod(response.providers[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+      // Fallback to Stripe only
+      setProviders([{ id: 'stripe', name: 'Stripe', icon: 'credit-card' }]);
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
+
+  // ✅ Get entity details
   const getEntity = () => {
     return booking?.listing || booking?.tour || null;
   };
@@ -116,17 +164,20 @@ const Payment = () => {
       setLoading(true);
       setError('');
 
-      const response = await createCheckout(booking._id);
+      const response = await createCheckoutSession(booking._id, paymentMethod);
       
       console.log('✅ Checkout response:', response);
       
       if (response.url) {
+        // Redirect to payment provider
         window.location.href = response.url;
       } else if (response.sessionId) {
+        // Navigate to success page
         navigate('/payment-success', {
           state: {
             sessionId: response.sessionId,
             bookingId: booking._id,
+            provider: paymentMethod,
           },
         });
       } else {
@@ -142,14 +193,14 @@ const Payment = () => {
   };
 
   // Loading state
-  if (fetching) {
+  if (fetching || loadingProviders) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="relative w-16 h-16">
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
           <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
         </div>
-        <p className="mt-4 text-gray-500">Loading booking details...</p>
+        <p className="mt-4 text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -218,7 +269,7 @@ const Payment = () => {
                   Payment
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Complete your booking securely.
+                  Complete your booking securely with your preferred method.
                 </p>
               </div>
             </div>
@@ -275,25 +326,42 @@ const Payment = () => {
 
             <form onSubmit={handlePayment} className="space-y-5">
               {/* Payment Method Selection */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  { id: 'card', label: '💳 Card', color: '#0D9488' },
-                  { id: 'mobile', label: '📱 Mobile', color: '#F59E0B' },
-                  { id: 'paypal', label: '💰 PayPal', color: '#374151' },
-                ].map((method) => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`p-3 rounded-xl border-2 transition ${
-                      paymentMethod === method.id
-                        ? `border-[${method.color}] bg-[${method.color}]/10`
-                        : 'border-gray-200 dark:border-gray-700'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">{method.label}</span>
-                  </button>
-                ))}
+              <div>
+                <label className="block text-sm font-medium mb-3 text-[#374151] dark:text-white">
+                  Select Payment Method
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {providers.map((provider) => {
+                    const Icon = providerIcons[provider.id] || CreditCard;
+                    const colorClass = providerColors[provider.id] || 'from-gray-500 to-gray-600';
+                    const isSelected = paymentMethod === provider.id;
+                    
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(provider.id)}
+                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                          isSelected
+                            ? `border-[#0D9488] bg-[#0D9488]/10 dark:bg-[#0D9488]/20 shadow-lg shadow-[#0D9488]/20`
+                            : 'border-gray-200 dark:border-gray-700 hover:border-[#0D9488]/50'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${colorClass} flex items-center justify-center mx-auto mb-2`}>
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <p className={`text-sm font-medium text-center ${
+                          isSelected ? 'text-[#0D9488]' : 'text-gray-600 dark:text-gray-300'
+                        }`}>
+                          {provider.name}
+                        </p>
+                        {provider.isTestMode && (
+                          <span className="text-[8px] text-gray-400 block text-center mt-1">Test Mode</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Submit Button */}
@@ -310,7 +378,7 @@ const Payment = () => {
                 ) : (
                   <>
                     <Lock className="w-5 h-5 mr-2" />
-                    Pay ${total} Securely
+                    Pay ${total} with {providers.find(p => p.id === paymentMethod)?.name || 'Stripe'}
                   </>
                 )}
               </Button>

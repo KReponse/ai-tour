@@ -1,6 +1,7 @@
 // src/pages/FAQs.jsx
+// ✅ UPDATED - Connected to FAQ CMS API
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   ChevronDown, 
@@ -18,9 +19,11 @@ import {
   Mail,
   Phone,
   CheckCircle,
+  Loader2,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { getFaqContent } from '../services/faqService';
 
 // ===============================
 // AI TOUR COLORS
@@ -31,132 +34,70 @@ import Button from '../components/ui/Button';
 // White : #FFFFFF
 // ===============================
 
+// ─── Icon Mapper ──────────────────────────────────────────────
+const iconMap = {
+  'HelpCircle': HelpCircle,
+  'Calendar': Calendar,
+  'DollarSign': DollarSign,
+  'Users': Users,
+  'MapPin': MapPin,
+  'Shield': Shield,
+  'BookOpen': BookOpen,
+  'CreditCard': CreditCard,
+  'Sparkles': Sparkles,
+};
+
 const FAQs = () => {
+  const [faqData, setFaqData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
 
-  const categories = [
-    { id: 'all', label: 'All', icon: HelpCircle },
-    { id: 'booking', label: 'Booking', icon: Calendar },
-    { id: 'payments', label: 'Payments', icon: DollarSign },
-    { id: 'account', label: 'Account', icon: Users },
-    { id: 'tours', label: 'Tours', icon: MapPin },
-    { id: 'safety', label: 'Safety', icon: Shield },
-  ];
+  useEffect(() => {
+    fetchFaqContent();
+  }, []);
 
-  const faqs = [
-    // Booking FAQs
-    {
-      id: 1,
-      category: 'booking',
-      question: 'How do I book a tour?',
-      answer: 'Browse tours on our Explore page, select your preferred tour, and click "Book Now". Follow the steps to complete your booking. You\'ll receive a confirmation email once your booking is confirmed.',
-    },
-    {
-      id: 2,
-      category: 'booking',
-      question: 'Can I modify my booking after confirmation?',
-      answer: 'Yes, you can modify your booking up to 48 hours before the tour date. Contact our support team or the provider directly to request changes.',
-    },
-    {
-      id: 3,
-      category: 'booking',
-      question: 'What if the provider cancels my tour?',
-      answer: 'If a provider cancels your tour, you will receive a full refund. We will also help you find alternative tours or experiences.',
-    },
+  const fetchFaqContent = async () => {
+    try {
+      const response = await getFaqContent();
+      if (response?.success && response?.data) {
+        setFaqData(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading FAQ content:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Payments FAQs
-    {
-      id: 4,
-      category: 'payments',
-      question: 'What payment methods do you accept?',
-      answer: 'We accept Visa, Mastercard, MTN MoMo, Airtel Money, and PayPal. All payments are processed through secure, encrypted channels.',
-    },
-    {
-      id: 5,
-      category: 'payments',
-      question: 'Is my payment information secure?',
-      answer: 'Yes, all payment information is encrypted and processed through PCI-compliant payment gateways. We never store your full card details.',
-    },
-    {
-      id: 6,
-      category: 'payments',
-      question: 'What is your refund policy?',
-      answer: 'You can cancel up to 24 hours before the tour for a full refund. Cancellations within 24 hours may incur a 50% fee. Refunds are processed within 5-7 business days.',
-    },
-
-    // Account FAQs
-    {
-      id: 7,
-      category: 'account',
-      question: 'How do I create an account?',
-      answer: 'Click "Register" on the top right corner of our website. Fill in your details, verify your email, and you\'re ready to start booking tours.',
-    },
-    {
-      id: 8,
-      category: 'account',
-      question: 'How do I reset my password?',
-      answer: 'Click "Forgot Password" on the login page. Enter your email address and we\'ll send you a password reset link.',
-    },
-    {
-      id: 9,
-      category: 'account',
-      question: 'Can I delete my account?',
-      answer: 'Yes, you can delete your account by going to Settings > Account > Delete Account. This action is permanent and cannot be undone.',
-    },
-
-    // Tours FAQs
-    {
-      id: 10,
-      category: 'tours',
-      question: 'How do I become a provider?',
-      answer: 'Go to your profile and click "Become a Provider". Fill in the application form with your business details. Your application will be reviewed by our admin team.',
-    },
-    {
-      id: 11,
-      category: 'tours',
-      question: 'What tours are available in Rwanda?',
-      answer: 'We offer a wide variety of tours including gorilla trekking, safari adventures, cultural experiences, city tours, hiking, and luxury retreats.',
-    },
-    {
-      id: 12,
-      category: 'tours',
-      question: 'Are the tours suitable for families?',
-      answer: 'Yes, many of our tours are family-friendly. Look for the "Family-friendly" tag when browsing tours, or contact us for recommendations.',
-    },
-
-    // Safety FAQs
-    {
-      id: 13,
-      category: 'safety',
-      question: 'Is it safe to travel in Rwanda?',
-      answer: 'Rwanda is one of the safest countries in Africa. We work with verified providers who maintain high safety standards. Always follow local guidelines and travel insurance is recommended.',
-    },
-    {
-      id: 14,
-      category: 'safety',
-      question: 'How are providers verified?',
-      answer: 'All providers undergo a thorough verification process including business registration, background checks, and quality reviews by our team.',
-    },
-    {
-      id: 15,
-      category: 'safety',
-      question: 'What should I do in case of an emergency?',
-      answer: 'Contact our 24/7 support team immediately. We will help coordinate with local authorities and ensure your safety.',
-    },
-  ];
+  const data = faqData || {};
+  const hero = data.hero || {};
+  const categories = data.categories || [];
+  const faqs = data.faqs || [];
 
   const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = faq.question?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          faq.answer?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = activeCategory === 'all' || faq.category === activeCategory;
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && faq.active !== false;
   });
 
   const toggleExpand = (id) => {
     setExpandedId(expandedId === id ? null : id);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488]/20" />
+          <div className="absolute inset-0 rounded-full border-4 border-[#0D9488] border-t-transparent animate-spin" />
+        </div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto px-4 py-8">
@@ -169,11 +110,11 @@ const FAQs = () => {
             <span className="font-medium">Frequently Asked Questions</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-black mb-6">
-            Got Questions?
-            <span className="block text-white/90">We've Got Answers</span>
+            {hero.title || 'Got Questions?'}
+            <span className="block text-white/90">{hero.subtitle || "We've Got Answers"}</span>
           </h1>
           <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Find quick answers to the most common questions about AI Tour Rwanda.
+            {hero.description || 'Find quick answers to the most common questions about AI Tour Rwanda.'}
           </p>
         </div>
       </section>
@@ -191,26 +132,40 @@ const FAQs = () => {
       </div>
 
       {/* CATEGORIES */}
-      <div className="flex flex-wrap justify-center gap-2">
-        {categories.map((cat) => {
-          const Icon = cat.icon;
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                isActive
-                  ? 'bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/30'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {cat.label}
-            </button>
-          );
-        })}
-      </div>
+      {categories.filter(c => c.active !== false).length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {/* All category */}
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+              activeCategory === 'all'
+                ? 'bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/30'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            <HelpCircle className="w-4 h-4" />
+            All
+          </button>
+          {categories.filter(c => c.active !== false).map((cat) => {
+            const Icon = iconMap[cat.icon] || HelpCircle;
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  isActive
+                    ? 'bg-[#0D9488] text-white shadow-lg shadow-[#0D9488]/30'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* FAQ LIST */}
       {filteredFaqs.length === 0 ? (

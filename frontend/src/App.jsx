@@ -1,4 +1,5 @@
 // src/App.jsx
+// ✅ FIXED - Correct import path for Settings
 
 import React, { useState } from 'react';
 import { Routes, Route, Outlet, Navigate } from 'react-router-dom';
@@ -59,6 +60,7 @@ import Terms from './pages/Terms';
 import Careers from './pages/Careers';
 import Blog from './pages/Blog';
 import FAQs from './pages/FAQs';
+import PublicProfile from './pages/PublicProfile';
 
 // Admin Pages
 import Users from './pages/admin/Users';
@@ -76,6 +78,9 @@ import ManagementListings from './pages/admin/ManagementListings';
 // ✅ NEW: Admin Booking & Payment Pages
 import AdminBookings from './pages/admin/AdminBookings';
 import AdminPayments from './pages/admin/AdminPayments';
+// ✅ FIXED: Correct import path
+import AdminSettings from './pages/admin/Settings';
+import FooterSettings from './pages/admin/FooterSettings';
 
 // Provider Pages
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -98,6 +103,7 @@ import ProviderRequest from './pages/ProviderRequest';
 import ProviderReviews from './pages/provider/Reviews';
 import ProfileEdit from './pages/provider/ProfileEdit';
 
+
 // Listing Pages (Primary)
 import ListingDetails from './pages/ListingDetails';
 import MyListings from './pages/provider/MyListings';
@@ -105,6 +111,14 @@ import AddListing from './pages/provider/AddListing';
 import EditListing from './pages/provider/EditListing';
 
 import ProtectedRoute from './routes/ProtectedRoute';
+import AboutSettings from './pages/admin/AboutSettings';
+import ContactSettings from './pages/admin/ContactSettings';
+import FaqSettings from './pages/admin/FaqSettings';
+import HelpSettings from './pages/admin/HelpSettings';
+import PrivacySettings from './pages/admin/PrivacySettings';
+import TermsSettings from './pages/admin/TermsSettings';
+import CareersSettings from './pages/admin/CareersSettings';
+import BlogSettings from './pages/admin/BlogSettings';
 
 function App() {
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
@@ -131,6 +145,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/provider/:providerId" element={<PublicProfile />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
@@ -403,12 +418,15 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="providers" element={<Providers />} />
-          
+          {/* ✅ FIXED: Correct route path for Settings */}
+          <Route path="settings" element={<AdminSettings />} />
           {/* ✅ NEW: Admin Bookings */}
           <Route path="bookings" element={<AdminBookings />} />
           
           {/* ✅ NEW: Admin Payments */}
           <Route path="payments" element={<AdminPayments />} />
+          <Route path="footer-settings" element={<FooterSettings />} />
+
           
           {/* ⚠️ Legacy: Tours route (redirect to Listings) */}
           <Route path="tours" element={<Tours />} />
@@ -417,7 +435,16 @@ function App() {
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="provider-requests" element={<AdminProviderRequests />} />
           <Route path="reviews" element={<AdminReviews />} />
-          
+          {/* CMS Routes */}
+<Route path="about-settings" element={<AboutSettings />} />
+<Route path="contact-settings" element={<ContactSettings />} />
+<Route path="faq-settings" element={<FaqSettings />} />
+<Route path="help-settings" element={<HelpSettings />} />
+<Route path="privacy-settings" element={<PrivacySettings />} />
+<Route path="terms-settings" element={<TermsSettings />} />
+<Route path="careers-settings" element={<CareersSettings />} />
+<Route path="blog-settings" element={<BlogSettings />} />
+
           {/* ✅ Primary: Admin Listing Management */}
           <Route path="listings" element={<ManagementListings />} />
           

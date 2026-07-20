@@ -1,4 +1,5 @@
 // src/pages/provider/ProfileEdit.jsx
+// ✅ UPDATED - Added WhatsApp field
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +30,7 @@ import {
   Linkedin,
   Youtube,
   Image as ImageIcon,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -39,7 +41,6 @@ const TEAL = "#0D9488";
 const GOLD = "#F59E0B";
 const SLATE = "#374151";
 
-// ✅ FIX: API_URL should NOT include /api at the end
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ── Static options ──────────────────────────────────────────────
@@ -49,7 +50,7 @@ const SPECIALIZATIONS = ["Wildlife & Safari", "Mountain Trekking", "Cultural Tou
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// ✅ Only editable fields
+// ✅ Only editable fields - ADDED whatsapp
 const EMPTY_FORM = {
   description: "",
   city: "",
@@ -73,8 +74,9 @@ const EMPTY_FORM = {
     saturday: { open: "08:00", close: "18:00", closed: false },
     sunday: { open: "08:00", close: "18:00", closed: false }
   },
-  phone: "",
-  email: "",
+  businessPhone: "",
+  businessEmail: "",
+  whatsapp: "", // ✅ NEW
   existingLogo: "",
   existingCoverImage: "",
 };
@@ -103,7 +105,6 @@ const ProfileEdit = () => {
       setError(null);
       const token = localStorage.getItem('token');
 
-      // ✅ FIX: API_URL already has http://localhost:5000, don't add /api twice
       const response = await axios.get(`${API_URL}/api/provider-profiles/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -111,12 +112,10 @@ const ProfileEdit = () => {
       if (response.data.success) {
         const profile = response.data.profile;
         
-        // ✅ Store non-editable fields separately (display only)
         setBusinessName(profile.businessName || '');
         setBusinessType(profile.businessType || '');
         setCountry(profile.country || 'Rwanda');
         
-        // ✅ Only editable fields
         setForm({
           description: profile.description || "",
           city: profile.city || "",
@@ -132,8 +131,9 @@ const ProfileEdit = () => {
           youtube: profile.socialLinks?.youtube || "",
           tiktok: profile.socialLinks?.tiktok || "",
           businessHours: profile.businessHours || EMPTY_FORM.businessHours,
-          phone: profile.phone || "",
-          email: profile.email || "",
+          businessPhone: profile.businessPhone || profile.phone || "",
+          businessEmail: profile.businessEmail || profile.email || "",
+          whatsapp: profile.whatsapp || "", // ✅ NEW
           existingLogo: profile.logo || "",
           existingCoverImage: profile.coverImage || "",
         });
@@ -222,11 +222,12 @@ const ProfileEdit = () => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
 
-      // ✅ Only send editable fields
+      // ✅ Send all editable fields including businessEmail, businessPhone, and whatsapp
       const editableFields = [
         'description', 'city', 'yearsOfExperience',
         'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'tiktok',
-        'phone', 'email'
+        'businessPhone', 'businessEmail',
+        'whatsapp', // ✅ NEW
       ];
 
       editableFields.forEach(key => {
@@ -235,12 +236,10 @@ const ProfileEdit = () => {
         }
       });
 
-      // ✅ Arrays - send as JSON strings
       formData.append('languages', JSON.stringify(form.languages));
       formData.append('specializations', JSON.stringify(form.specializations));
       formData.append('businessHours', JSON.stringify(form.businessHours));
 
-      // ✅ Files
       if (form.logo instanceof File) {
         formData.append('logo', form.logo);
       }
@@ -248,16 +247,12 @@ const ProfileEdit = () => {
         formData.append('coverImage', form.coverImage);
       }
 
-      // ✅ DO NOT send businessName, businessType, country - they are NOT editable
-
-      // ✅ FIX: API_URL already has http://localhost:5000, don't add /api twice
       const response = await axios.put(
         `${API_URL}/api/provider-profiles/me`,
         formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            // ✅ Do NOT set Content-Type - axios will set it for FormData
           },
         }
       );
@@ -347,7 +342,6 @@ const ProfileEdit = () => {
         </button>
       </div>
 
-      {/* Success Message */}
       {success && (
         <div className="mb-6 p-4 rounded-2xl bg-[#0D9488]/10 border border-[#0D9488]/20 flex items-center gap-3">
           <CheckCircle className="w-5 h-5 text-[#0D9488]" />
@@ -355,7 +349,6 @@ const ProfileEdit = () => {
         </div>
       )}
 
-      {/* Error Message */}
       {error && !loading && (
         <div className="mb-6 p-4 rounded-2xl bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-600" />
@@ -365,7 +358,7 @@ const ProfileEdit = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
 
-        {/* ─── NON-EDITABLE INFO (Display Only) ─── */}
+        {/* ─── NON-EDITABLE INFO ─── */}
         <div className="bg-gray-100 dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-bold text-[#374151] dark:text-white mb-4 flex items-center gap-2">
             <Building2 className="w-5 h-5 text-[#9CA3AF]" />
@@ -442,8 +435,8 @@ const ProfileEdit = () => {
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="email"
-                  name="email"
-                  value={form.email}
+                  name="businessEmail"
+                  value={form.businessEmail}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#374151] dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-[#0D9488] outline-none transition"
                   placeholder="info@yourbusiness.com"
@@ -458,14 +451,38 @@ const ProfileEdit = () => {
                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  name="phone"
-                  value={form.phone}
+                  name="businessPhone"
+                  value={form.businessPhone}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#374151] dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-[#0D9488] outline-none transition"
                   placeholder="+250 7XX XXX XXX"
                 />
               </div>
             </div>
+          </div>
+
+          {/* ✅ NEW: WhatsApp Field */}
+          <div className="mt-4">
+            <label className="block text-sm font-bold text-[#374151] dark:text-white mb-1.5">
+              WhatsApp Number
+              <span className="text-xs font-normal text-gray-400 ml-2">
+                (Optional - if not set, business phone will be used)
+              </span>
+            </label>
+            <div className="relative">
+              <MessageCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#25D366]" />
+              <input
+                type="text"
+                name="whatsapp"
+                value={form.whatsapp || ''}
+                onChange={handleChange}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#374151] dark:text-white focus:ring-2 focus:ring-[#0D9488] focus:border-[#0D9488] outline-none transition"
+                placeholder="+250 7XX XXX XXX"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              💬 Travelers will use this number to contact you on WhatsApp
+            </p>
           </div>
         </div>
 
@@ -554,7 +571,6 @@ const ProfileEdit = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Logo */}
             <div>
               <label className="block text-sm font-bold text-[#374151] dark:text-white mb-2">
                 Logo
@@ -595,7 +611,6 @@ const ProfileEdit = () => {
               </div>
             </div>
 
-            {/* Cover Image */}
             <div>
               <label className="block text-sm font-bold text-[#374151] dark:text-white mb-2">
                 Cover Image

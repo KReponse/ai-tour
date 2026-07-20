@@ -1,4 +1,5 @@
 // src/pages/Trips.jsx
+// ✅ FIXED - Better video detection for both coverMedia and coverImage
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -19,6 +20,8 @@ import {
   ArrowRight,
   DollarSign,
   CreditCard,
+  Play,
+  Video,
 } from 'lucide-react';
 import Card, { CardImage, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -105,57 +108,169 @@ const Trips = () => {
     return `${API_URL}/uploads/${image}`;
   };
 
-  // ✅ FIXED: Get entity image with better error handling
-  const getEntityImage = (entity) => {
-    if (!entity) return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
-    
-    // If entity is a string (ID), use fallback
-    if (typeof entity === 'string') {
-      return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
-    }
-
-    // Check for coverImage
-    if (entity.coverImage) {
-      const url = getImageUrl(entity.coverImage);
-      if (url) return url;
-    }
-
-    // Check for galleryImages
-    if (entity.galleryImages && entity.galleryImages.length > 0) {
-      const url = getImageUrl(entity.galleryImages[0]);
-      if (url) return url;
-    }
-
-    // Check for images array
-    if (entity.images && entity.images.length > 0) {
-      const url = getImageUrl(entity.images[0]);
-      if (url) return url;
-    }
-
-    // Check for image field
-    if (entity.image) {
-      const url = getImageUrl(entity.image);
-      if (url) return url;
-    }
-
-    // Fallback
-    return 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+  // ✅ Check if a string is a video file
+  const isVideoFile = (url) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp', '.mpeg', '.mpg'];
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext));
   };
 
-  // Get entity (listing or tour)
+  // ✅ Get all possible media sources from entity
+  const getAllMediaSources = (entity) => {
+    const sources = [];
+    
+    if (!entity) return sources;
+    
+    // Check coverMedia
+    if (entity.coverMedia) {
+      sources.push({ url: entity.coverMedia, source: 'coverMedia' });
+    }
+    
+    // Check coverImage (old field)
+    if (entity.coverImage) {
+      sources.push({ url: entity.coverImage, source: 'coverImage' });
+    }
+    
+    // Check galleryImages
+    if (entity.galleryImages && entity.galleryImages.length > 0) {
+      entity.galleryImages.forEach(img => {
+        if (img) sources.push({ url: img, source: 'galleryImages' });
+      });
+    }
+    
+    // Check videos array
+    if (entity.videos && entity.videos.length > 0) {
+      entity.videos.forEach(v => {
+        if (v) sources.push({ url: v, source: 'videos' });
+      });
+    }
+    
+    // Check images array
+    if (entity.images && entity.images.length > 0) {
+      entity.images.forEach(img => {
+        if (img) sources.push({ url: img, source: 'images' });
+      });
+    }
+    
+    // Check single image field
+    if (entity.image) {
+      sources.push({ url: entity.image, source: 'image' });
+    }
+    
+    return sources;
+  };
+
+  // ✅ Get cover media type (image or video) - FIXED
+  const getCoverMediaType = (entity) => {
+    if (!entity) return 'image';
+    
+    const allSources = getAllMediaSources(entity);
+    
+    // Check if any source is a video file
+    for (const source of allSources) {
+      if (isVideoFile(source.url)) {
+        console.log('🎬 Video detected from source:', source.source, source.url);
+        return 'video';
+      }
+    }
+    
+    return 'image';
+  };
+
+  // ✅ Get cover video URL - FIXED
+  const getCoverVideo = (entity) => {
+    if (!entity) return null;
+    
+    const allSources = getAllMediaSources(entity);
+    
+    // Find first video source
+    for (const source of allSources) {
+      if (isVideoFile(source.url)) {
+        const url = getImageUrl(source.url);
+        console.log('🎬 Video URL found from source:', source.source, url);
+        return url;
+      }
+    }
+    
+    return null;
+  };
+
+  // ✅ Get cover image URL (for poster/fallback) - FIXED
+  const getCoverImage = (entity) => {
+    if (!entity) return null;
+    
+    const allSources = getAllMediaSources(entity);
+    
+    // Find first non-video source (image)
+    for (const source of allSources) {
+      if (!isVideoFile(source.url)) {
+        const url = getImageUrl(source.url);
+        if (url) return url;
+      }
+    }
+    
+    return null;
+  };
+
+  // ✅ Get entity media with video support - FIXED
+  const getEntityMedia = (entity) => {
+    const defaultImage = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+    
+    if (!entity) {
+      return { url: defaultImage, isVideo: false, videoUrl: null, poster: defaultImage };
+    }
+    
+    if (typeof entity === 'string') {
+      return { url: defaultImage, isVideo: false, videoUrl: null, poster: defaultImage };
+    }
+
+    // Debug: log all media sources
+    const allSources = getAllMediaSources(entity);
+    console.log('📋 All media sources:', allSources);
+    
+    const videoUrl = getCoverVideo(entity);
+    const coverImage = getCoverImage(entity);
+    const isVideo = !!videoUrl;
+    
+    console.log('📊 Media result:', { isVideo, videoUrl, coverImage });
+    
+    if (isVideo && videoUrl) {
+      return {
+        url: videoUrl,
+        isVideo: true,
+        videoUrl: videoUrl,
+        poster: coverImage || defaultImage,
+      };
+    }
+    
+    return {
+      url: coverImage || defaultImage,
+      isVideo: false,
+      videoUrl: null,
+      poster: coverImage || defaultImage,
+    };
+  };
+
+  // Get entity (listing or tour) - FIXED to handle both populated and unpopulated
   const getEntity = (booking) => {
-    // Check if listing or tour is populated (object) or just an ID
-    const listing = booking.listing;
-    const tour = booking.tour;
+    if (!booking) return {};
     
-    if (listing && typeof listing === 'object' && listing.title) {
-      return listing;
-    }
-    if (tour && typeof tour === 'object' && tour.title) {
-      return tour;
+    // Check if listing is populated
+    if (booking.listing && typeof booking.listing === 'object' && booking.listing._id) {
+      return booking.listing;
     }
     
-    // If not populated, return empty object
+    // Check if tour is populated
+    if (booking.tour && typeof booking.tour === 'object' && booking.tour._id) {
+      return booking.tour;
+    }
+    
+    // If listing is just a string ID but we have the data elsewhere
+    // Sometimes the booking might have the listing data at the root level
+    if (booking.title || booking.coverImage || booking.coverMedia) {
+      return booking;
+    }
+    
     return {};
   };
 
@@ -188,7 +303,7 @@ const Trips = () => {
 
   // Check if booking can be reviewed
   const canReview = (status) => {
-    return status === 'completed' || status === 'reviewed';
+    return status === 'completed' || status === 'review_eligible';
   };
 
   // Filter bookings by status
@@ -242,6 +357,78 @@ const Trips = () => {
     return icons[status] || Clock;
   };
 
+  // ✅ Media Component - handles both image and video
+  const MediaDisplay = ({ media, title, className }) => {
+    const [videoError, setVideoError] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    
+    // If we have a video and no video error, render video
+    if (media.isVideo && media.videoUrl && !videoError) {
+      return (
+        <div className="relative w-full h-full min-h-[192px] md:min-h-full bg-black">
+          <video
+            key={media.videoUrl}
+            src={media.videoUrl}
+            className={className || "w-full h-full object-cover"}
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster={media.poster}
+            onError={(e) => {
+              console.error('❌ Video error:', media.videoUrl, e);
+              setVideoError(true);
+              e.target.style.display = 'none';
+              // Show fallback image
+              const parent = e.target.parentElement;
+              if (parent) {
+                const img = document.createElement('img');
+                img.src = media.poster || 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+                img.className = className || "w-full h-full object-cover";
+                img.alt = title || 'Media';
+                img.onerror = () => {
+                  img.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+                };
+                parent.appendChild(img);
+              }
+            }}
+            onLoadedData={() => {
+              console.log('✅ Video loaded successfully:', media.videoUrl);
+            }}
+          />
+          {/* Video overlay with play icon */}
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="w-12 h-12 rounded-full bg-[#0D9488]/80 backdrop-blur flex items-center justify-center">
+              <Play className="w-5 h-5 text-white" />
+            </div>
+          </div>
+          {/* Video badge */}
+          <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 pointer-events-none">
+            <Video className="w-3 h-3" />
+            Video
+          </div>
+        </div>
+      );
+    }
+    
+    // Fallback to image
+    const imageSrc = imageError ? 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500' : media.url;
+    
+    return (
+      <img
+        src={imageSrc}
+        alt={title || 'Trip image'}
+        className={className || "w-full h-full object-cover"}
+        onError={(e) => {
+          console.error('❌ Image error:', media.url);
+          setImageError(true);
+          e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
+        }}
+      />
+    );
+  };
+
   const TripCard = ({ booking }) => {
     const entity = getEntity(booking);
     const StatusIcon = getStatusIcon(booking.status);
@@ -253,24 +440,30 @@ const Trips = () => {
     const isPayable = canPay(booking.status);
     const isReviewable = canReview(booking.status);
     
-    // ✅ Get image with proper URL
-    const imageUrl = getEntityImage(entity);
-    const entityTitle = entity.title || 'Experience';
-    const entityLocation = entity.location || 'Location not specified';
+    // ✅ Get media with proper URL
+    const media = getEntityMedia(entity);
+    const entityTitle = entity.title || booking.title || 'Experience';
+    const entityLocation = entity.location || booking.location || 'Location not specified';
+
+    console.log(`📋 TripCard ${booking._id}:`, {
+      entityTitle,
+      mediaType: media.isVideo ? 'video' : 'image',
+      mediaUrl: media.url,
+      videoUrl: media.videoUrl,
+      entityFields: Object.keys(entity),
+    });
 
     return (
       <Card hover className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-3xl">
         <div className="grid md:grid-cols-3">
-          {/* Image */}
-          <div className="relative md:col-span-1">
-            <img
-              src={imageUrl}
-              alt={entityTitle}
+          {/* Media - Image or Video */}
+          <div className="relative md:col-span-1 bg-gray-100 dark:bg-gray-800 min-h-[192px] md:min-h-full">
+            <MediaDisplay 
+              media={media} 
+              title={entityTitle}
               className="w-full h-48 md:h-full object-cover"
-              onError={(e) => {
-                e.target.src = 'https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=500';
-              }}
             />
+            
             <div className="absolute top-3 left-3">
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(booking.status)}`}>
                 <StatusIcon className="w-3 h-3" />
@@ -285,15 +478,31 @@ const Trips = () => {
                 ${totalPrice}
               </div>
             )}
+
+            {/* Video indicator badge on top */}
+            {media.isVideo && (
+              <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Play className="w-3 h-3" />
+                Video
+              </div>
+            )}
           </div>
 
           {/* Content */}
           <div className="md:col-span-2 p-5">
             <div className="flex justify-between items-start mb-3">
               <div>
-                <h3 className="text-xl font-bold text-[#374151] dark:text-white line-clamp-1">
-                  {entityTitle}
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-bold text-[#374151] dark:text-white line-clamp-1">
+                    {entityTitle}
+                  </h3>
+                  {media.isVideo && (
+                    <span className="inline-flex items-center gap-1 text-xs text-[#0D9488] bg-[#0D9488]/10 px-2 py-0.5 rounded-full">
+                      <Play className="w-3 h-3" />
+                      Video Cover
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mt-1">
                   <MapPin className="w-4 h-4 mr-1 text-[#0D9488]" />
                   <span>{entityLocation}</span>

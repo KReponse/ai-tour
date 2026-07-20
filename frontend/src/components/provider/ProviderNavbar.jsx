@@ -1,4 +1,5 @@
 // src/components/provider/ProviderNavbar.jsx
+// ✅ UPDATED - Removed Message button
 
 import React, {
   useState,
@@ -12,7 +13,6 @@ import {
   Search,
   Moon,
   Sun,
-  MessageCircle,
   Menu,
   ChevronDown,
   Settings,
@@ -66,8 +66,8 @@ const getNotificationIcon = (type) => {
     payment_failed: CreditCard,
     review: Star,
     new_review: Star,
-    message: MessageCircle,
-    new_message: MessageCircle,
+    message: Bell,
+    new_message: Bell,
     system: Bell,
     system_alert: AlertCircle,
     reminder: Clock,
@@ -127,7 +127,6 @@ const getImageUrl = (path) => {
 
 const ProviderNavbar = ({
   onMenuClick,
-  messageCount = 0,
 }) => {
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
@@ -379,19 +378,6 @@ const ProviderNavbar = ({
               <Sun className="w-5 h-5 text-[#F59E0B]" />
             ) : (
               <Moon className="w-5 h-5 dark:text-white" />
-            )}
-          </button>
-
-          {/* MESSAGE */}
-          <button
-            onClick={() => navigate("/provider/messages")}
-            className="relative w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:scale-105 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
-          >
-            <MessageCircle className="w-5 h-5 dark:text-white" />
-            {messageCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#0D9488] text-white text-xs font-bold flex items-center justify-center border-2 border-white dark:border-gray-950">
-                {messageCount > 9 ? '9+' : messageCount}
-              </span>
             )}
           </button>
 

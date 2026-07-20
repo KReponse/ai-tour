@@ -1,4 +1,5 @@
 // backend/src/models/ProviderProfile.js
+// ✅ UPDATED - Added WhatsApp field
 
 import mongoose from "mongoose";
 
@@ -8,7 +9,7 @@ const providerProfileSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true,  // ✅ This already creates the index
+      unique: true,
     },
 
     // =========================
@@ -129,6 +130,12 @@ const providerProfileSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    // ✅ NEW: WhatsApp Number (separate from phone)
+    whatsapp: {
+      type: String,
+      trim: true,
+    },
+
     // =========================
     // STATS (calculated)
     // =========================
@@ -174,8 +181,6 @@ const providerProfileSchema = new mongoose.Schema(
 // =========================
 // ✅ INDEXES
 // =========================
-// userId index is already created by unique: true
-// Only define additional indexes here:
 providerProfileSchema.index({ businessName: "text" });
 providerProfileSchema.index({ averageRating: -1 });
 providerProfileSchema.index({ status: 1, createdAt: -1 });
@@ -192,6 +197,11 @@ providerProfileSchema.virtual("fullAddress").get(function () {
 // =========================
 providerProfileSchema.virtual("isVerified").get(function () {
   return this.verified && this.status === "active";
+});
+
+// ✅ NEW: Virtual to get WhatsApp number (fallback to phone if not set)
+providerProfileSchema.virtual("whatsappNumber").get(function () {
+  return this.whatsapp || this.phone || null;
 });
 
 // =========================

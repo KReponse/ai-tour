@@ -1,4 +1,5 @@
-// src/pages/provider/MyListings.jsx
+// frontend/src/pages/provider/MyListings.jsx
+// ✅ UPDATED - Added Cover Media support and improved listing display
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,8 @@ import {
   List,
   Filter,
   X,
+  Play,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { getMyListings, deleteListing, toggleListingStatus } from '../../services/listingService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,7 +54,18 @@ const MyListings = () => {
     const totalRevenue = listings.reduce((sum, l) => sum + Number(l.price || 0), 0);
     const avgPrice = totalRevenue / total || 0;
 
-    return { total, approved, pending, rejected, totalRevenue, avgPrice };
+    // ✅ NEW: Count listings with video cover
+    const withVideoCover = listings.filter((l) => l.coverMediaType === 'video').length;
+
+    return { 
+      total, 
+      approved, 
+      pending, 
+      rejected, 
+      totalRevenue, 
+      avgPrice,
+      withVideoCover,
+    };
   }, [listings]);
 
   // ── Fetch Listings ─────────────────────────────────────────────
@@ -112,6 +126,8 @@ const MyListings = () => {
 
   // ── Actions ────────────────────────────────────────────────────
   const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this listing?')) return;
+    
     try {
       await deleteListing(id, token);
       await fetchListings();
@@ -134,13 +150,20 @@ const MyListings = () => {
   };
 
   const handleToggleFavorite = (id) => {
-    // Will be implemented when favorites system is ready
     showNotification('Favorites coming soon!', 'info');
   };
 
   const showNotification = (message, type) => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  // ── Get cover media type icon ─────────────────────────────────
+  const getCoverIcon = (listing) => {
+    if (listing.coverMediaType === 'video') {
+      return Play;
+    }
+    return ImageIcon;
   };
 
   // ── Loading ────────────────────────────────────────────────────
@@ -192,7 +215,7 @@ const MyListings = () => {
                   <p className="text-sm opacity-90">Smart insights for your business</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div className="bg-white/20 rounded-xl p-3 text-center">
                   <p className="text-xs opacity-80">Total</p>
                   <strong className="text-2xl">{analytics.total}</strong>
@@ -209,6 +232,11 @@ const MyListings = () => {
                   <p className="text-xs opacity-80">Avg Price</p>
                   <strong className="text-2xl">${analytics.avgPrice.toFixed(0)}</strong>
                 </div>
+                {/* ✅ NEW: Video Cover Count */}
+                <div className="bg-white/20 rounded-xl p-3 text-center">
+                  <p className="text-xs opacity-80">🎬 Videos</p>
+                  <strong className="text-2xl">{analytics.withVideoCover}</strong>
+                </div>
               </div>
             </div>
           </div>
@@ -223,6 +251,11 @@ const MyListings = () => {
             <p className="mt-2 text-gray-500 flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-[#0D9488]" />
               {analytics.total} Listings
+              {analytics.withVideoCover > 0 && (
+                <span className="ml-2 text-xs bg-[#0D9488]/10 text-[#0D9488] px-2 py-1 rounded-full">
+                  🎬 {analytics.withVideoCover} with video
+                </span>
+              )}
             </p>
           </div>
 
@@ -330,6 +363,7 @@ const MyListings = () => {
                 compact={viewMode === 'list'}
                 onDelete={handleDelete}
                 onToggleFavorite={handleToggleFavorite}
+                onToggleStatus={handleToggleStatus}
               />
             ))}
           </div>

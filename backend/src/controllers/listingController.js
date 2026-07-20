@@ -1,4 +1,5 @@
 // backend/src/controllers/listingController.js
+// ✅ UPDATED - Added Cover Media support (image + video)
 
 import Listing from "../models/Listing.js";
 import User from "../models/User.js";
@@ -45,6 +46,7 @@ export const createListing = async (req, res) => {
       vehicleType,
       seats,
       dynamicFields,
+      coverMediaType, // ✅ NEW: 'image' or 'video'
     } = req.body;
 
     // ✅ Log each field to see what's missing
@@ -55,6 +57,7 @@ export const createListing = async (req, res) => {
     console.log("📁 Business Type:", businessType);
     console.log("📁 Listing Type:", listingType);
     console.log("📁 Category:", category);
+    console.log("📁 Cover Media Type:", coverMediaType);
 
     // ✅ Validate required fields with specific error messages
     const missingFields = [];
@@ -100,7 +103,25 @@ export const createListing = async (req, res) => {
     const finalCategory = category || businessType;
 
     // ✅ Handle file uploads
-    const coverImage = req.files?.coverImage?.[0]?.filename || "";
+    // ✅ NEW: Cover Media - supports both image and video
+    let coverImage = "";
+    let coverMedia = "";
+    let finalCoverMediaType = coverMediaType || 'image';
+
+    // Check if coverMedia was uploaded (new field)
+    if (req.files?.coverMedia?.[0]) {
+      coverMedia = req.files.coverMedia[0].filename;
+      coverImage = coverMedia; // For backward compatibility
+      console.log("✅ Cover Media uploaded:", coverMedia, "Type:", finalCoverMediaType);
+    } 
+    // Fallback to coverImage (backward compatibility)
+    else if (req.files?.coverImage?.[0]) {
+      coverImage = req.files.coverImage[0].filename;
+      coverMedia = coverImage;
+      finalCoverMediaType = 'image';
+      console.log("✅ Cover Image uploaded (legacy):", coverImage);
+    }
+
     const galleryImages = req.files?.galleryImages
       ? req.files.galleryImages.map((file) => file.filename)
       : [];
@@ -108,7 +129,8 @@ export const createListing = async (req, res) => {
       ? req.files.videos.map((file) => file.filename)
       : [];
 
-    console.log("✅ Cover Image:", coverImage);
+    console.log("✅ Cover Media:", coverMedia);
+    console.log("✅ Cover Media Type:", finalCoverMediaType);
     console.log("✅ Gallery Images:", galleryImages.length);
     console.log("✅ Videos:", videos.length);
 
@@ -125,7 +147,7 @@ export const createListing = async (req, res) => {
       }
     }
 
-    // ✅ Create listing
+    // ✅ Create listing with Cover Media fields
     const listing = await Listing.create({
       title,
       location,
@@ -148,7 +170,11 @@ export const createListing = async (req, res) => {
       vehicleType: vehicleType || "",
       seats: seats ? Number(seats) : 0,
       dynamicFields: parsedDynamicFields,
-      coverImage,
+      // ✅ NEW: Cover Media fields
+      coverMedia: coverMedia,
+      coverMediaType: finalCoverMediaType,
+      // Keep for backward compatibility
+      coverImage: coverImage,
       galleryImages,
       videos,
       provider: req.user._id,
@@ -198,7 +224,6 @@ export const createListing = async (req, res) => {
   }
 };
 
-
 /* ================= GET PUBLIC LISTINGS ================= */
 
 export const getListings = async (req, res) => {
@@ -213,9 +238,8 @@ export const getListings = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = parseInt(limit);
 
-    // ✅ FIXED: Populate provider with profileImage and verified
     const listings = await Listing.find(filter)
-      .populate("provider", "name email profileImage verified")  // ✅ Added fields
+      .populate("provider", "name email profileImage verified")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -245,9 +269,8 @@ export const getListings = async (req, res) => {
 
 export const getSingleListing = async (req, res) => {
   try {
-    // ✅ FIXED: Populate provider with profileImage and verified
     const listing = await Listing.findById(req.params.id)
-      .populate("provider", "name email profileImage verified");  // ✅ Added fields
+      .populate("provider", "name email profileImage verified");
 
     if (!listing) {
       return res.status(404).json({
@@ -268,7 +291,6 @@ export const getSingleListing = async (req, res) => {
     });
   }
 };
-
 
 /* ================= GET PROVIDER LISTINGS ================= */
 
@@ -298,11 +320,9 @@ export const getProviderListings = async (req, res) => {
       console.error("❌ Database error in getProviderListings:", dbError);
       console.error("❌ Error stack:", dbError.stack);
 
-      // ✅ If the error is about the provider field, try an alternative approach
       if (dbError.message.includes('provider') || dbError.message.includes('CastError')) {
         console.warn("⚠️ Provider field issue, trying alternative query");
         try {
-          // Try to find all listings and filter manually
           const allListings = await Listing.find({})
             .sort({ createdAt: -1 })
             .lean();
@@ -339,6 +359,7 @@ export const getProviderListings = async (req, res) => {
     });
   }
 };
+
 /* ================= UPDATE LISTING ================= */
 
 export const updateListing = async (req, res) => {
@@ -365,6 +386,7 @@ export const updateListing = async (req, res) => {
       vehicleType,
       seats,
       dynamicFields,
+      coverMediaType, // ✅ NEW
     } = req.body;
 
     const listing = await Listing.findById(id);
@@ -405,6 +427,11 @@ export const updateListing = async (req, res) => {
     listing.vehicleType = vehicleType || listing.vehicleType;
     listing.seats = seats ? Number(seats) : listing.seats;
 
+    // ✅ Update Cover Media Type
+    if (coverMediaType) {
+      listing.coverMediaType = coverMediaType;
+    }
+
     if (dynamicFields) {
       try {
         listing.dynamicFields =
@@ -417,8 +444,18 @@ export const updateListing = async (req, res) => {
     }
 
     // ✅ Handle file uploads
-    if (req.files?.coverImage?.[0]) {
+    // ✅ NEW: Handle coverMedia upload
+    if (req.files?.coverMedia?.[0]) {
+      listing.coverMedia = req.files.coverMedia[0].filename;
+      listing.coverImage = req.files.coverMedia[0].filename; // Backward compatibility
+      // Update type if provided
+      if (coverMediaType) {
+        listing.coverMediaType = coverMediaType;
+      }
+    } else if (req.files?.coverImage?.[0]) {
       listing.coverImage = req.files.coverImage[0].filename;
+      listing.coverMedia = req.files.coverImage[0].filename;
+      listing.coverMediaType = 'image';
     }
 
     if (req.files?.galleryImages) {
@@ -460,7 +497,6 @@ export const deleteListing = async (req, res) => {
       });
     }
 
-    // ✅ Check if user owns this listing
     if (listing.provider.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -496,7 +532,6 @@ export const toggleListingStatus = async (req, res) => {
       });
     }
 
-    // ✅ Check if user owns this listing
     if (listing.provider.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -504,13 +539,11 @@ export const toggleListingStatus = async (req, res) => {
       });
     }
 
-    // ✅ Toggle between pending and approved (if already approved, keep approved)
     if (listing.status === "pending") {
       listing.status = "approved";
     } else if (listing.status === "approved") {
       listing.status = "pending";
     } else {
-      // Rejected or other status -> set to pending
       listing.status = "pending";
     }
 
@@ -871,14 +904,11 @@ export const deleteListingAdmin = async (req, res) => {
       });
     }
 
-    // ✅ Store provider info for notification before deleting
     const providerId = listing.provider;
     const listingTitle = listing.title;
 
-    // ✅ Delete the listing
     await listing.deleteOne();
 
-    // ✅ Notify provider about deletion
     await createNotification({
       recipient: providerId,
       sender: req.user._id,
