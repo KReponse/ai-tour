@@ -1,16 +1,15 @@
 // frontend/src/services/authService.js
 // ✅ FIXED - Proper token handling with refresh token storage
 
-import axios from "/node_modules/.vite/deps/axios.js?v=cb529a4d";
+import axios from "axios";
 
 /* =========================
 BASE API INSTANCE
 ========================= */
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
 });
-
 /* =========================
 AUTO ATTACH TOKEN
 ========================= */
