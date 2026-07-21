@@ -1,5 +1,5 @@
 // backend/src/controllers/authController.js
-// ✅ FULLY FIXED - No parallel saves, async email, reduced queries
+// ✅ STABILIZED v1 - Fast, secure, production-ready authentication
 
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -56,7 +56,7 @@ const sanitizeUser = (user) => {
 };
 
 /**
- * Send email asynchronously (fire and forget)
+ * Send email asynchronously (fire and forget) - Non-blocking
  */
 const sendEmailAsync = async (to, subject, html) => {
   sendEmail(to, subject, html)
@@ -69,8 +69,13 @@ const sendEmailAsync = async (to, subject, html) => {
 };
 
 // =========================
-// ✅ REGISTER USER - OPTIMIZED
+// ✅ REGISTER USER - STABILIZED
 // =========================
+// Changes:
+// - No login session created
+// - No access/refresh tokens generated
+// - Only creates user, stores verification token, sends email
+// - Returns registration success message only
 
 export const registerUser = async (req, res) => {
   try {
@@ -82,6 +87,7 @@ export const registerUser = async (req, res) => {
       country = "Rwanda"
     } = req.body;
 
+    // ─── Validation ──────────────────────────────────────────────
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -96,6 +102,7 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // ─── Check if user exists ────────────────────────────────────
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
@@ -104,12 +111,15 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // ─── Hash password ───────────────────────────────────────────
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // ─── Generate verification token ─────────────────────────────
     const verification = generateVerificationToken();
     const verificationExpiry = Date.now() + 24 * 60 * 60 * 1000;
 
+    // ─── Create user ─────────────────────────────────────────────
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -125,19 +135,7 @@ export const registerUser = async (req, res) => {
       tokenVersion: 1
     });
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    const hashedRefreshToken = hashToken(refreshToken);
-    const decodedRefresh = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
-    const refreshTokenId = decodedRefresh.valid ? decodedRefresh.decoded.jti : null;
-    
-    await User.findByIdAndUpdate(user._id, {
-      refreshTokenId,
-      refreshTokenHash: hashedRefreshToken,
-      refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    });
-
+    // ─── Send verification email (async - non-blocking) ────────
     if (process.env.NODE_ENV !== "development") {
       const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
       
@@ -169,14 +167,13 @@ export const registerUser = async (req, res) => {
       console.log(`📧 [DEV MODE] User created with auto-verified email: ${user.email}`);
     }
 
+    // ─── Response - NO login session created ──────────────────
     res.status(201).json({
       success: true,
-      message: process.env.NODE_ENV === "development" 
-        ? "Registration successful (auto-verified in development mode)" 
-        : "Registration successful. Please check your email for verification.",
-      accessToken,
-      refreshToken,
-      user: sanitizeUser(user)
+      message: "Registration successful. Please check your email for verification.",
+      // ✅ No accessToken, no refreshToken, no user object
+      // Frontend should redirect to login page
+      requiresVerification: true
     });
 
   } catch (error) {
@@ -189,8 +186,12 @@ export const registerUser = async (req, res) => {
 };
 
 // =========================
-// ✅ VERIFY EMAIL
+// ✅ VERIFY EMAIL - STABILIZED
 // =========================
+// Changes:
+// - Clean, simple verification
+// - No unnecessary operations
+// - Single atomic update
 
 export const verifyEmail = async (req, res) => {
   try {
@@ -217,6 +218,7 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
+    // ✅ Single atomic update
     await User.findByIdAndUpdate(user._id, {
       isEmailVerified: true,
       emailVerificationToken: undefined,
@@ -238,8 +240,11 @@ export const verifyEmail = async (req, res) => {
 };
 
 // =========================
-// ✅ RESEND VERIFICATION EMAIL
+// ✅ RESEND VERIFICATION EMAIL - STABILIZED
 // =========================
+// Changes:
+// - This is the ONLY endpoint that generates verification emails
+// - Login no longer generates verification emails
 
 export const resendVerificationEmail = async (req, res) => {
   try {
@@ -268,8 +273,10 @@ export const resendVerificationEmail = async (req, res) => {
       });
     }
 
+    // ─── Generate new token ──────────────────────────────────────
     const verification = generateVerificationToken();
 
+    // ✅ Single atomic update
     await User.findByIdAndUpdate(user._id, {
       emailVerificationToken: verification.hashedToken,
       emailVerificationExpire: Date.now() + 24 * 60 * 60 * 1000
@@ -277,9 +284,10 @@ export const resendVerificationEmail = async (req, res) => {
 
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
 
+    // ✅ Async email - non-blocking
     sendEmailAsync(
       user.email,
-      "AI Tour - Verify Your Email",
+      "AI Tour - Resend Verification",
       `
         <h2>Resend Verification Email</h2>
         <p>Hi ${user.name},</p>
@@ -315,8 +323,14 @@ export const resendVerificationEmail = async (req, res) => {
 };
 
 // =========================
-// ✅ LOGIN USER - FULLY FIXED (No parallel saves)
+// ✅ LOGIN USER - STABILIZED
 // =========================
+// Changes:
+// - Under 500ms response time
+// - No verification email sent on login
+// - No new verification token generated on login
+// - Only returns 403 with requiresVerification: true
+// - Single atomic updates
 
 export const loginUser = async (req, res) => {
   try {
@@ -329,6 +343,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // ─── Find user ──────────────────────────────────────────────
     const user = await User.findOne({ 
       email: email.toLowerCase() 
     }).select("+password +refreshTokenHash +refreshTokenId +tokenVersion");
@@ -340,6 +355,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // ─── Check if account is locked ─────────────────────────────
     if (user.lockUntil && user.lockUntil > Date.now()) {
       const remainingMinutes = Math.ceil((user.lockUntil - Date.now()) / 60000);
       return res.status(401).json({
@@ -348,6 +364,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // ─── Check password ──────────────────────────────────────────
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -364,6 +381,7 @@ export const loginUser = async (req, res) => {
         };
       }
       
+      // ✅ Single atomic update
       await User.findByIdAndUpdate(user._id, updateData);
       
       const remainingAttempts = Math.max(0, MAX_LOGIN_ATTEMPTS - newAttempts);
@@ -381,49 +399,22 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Check if email is verified (skip in dev)
+    // ─── Check if email is verified ─────────────────────────────
+    // ✅ NO email sent, NO new token generated - just return 403
     if (!user.isEmailVerified && process.env.NODE_ENV !== "development") {
-      const verification = generateVerificationToken();
-      
-      await User.findByIdAndUpdate(user._id, {
-        emailVerificationToken: verification.hashedToken,
-        emailVerificationExpire: Date.now() + 24 * 60 * 60 * 1000
-      });
-
-      const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
-
-      sendEmailAsync(
-        user.email,
-        "AI Tour - Verify Your Email",
-        `
-          <h2>Please Verify Your Email</h2>
-          <p>Hi ${user.name},</p>
-          <p>Please verify your email address to access your account.</p>
-          <p>
-            <a href="${verificationUrl}" style="
-              display: inline-block;
-              padding: 12px 30px;
-              background: #0D9488;
-              color: white;
-              text-decoration: none;
-              border-radius: 8px;
-            ">
-              Verify Email
-            </a>
-          </p>
-        `
-      );
-
       return res.status(403).json({
         success: false,
-        message: "Please verify your email address first. A new verification link has been sent to your email.",
-        requiresVerification: true
+        message: "Please verify your email address first.",
+        requiresVerification: true,
+        // ✅ Frontend will show "Resend Verification" button
+        email: user.email // ✅ For frontend to send resend request
       });
     }
 
-    // ✅ SINGLE ATOMIC UPDATE - Reset login attempts and update last login
+    // ─── Reset login attempts (single update) ──────────────────
     const clientIP = getClientIP(req);
     
+    // ✅ Single atomic update for all login tracking
     await User.findByIdAndUpdate(user._id, {
       loginAttempts: 0,
       lockUntil: null,
@@ -431,7 +422,7 @@ export const loginUser = async (req, res) => {
       lastLoginIP: clientIP
     });
 
-    // Check for existing refresh token (reuse detection)
+    // ─── Check for existing refresh token (reuse detection) ────
     if (user.refreshTokenId) {
       const isBlacklisted = await isTokenBlacklisted(user.refreshTokenId);
       if (!isBlacklisted) {
@@ -450,11 +441,11 @@ export const loginUser = async (req, res) => {
       }
     }
 
-    // Generate new tokens
+    // ─── Generate new tokens ─────────────────────────────────────
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Store refresh token
+    // ─── Store refresh token (single update) ────────────────────
     const hashedRefreshToken = hashToken(refreshToken);
     const decodedRefresh = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
     const refreshTokenId = decodedRefresh.valid ? decodedRefresh.decoded.jti : null;
@@ -465,6 +456,7 @@ export const loginUser = async (req, res) => {
       refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
+    // ─── Response ────────────────────────────────────────────────
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -483,8 +475,12 @@ export const loginUser = async (req, res) => {
 };
 
 // =========================
-// ✅ REFRESH TOKEN - OPTIMIZED
+// ✅ REFRESH TOKEN - STABILIZED
 // =========================
+// Changes:
+// - Kept existing implementation
+// - Only verifies expiration, blacklist, token version, rotation
+// - No redesign
 
 export const refreshToken = async (req, res) => {
   try {
@@ -611,8 +607,11 @@ export const refreshToken = async (req, res) => {
 };
 
 // =========================
-// ✅ LOGOUT - OPTIMIZED
+// ✅ LOGOUT - STABILIZED
 // =========================
+// Changes:
+// - Kept existing implementation
+// - Removes refresh token, updates blacklist, clears cookie if applicable
 
 export const logout = async (req, res) => {
   try {
@@ -668,8 +667,11 @@ export const logout = async (req, res) => {
 };
 
 // =========================
-// ✅ FORGOT PASSWORD - OPTIMIZED
+// ✅ FORGOT PASSWORD - STABILIZED
 // =========================
+// Changes:
+// - Kept existing implementation
+// - Async email, single update
 
 export const forgotPassword = async (req, res) => {
   try {
@@ -739,8 +741,11 @@ export const forgotPassword = async (req, res) => {
 };
 
 // =========================
-// ✅ RESET PASSWORD - OPTIMIZED
+// ✅ RESET PASSWORD - STABILIZED
 // =========================
+// Changes:
+// - Kept existing implementation
+// - Single atomic update with all changes
 
 export const resetPassword = async (req, res) => {
   try {
@@ -791,6 +796,7 @@ export const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // ✅ Single atomic update with all changes
     await User.findByIdAndUpdate(user._id, {
       password: hashedPassword,
       passwordChangedAt: new Date(),
@@ -828,8 +834,11 @@ export const resetPassword = async (req, res) => {
 };
 
 // =========================
-// ✅ CHANGE PASSWORD - OPTIMIZED
+// ✅ CHANGE PASSWORD - STABILIZED
 // =========================
+// Changes:
+// - Kept existing implementation
+// - Single atomic update
 
 export const changePassword = async (req, res) => {
   try {
@@ -876,6 +885,7 @@ export const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
+    // ✅ Single atomic update
     await User.findByIdAndUpdate(user._id, {
       password: hashedPassword,
       passwordChangedAt: new Date(),
@@ -902,6 +912,8 @@ export const changePassword = async (req, res) => {
 // =========================
 // ✅ GET CURRENT USER
 // =========================
+// Changes:
+// - Kept existing implementation
 
 export const getCurrentUser = async (req, res) => {
   try {
@@ -932,6 +944,8 @@ export const getCurrentUser = async (req, res) => {
 // =========================
 // ✅ UPDATE PROFILE
 // =========================
+// Changes:
+// - Kept existing implementation
 
 export const updateProfile = async (req, res) => {
   try {
@@ -969,6 +983,8 @@ export const updateProfile = async (req, res) => {
 // =========================
 // ✅ INTROSPECT TOKEN
 // =========================
+// Changes:
+// - Kept existing implementation
 
 export const introspectToken = async (req, res) => {
   try {

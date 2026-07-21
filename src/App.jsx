@@ -76,6 +76,7 @@ import ManagementListings from './pages/admin/ManagementListings';
 // ✅ NEW: Admin Booking & Payment Pages
 import AdminBookings from './pages/admin/AdminBookings';
 import AdminPayments from './pages/admin/AdminPayments';
+import VerifyEmail from './pages/VerifyEmail';
 
 // Provider Pages
 import ProviderDashboard from './pages/provider/Dashboard';
@@ -129,6 +130,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<Terms />} />
