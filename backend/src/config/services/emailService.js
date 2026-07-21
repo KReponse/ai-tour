@@ -1,19 +1,19 @@
 // backend/src/config/services/emailService.js
-// ✅ UPDATED - Better error handling, Ethereal fallback, and App Password support
+// ✅ OPTIMIZED - Async email with queue support
 
 import nodemailer from "nodemailer";
 
 let transporter = null;
 let etherealAccount = null;
+let emailQueue = [];
+let isProcessingQueue = false;
 
 /**
  * Create or get transporter with fallback to Ethereal
  */
 const getTransporter = async () => {
-  // Return existing transporter if already created
   if (transporter) return transporter;
 
-  // ─── Option 1: Use configured SMTP (Gmail, SendGrid, etc.) ───
   if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
     try {
       transporter = nodemailer.createTransport({
@@ -25,13 +25,11 @@ const getTransporter = async () => {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD,
         },
-        // ✅ Required for Gmail App Password
         tls: {
           rejectUnauthorized: false,
         },
       });
 
-      // ✅ Verify connection
       await transporter.verify();
       console.log("✅ Email transporter ready (Gmail/Configured)");
       return transporter;
@@ -41,7 +39,6 @@ const getTransporter = async () => {
     }
   }
 
-  // ─── Option 2: Use Ethereal Email (Free Test Email) ──────────
   try {
     const { createTestAccount } = await import("nodemailer");
     const testAccount = await createTestAccount();
@@ -73,43 +70,72 @@ const getTransporter = async () => {
 };
 
 /**
- * Send email with fallback
+ * Process email queue
+ */
+const processEmailQueue = async () => {
+  if (isProcessingQueue || emailQueue.length === 0) return;
+  
+  isProcessingQueue = true;
+  
+  while (emailQueue.length > 0) {
+    const { to, subject, html, resolve, reject } = emailQueue.shift();
+    
+    try {
+      const result = await sendEmailSync(to, subject, html);
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    }
+  }
+  
+  isProcessingQueue = false;
+};
+
+/**
+ * Send email synchronously (internal)
+ */
+const sendEmailSync = async (to, subject, html) => {
+  const transporter = await getTransporter();
+
+  if (!transporter) {
+    console.warn(`⚠️ No email transporter available. Would send to: ${to}`);
+    console.log(`   Subject: ${subject}`);
+    console.log(`   HTML: ${html?.substring(0, 100)}...`);
+    return { success: false, fallback: true };
+  }
+
+  const from = process.env.EMAIL_FROM || `"AI Tour Rwanda" <${process.env.EMAIL_USER || "noreply@aitour.rw"}>`;
+
+  const info = await transporter.sendMail({
+    from,
+    to,
+    subject,
+    html,
+  });
+
+  console.log(`📧 Email sent to: ${to}`);
+  console.log(`   Message ID: ${info.messageId}`);
+
+  if (etherealAccount && info.messageId) {
+    console.log(`   🔗 Preview: https://ethereal.email/message/${info.messageId}`);
+  }
+
+  return { success: true, messageId: info.messageId };
+};
+
+/**
+ * Send email - Non-blocking (queued)
+ * ✅ This is the main export - always returns immediately
  */
 const sendEmail = async (to, subject, html) => {
-  try {
-    const transporter = await getTransporter();
-
-    if (!transporter) {
-      console.warn(`⚠️ No email transporter available. Would send to: ${to}`);
-      console.log(`   Subject: ${subject}`);
-      console.log(`   HTML: ${html?.substring(0, 100)}...`);
-      return { success: false, fallback: true };
-    }
-
-    const from = process.env.EMAIL_FROM || `"AI Tour Rwanda" <${process.env.EMAIL_USER || "noreply@aitour.rw"}>`;
-
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
-    });
-
-    console.log(`📧 Email sent to: ${to}`);
-    console.log(`   Message ID: ${info.messageId}`);
-
-    // ✅ Log Ethereal preview URL if using test account
-    if (etherealAccount && info.messageId) {
-      console.log(`   🔗 Preview: https://ethereal.email/message/${info.messageId}`);
-    }
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("❌ Email error:", error.message);
-    console.log(`   📧 Would have sent to: ${to}`);
-    console.log(`   📝 Subject: ${subject}`);
-    return { success: false, error: error.message };
-  }
+  // ✅ Return a promise that will be resolved later
+  return new Promise((resolve, reject) => {
+    // ✅ Add to queue and process
+    emailQueue.push({ to, subject, html, resolve, reject });
+    
+    // ✅ Process queue asynchronously
+    setImmediate(() => processEmailQueue());
+  });
 };
 
 /**
@@ -119,5 +145,12 @@ const isEmailConfigured = () => {
   return !!(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD);
 };
 
+/**
+ * Get queue size
+ */
+const getQueueSize = () => {
+  return emailQueue.length;
+};
+
 export default sendEmail;
-export { getTransporter, isEmailConfigured };
+export { getTransporter, isEmailConfigured, getQueueSize };

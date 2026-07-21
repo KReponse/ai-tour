@@ -1,7 +1,7 @@
 // frontend/src/pages/Register.jsx
-// ✅ UPDATED - Handle accessToken and refreshToken from API
+// ✅ OPTIMIZED - Added debouncing and prevent duplicate submissions
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -49,6 +49,9 @@ const Register = () => {
     role: "traveler",
   });
 
+  // ✅ Prevent duplicate submissions
+  const isSubmitting = useRef(false);
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -59,6 +62,12 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // ✅ Prevent duplicate submissions
+    if (isSubmitting.current || loading) {
+      console.log("⏳ Submission already in progress");
+      return;
+    }
+
     // Validation
     if (formData.password.length < 8) {
       toast.error("Password must be at least 8 characters");
@@ -66,26 +75,23 @@ const Register = () => {
     }
 
     try {
+      isSubmitting.current = true;
       setLoading(true);
 
       const response = await registerUser(formData);
       
       console.log("📝 Registration response:", response);
 
-      // ✅ Check for accessToken (new API format)
       if (response.accessToken) {
-        // ✅ Store tokens
         localStorage.setItem("token", response.accessToken);
         if (response.refreshToken) {
           localStorage.setItem("refreshToken", response.refreshToken);
         }
         
-        // ✅ Call login function from AuthContext
         login(response.user, response.accessToken);
 
         toast.success("Account created successfully 🎉");
 
-        // ✅ Redirect based on role
         if (response.user?.role === "admin") {
           navigate("/admin");
         } else if (response.user?.role === "provider") {
@@ -97,7 +103,6 @@ const Register = () => {
           navigate("/");
         }
       } else {
-        // ✅ Fallback for old API format
         if (response.token) {
           login(response.user, response.token);
           toast.success("Account created successfully 🎉");
@@ -113,6 +118,7 @@ const Register = () => {
       );
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
   };
 
@@ -126,7 +132,7 @@ const Register = () => {
         className="w-full max-w-6xl grid lg:grid-cols-2 overflow-hidden rounded-[32px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl shadow-2xl border border-white/30 dark:border-gray-800"
       >
 
-        {/* LEFT BRAND - Updated with AI Tour colors */}
+        {/* LEFT BRAND */}
         <div className="hidden lg:flex relative p-10 flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0D9488] to-[#F59E0B] text-white">
           <div className="absolute w-80 h-80 rounded-full bg-white/10 top-[-80px] right-[-80px]" />
           <div className="absolute w-64 h-64 rounded-full bg-white/10 bottom-0 left-20" />
@@ -200,7 +206,8 @@ const Register = () => {
                   onChange={handleChange}
                   placeholder="Your full name"
                   required
-                  className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
+                  disabled={loading}
+                  className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition disabled:opacity-50"
                 />
               </div>
             </div>
@@ -219,7 +226,8 @@ const Register = () => {
                   onChange={handleChange}
                   placeholder="example@gmail.com"
                   required
-                  className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
+                  disabled={loading}
+                  className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition disabled:opacity-50"
                 />
               </div>
             </div>
@@ -239,7 +247,8 @@ const Register = () => {
                     onChange={handleChange}
                     placeholder="+250..."
                     required
-                    className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
+                    disabled={loading}
+                    className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -256,13 +265,14 @@ const Register = () => {
                     value={formData.country}
                     onChange={handleChange}
                     placeholder="Rwanda"
-                    className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
+                    disabled={loading}
+                    className="w-full h-14 pl-12 pr-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition disabled:opacity-50"
                   />
                 </div>
               </div>
             </div>
 
-            {/* ROLE - Updated with AI Tour colors */}
+            {/* ROLE */}
             <div>
               <label className="block text-sm font-semibold mb-3 dark:text-white">
                 Account Type
@@ -270,7 +280,8 @@ const Register = () => {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, role: "traveler" })}
+                  onClick={() => !loading && setFormData({ ...formData, role: "traveler" })}
+                  disabled={loading}
                   className={`
                     p-5 rounded-2xl border-2 transition-all duration-300
                     ${
@@ -278,6 +289,7 @@ const Register = () => {
                         ? "border-[#0D9488] bg-[#0D9488]/10 dark:bg-[#0D9488]/20 shadow-lg shadow-[#0D9488]/20 scale-[1.02]"
                         : "border-gray-200 dark:border-gray-700 hover:border-[#0D9488]/50"
                     }
+                    disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
                   <User className={`mx-auto mb-2 w-6 h-6 ${formData.role === "traveler" ? "text-[#0D9488]" : "text-gray-400"}`} />
@@ -288,7 +300,8 @@ const Register = () => {
 
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, role: "provider" })}
+                  onClick={() => !loading && setFormData({ ...formData, role: "provider" })}
+                  disabled={loading}
                   className={`
                     p-5 rounded-2xl border-2 transition-all duration-300
                     ${
@@ -296,6 +309,7 @@ const Register = () => {
                         ? "border-[#F59E0B] bg-[#F59E0B]/10 dark:bg-[#F59E0B]/20 shadow-lg shadow-[#F59E0B]/20 scale-[1.02]"
                         : "border-gray-200 dark:border-gray-700 hover:border-[#F59E0B]/50"
                     }
+                    disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
                   <Building2 className={`mx-auto mb-2 w-6 h-6 ${formData.role === "provider" ? "text-[#F59E0B]" : "text-gray-400"}`} />
@@ -334,12 +348,14 @@ const Register = () => {
                   placeholder="Create strong password"
                   required
                   minLength="8"
-                  className="w-full h-14 pl-12 pr-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition"
+                  disabled={loading}
+                  className="w-full h-14 pl-12 pr-14 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-[#0D9488] transition disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                  disabled={loading}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -347,11 +363,11 @@ const Register = () => {
               <p className="mt-1.5 text-xs text-gray-400">Minimum 8 characters</p>
             </div>
 
-            {/* SUBMIT - Updated with AI Tour colors */}
+            {/* SUBMIT */}
             <button
               disabled={loading}
               type="submit"
-              className="w-full h-14 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-xl shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-3"
+              className="w-full h-14 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-[#0D9488] to-[#F59E0B] shadow-xl shadow-[#0D9488]/30 hover:scale-[1.02] transition-all duration-300 disabled:opacity-60 disabled:hover:scale-100 flex items-center justify-center gap-3"
             >
               {loading ? (
                 <>

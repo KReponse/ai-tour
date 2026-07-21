@@ -1,11 +1,10 @@
 // backend/src/models/User.js
-// ✅ UPDATED - Added security fields for JWT upgrade
+// ✅ FULLY FIXED - Compound indexes, methods use findByIdAndUpdate
 
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
 {
-  // ─── Basic Information ──────────────────────────────────────
   name: {
     type: String,
     required: [true, "Name is required"],
@@ -42,7 +41,6 @@ const userSchema = new mongoose.Schema(
     default: ""
   },
 
-  // ─── Role & Verification ────────────────────────────────────
   role: {
     type: String,
     enum: ["traveler", "provider", "admin"],
@@ -54,7 +52,6 @@ const userSchema = new mongoose.Schema(
     default: "pending"
   },
 
-  // ─── Account Status ─────────────────────────────────────────
   isActive: {
     type: Boolean,
     default: true
@@ -66,31 +63,21 @@ const userSchema = new mongoose.Schema(
   emailVerificationToken: String,
   emailVerificationExpire: Date,
 
-  // ─── 🔐 JWT Security Fields (NEW) ───────────────────────────
-  // ✅ Token version - increment on password change to invalidate all tokens
   tokenVersion: {
     type: Number,
     default: 1
   },
-  
-  // ✅ Hashed refresh token (not plain text)
   refreshTokenHash: {
     type: String,
     select: false
   },
-  
-  // ✅ Refresh token ID (jti) for tracking
   refreshTokenId: {
     type: String,
     select: false
   },
-  
-  // ✅ Refresh token expiry
   refreshTokenExpiry: {
     type: Date
   },
-  
-  // ✅ Token blacklist (for individual token revocation)
   tokenBlacklist: [{
     tokenId: {
       type: String,
@@ -107,11 +94,9 @@ const userSchema = new mongoose.Schema(
     }
   }],
 
-  // ─── Security Fields (Existing) ─────────────────────────────
   lastPasswordChange: Date,
   passwordChangedAt: Date,
 
-  // ─── Login Security ─────────────────────────────────────────
   loginAttempts: {
     type: Number,
     default: 0
@@ -127,12 +112,10 @@ const userSchema = new mongoose.Schema(
     country: String
   },
 
-  // ─── Provider Information ───────────────────────────────────
   providerApprovedDate: Date,
   businessName: String,
   businessDescription: String,
 
-  // ─── Password Reset ─────────────────────────────────────────
   resetPasswordToken: {
     type: String,
     select: false
@@ -142,7 +125,6 @@ const userSchema = new mongoose.Schema(
     select: false
   },
 
-  // ─── Profile ────────────────────────────────────────────────
   bio: {
     type: String,
     trim: true,
@@ -163,17 +145,22 @@ const userSchema = new mongoose.Schema(
 });
 
 // =========================
-// ✅ INDEXES
+// ✅ OPTIMIZED INDEXES
 // =========================
 
-// Email index is auto-created by 'unique: true'
 userSchema.index({ role: 1 });
 userSchema.index({ verificationStatus: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ isEmailVerified: 1 });
-userSchema.index({ refreshTokenId: 1 }); // ✅ For fast token lookup
+userSchema.index({ refreshTokenId: 1 });
+
+// ✅ COMPOUND INDEXES for faster authentication
+userSchema.index({ email: 1, isActive: 1, isEmailVerified: 1 });
 userSchema.index({ role: 1, verificationStatus: 1 });
 userSchema.index({ isActive: 1, role: 1 });
+userSchema.index({ refreshTokenId: 1, refreshTokenExpiry: 1 });
+userSchema.index({ emailVerificationToken: 1, emailVerificationExpire: 1 });
+userSchema.index({ resetPasswordToken: 1, resetPasswordExpire: 1 });
 
 // =========================
 // ✅ VIRTUAL FIELDS
@@ -192,37 +179,63 @@ userSchema.virtual('isAdmin').get(function() {
 });
 
 // =========================
-// ✅ METHODS
+// ✅ METHODS - All use findByIdAndUpdate
 // =========================
 
 /**
- * Increment login attempts and lock account if threshold exceeded
+ * Increment login attempts - ✅ Uses findByIdAndUpdate
  */
 userSchema.methods.incrementLoginAttempts = async function() {
   const MAX_LOGIN_ATTEMPTS = 5;
   const LOCK_TIME = 15 * 60 * 1000;
 
   if (this.lockUntil && this.lockUntil > Date.now()) {
-    return;
+    return this;
   }
 
-  this.loginAttempts += 1;
-
-  if (this.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-    this.lockUntil = new Date(Date.now() + LOCK_TIME);
-    this.loginAttempts = 0;
+  const newAttempts = (this.loginAttempts || 0) + 1;
+  let updateData = { loginAttempts: newAttempts };
+  
+  if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+    updateData = {
+      loginAttempts: 0,
+      lockUntil: new Date(Date.now() + LOCK_TIME)
+    };
   }
-
-  await this.save({ validateBeforeSave: false });
+  
+  const updated = await this.constructor.findByIdAndUpdate(
+    this._id, 
+    updateData, 
+    { new: true }
+  );
+  
+  if (updated) {
+    this.loginAttempts = updated.loginAttempts;
+    this.lockUntil = updated.lockUntil;
+  }
+  
+  return this;
 };
 
 /**
- * Reset login attempts after successful login
+ * Reset login attempts - ✅ Uses findByIdAndUpdate
  */
 userSchema.methods.resetLoginAttempts = async function() {
-  this.loginAttempts = 0;
-  this.lockUntil = null;
-  await this.save({ validateBeforeSave: false });
+  const updated = await this.constructor.findByIdAndUpdate(
+    this._id,
+    {
+      loginAttempts: 0,
+      lockUntil: null
+    },
+    { new: true }
+  );
+  
+  if (updated) {
+    this.loginAttempts = updated.loginAttempts;
+    this.lockUntil = updated.lockUntil;
+  }
+  
+  return this;
 };
 
 /**
@@ -240,27 +253,52 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
 };
 
 /**
- * Update last login info
+ * Update last login - ✅ Uses findByIdAndUpdate
  */
 userSchema.methods.updateLastLogin = async function(ip, location = null) {
-  this.lastLogin = new Date();
-  if (ip) this.lastLoginIP = ip;
-  if (location) this.lastLoginLocation = location;
-  await this.save({ validateBeforeSave: false });
+  const updateData = {
+    lastLogin: new Date()
+  };
+  if (ip) updateData.lastLoginIP = ip;
+  if (location) updateData.lastLoginLocation = location;
+  
+  const updated = await this.constructor.findByIdAndUpdate(
+    this._id,
+    updateData,
+    { new: true }
+  );
+  
+  if (updated) {
+    this.lastLogin = updated.lastLogin;
+    this.lastLoginIP = updated.lastLoginIP;
+    this.lastLoginLocation = updated.lastLoginLocation;
+  }
+  
+  return this;
 };
 
 // =========================
-// ✅ 🔐 NEW JWT SECURITY METHODS
+// ✅ JWT SECURITY METHODS - All use findByIdAndUpdate
 // =========================
 
 /**
- * Store refresh token securely (hashed)
+ * Store refresh token securely
  */
 userSchema.methods.setRefreshToken = async function(tokenId, hashedToken, expiry) {
+  await this.constructor.findByIdAndUpdate(
+    this._id,
+    {
+      refreshTokenId: tokenId,
+      refreshTokenHash: hashedToken,
+      refreshTokenExpiry: expiry
+    }
+  );
+  
   this.refreshTokenId = tokenId;
   this.refreshTokenHash = hashedToken;
   this.refreshTokenExpiry = expiry;
-  await this.save({ validateBeforeSave: false });
+  
+  return this;
 };
 
 /**
@@ -274,47 +312,79 @@ userSchema.methods.verifyRefreshToken = function(hashedToken) {
 };
 
 /**
- * Clear refresh token (logout)
+ * Clear refresh token
  */
 userSchema.methods.clearRefreshToken = async function() {
+  await this.constructor.findByIdAndUpdate(
+    this._id,
+    {
+      refreshTokenId: undefined,
+      refreshTokenHash: undefined,
+      refreshTokenExpiry: undefined
+    }
+  );
+  
   this.refreshTokenId = undefined;
   this.refreshTokenHash = undefined;
   this.refreshTokenExpiry = undefined;
-  await this.save({ validateBeforeSave: false });
+  
+  return this;
 };
 
 /**
- * Increment token version (invalidate all tokens)
+ * Increment token version
  */
 userSchema.methods.incrementTokenVersion = async function() {
-  this.tokenVersion = (this.tokenVersion || 1) + 1;
-  await this.save({ validateBeforeSave: false });
+  const newVersion = (this.tokenVersion || 1) + 1;
+  
+  await this.constructor.findByIdAndUpdate(
+    this._id,
+    { tokenVersion: newVersion }
+  );
+  
+  this.tokenVersion = newVersion;
+  
+  return this;
 };
 
 /**
- * Blacklist a specific token
+ * Blacklist a specific token - ✅ Uses findByIdAndUpdate with $push
  */
 userSchema.methods.blacklistToken = async function(tokenId, reason = 'logout') {
-  // ✅ Remove tokenId from refresh token if it matches
-  if (this.refreshTokenId === tokenId) {
-    this.refreshTokenId = undefined;
-    this.refreshTokenHash = undefined;
-    this.refreshTokenExpiry = undefined;
-  }
+  await this.constructor.findByIdAndUpdate(
+    this._id,
+    {
+      $push: {
+        tokenBlacklist: {
+          tokenId,
+          revokedAt: new Date(),
+          reason
+        }
+      }
+    }
+  );
   
-  // ✅ Add to blacklist
   this.tokenBlacklist.push({
     tokenId,
     revokedAt: new Date(),
     reason
   });
   
-  // ✅ Limit blacklist size (keep last 50)
-  if (this.tokenBlacklist.length > 50) {
-    this.tokenBlacklist = this.tokenBlacklist.slice(-50);
+  if (this.refreshTokenId === tokenId) {
+    await this.constructor.findByIdAndUpdate(
+      this._id,
+      {
+        refreshTokenId: undefined,
+        refreshTokenHash: undefined,
+        refreshTokenExpiry: undefined
+      }
+    );
+    this.refreshTokenId = undefined;
+    this.refreshTokenHash = undefined;
+    this.refreshTokenExpiry = undefined;
   }
   
-  await this.save({ validateBeforeSave: false });
+  return this;
 };
 
 /**
@@ -325,13 +395,23 @@ userSchema.methods.isTokenBlacklisted = function(tokenId) {
 };
 
 /**
- * Invalidate all refresh tokens for this user
+ * Invalidate all refresh tokens
  */
 userSchema.methods.invalidateAllRefreshTokens = async function() {
+  await this.constructor.findByIdAndUpdate(
+    this._id,
+    {
+      refreshTokenId: undefined,
+      refreshTokenHash: undefined,
+      refreshTokenExpiry: undefined
+    }
+  );
+  
   this.refreshTokenId = undefined;
   this.refreshTokenHash = undefined;
   this.refreshTokenExpiry = undefined;
-  await this.save({ validateBeforeSave: false });
+  
+  return this;
 };
 
 export default mongoose.model("User", userSchema);

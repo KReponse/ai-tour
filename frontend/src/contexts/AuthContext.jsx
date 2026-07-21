@@ -1,11 +1,13 @@
 // frontend/src/contexts/AuthContext.jsx
-// ✅ UPDATED - Handle accessToken and refreshToken
+// ✅ OPTIMIZED - Faster token refresh with better error handling
 
 import {
   createContext,
   useContext,
   useEffect,
   useState,
+  useCallback,
+  useRef,
 } from "react";
 
 import axios from "axios";
@@ -23,13 +25,6 @@ const AuthContext = createContext(null);
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// ===============================
-// ROLE MAPPING
-// ===============================
-// Backend: traveler, provider, admin
-// Frontend: traveler, provider, admin
-// ===============================
-
 const ROLE_MAP = {
   'traveler': 'traveler',
   'user': 'traveler',
@@ -46,30 +41,34 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ Prevent multiple refresh attempts
+  const isRefreshing = useRef(false);
+  const refreshPromise = useRef(null);
 
   /*
   =========================
   CLEAR SESSION
   =========================
   */
-  const clearSession = () => {
+  const clearSession = useCallback(() => {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
     setUser(null);
     setToken(null);
     setRefreshToken(null);
-  };
+  }, []);
 
   /*
   =========================
-  REFRESH USER ⭐
+  REFRESH USER
   =========================
   */
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const savedToken = localStorage.getItem("token");
-      if (!savedToken) return;
+      if (!savedToken) return false;
 
       const response = await axios.get(
         `${API_URL}/auth/me`,
@@ -82,24 +81,20 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data.user) {
         const userData = response.data.user;
-        
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
-        
         console.log("✅ User refreshed:", userData.email);
         return true;
       }
       return false;
     } catch (error) {
       console.log("❌ Refresh user failed:", error.response?.status, error.message);
-      
-      // ✅ If token is invalid (401), clear session
       if (error.response?.status === 401) {
         clearSession();
       }
       return false;
     }
-  };
+  }, [clearSession]);
 
   /*
   =========================
@@ -130,14 +125,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     restoreSession();
-  }, []);
+  }, [refreshUser, clearSession]);
 
   /*
   =========================
   LOGIN
   =========================
   */
-  const login = (userData, accessToken, refreshTokenData = null) => {
+  const login = useCallback((userData, accessToken, refreshTokenData = null) => {
     if (!userData || !accessToken) {
       return false;
     }
@@ -156,69 +151,86 @@ export const AuthProvider = ({ children }) => {
 
     console.log("✅ User logged in:", userData.email);
     return true;
-  };
+  }, []);
 
   /*
   =========================
   LOGOUT
   =========================
   */
-  const logout = () => {
+  const logout = useCallback(() => {
     clearSession();
     console.log("👋 User logged out");
-  };
+  }, [clearSession]);
 
   /*
   =========================
-  UPDATE USER (For EditProfile)
+  UPDATE USER
   =========================
   */
-  const updateUser = (userData) => {
+  const updateUser = useCallback((userData) => {
     if (!userData) return;
     
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
     console.log("✅ User updated:", userData.email);
-  };
+  }, []);
 
   /*
   =========================
-  REFRESH TOKEN
+  REFRESH TOKEN - OPTIMIZED with deduplication
   =========================
   */
-  const refreshAccessToken = async () => {
-    try {
-      const savedRefreshToken = localStorage.getItem("refreshToken");
-      if (!savedRefreshToken) {
-        console.warn("⚠️ No refresh token available");
-        return false;
-      }
-
-      const response = await axios.post(
-        `${API_URL}/auth/refresh-token`,
-        { refreshToken: savedRefreshToken }
-      );
-
-      if (response.data.accessToken) {
-        const newToken = response.data.accessToken;
-        setToken(newToken);
-        localStorage.setItem("token", newToken);
-        
-        if (response.data.refreshToken) {
-          setRefreshToken(response.data.refreshToken);
-          localStorage.setItem("refreshToken", response.data.refreshToken);
-        }
-        
-        console.log("✅ Token refreshed successfully");
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("❌ Token refresh failed:", error.message);
-      clearSession();
-      return false;
+  const refreshAccessToken = useCallback(async () => {
+    // ✅ Prevent multiple concurrent refresh attempts
+    if (isRefreshing.current) {
+      console.log("⏳ Token refresh already in progress, waiting...");
+      return refreshPromise.current;
     }
-  };
+
+    isRefreshing.current = true;
+    
+    refreshPromise.current = (async () => {
+      try {
+        const savedRefreshToken = localStorage.getItem("refreshToken");
+        if (!savedRefreshToken) {
+          console.warn("⚠️ No refresh token available");
+          clearSession();
+          return false;
+        }
+
+        const response = await axios.post(
+          `${API_URL}/auth/refresh-token`,
+          { refreshToken: savedRefreshToken }
+        );
+
+        if (response.data.accessToken) {
+          const newToken = response.data.accessToken;
+          setToken(newToken);
+          localStorage.setItem("token", newToken);
+          
+          if (response.data.refreshToken) {
+            setRefreshToken(response.data.refreshToken);
+            localStorage.setItem("refreshToken", response.data.refreshToken);
+          }
+          
+          console.log("✅ Token refreshed successfully");
+          return true;
+        }
+        clearSession();
+        return false;
+      } catch (error) {
+        console.error("❌ Token refresh failed:", error.message);
+        clearSession();
+        return false;
+      } finally {
+        isRefreshing.current = false;
+        refreshPromise.current = null;
+      }
+    })();
+
+    return refreshPromise.current;
+  }, [clearSession]);
 
   /*
   =========================
@@ -226,18 +238,15 @@ export const AuthProvider = ({ children }) => {
   =========================
   */
 
-  // Get user role in frontend format
-  const getUserRole = () => {
+  const getUserRole = useCallback(() => {
     if (!user) return null;
     return mapRole(user.role);
-  };
+  }, [user]);
 
-  // Check if user has a specific role
-  const hasRole = (role) => {
+  const hasRole = useCallback((role) => {
     if (!user) return false;
     const userRole = user.role;
     
-    // Map frontend role to backend role
     const roleMap = {
       'traveler': ['traveler', 'user'],
       'provider': ['provider'],
@@ -246,28 +255,14 @@ export const AuthProvider = ({ children }) => {
     
     const backendRoles = roleMap[role] || [role];
     return backendRoles.includes(userRole);
-  };
+  }, [user]);
 
-  // Check if user is admin
   const isAdmin = hasRole('admin');
-
-  // Check if user is provider
   const isProvider = hasRole('provider');
-
-  // Check if user is traveler
   const isTraveler = hasRole('traveler');
-
-  // Check if provider is approved
   const isApprovedProvider = isProvider && user?.verificationStatus === "approved";
-
-  // Check if provider is pending
   const isPendingProvider = isProvider && user?.verificationStatus === "pending";
-
-  // Check if provider is rejected
   const isRejectedProvider = isProvider && user?.verificationStatus === "rejected";
-
-  // Get display role
-  const displayRole = getUserRole();
 
   const value = {
     user,
@@ -295,7 +290,7 @@ export const AuthProvider = ({ children }) => {
     // Helpers
     hasRole,
     getUserRole,
-    displayRole,
+    displayRole: getUserRole(),
   };
 
   return (

@@ -1,8 +1,12 @@
 // backend/src/routes/authRoutes.js
-// ✅ UPDATED - Added token introspection, revocation, and enhanced security routes
+// ✅ FULLY FIXED - Added missing imports, all routes properly configured
 
 import express from "express";
 import rateLimit from "express-rate-limit";
+
+// ✅ FIXED: Added missing imports
+import User from "../models/User.js";
+import { verifyToken, blacklistToken } from "../utils/tokenUtils.js";
 
 import {
   registerUser,
@@ -91,7 +95,6 @@ router.post("/forgot-password", authLimiter, forgotPassword);
 router.post("/reset-password/:token", authLimiter, resetPassword);
 
 // ✅ Token Introspection (Public - for debugging)
-// Useful for debugging and monitoring
 router.post("/introspect", introspectToken);
 
 // =========================
@@ -127,8 +130,10 @@ router.use(verifyEmailRequired);
 // ✅ TOKEN MANAGEMENT (Protected)
 // =========================
 
-// ✅ Revoke Token (Logout specific device)
-// Can be used to revoke a specific token without logging out all devices
+/**
+ * Revoke a specific token (logout specific device)
+ * POST /api/auth/revoke-token
+ */
 router.post("/revoke-token", async (req, res) => {
   try {
     const { token } = req.body;
@@ -185,6 +190,10 @@ router.post("/revoke-token", async (req, res) => {
 // ✅ LOGOUT ALL DEVICES
 // =========================
 
+/**
+ * Logout from all devices
+ * POST /api/auth/logout-all
+ */
 router.post("/logout-all", async (req, res) => {
   try {
     const user = req.user;
@@ -234,6 +243,10 @@ router.post("/logout-all", async (req, res) => {
 // ✅ GET SESSION INFO
 // =========================
 
+/**
+ * Get current session information
+ * GET /api/auth/session
+ */
 router.get("/session", (req, res) => {
   try {
     const user = req.user;
@@ -264,13 +277,5 @@ router.get("/session", (req, res) => {
     });
   }
 });
-
-// =========================
-// ✅ DEVICE MANAGEMENT (Optional)
-// =========================
-
-// Get all active sessions (for future device tracking)
-// This would require additional device tracking in the User model
-// router.get("/devices", getActiveDevices);
 
 export default router;

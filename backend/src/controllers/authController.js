@@ -1,10 +1,10 @@
 // backend/src/controllers/authController.js
-// ✅ UPDATED - Secure token management with tokenUtils
+// ✅ FULLY FIXED - No parallel saves, async email, reduced queries
 
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import User from "../models/User.js";
-import sendEmail from "../config/services/emailService.js";  // ✅ Fixed import path
+import sendEmail from "../config/services/emailService.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -34,22 +34,42 @@ const getClientIP = (req) => {
 };
 
 /**
- * Sanitize User for Response
+ * Sanitize User for Response - Optimized to only essential fields
  */
 const sanitizeUser = (user) => {
-  const userObj = user.toObject ? user.toObject() : { ...user };
-  delete userObj.password;
-  delete userObj.refreshTokenHash;
-  delete userObj.refreshTokenId;
-  delete userObj.resetPasswordToken;
-  delete userObj.resetPasswordExpire;
-  delete userObj.tokenBlacklist;
-  delete userObj.__v;
-  return userObj;
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone,
+    country: user.country,
+    avatar: user.avatar,
+    isEmailVerified: user.isEmailVerified,
+    verificationStatus: user.verificationStatus,
+    isActive: user.isActive,
+    bio: user.bio,
+    location: user.location,
+    socialLinks: user.socialLinks,
+    createdAt: user.createdAt
+  };
+};
+
+/**
+ * Send email asynchronously (fire and forget)
+ */
+const sendEmailAsync = async (to, subject, html) => {
+  sendEmail(to, subject, html)
+    .then(() => {
+      console.log(`📧 [Async] Email sent to ${to}`);
+    })
+    .catch((error) => {
+      console.error(`❌ [Async] Email failed to ${to}:`, error.message);
+    });
 };
 
 // =========================
-// ✅ REGISTER USER
+// ✅ REGISTER USER - OPTIMIZED
 // =========================
 
 export const registerUser = async (req, res) => {
@@ -62,7 +82,6 @@ export const registerUser = async (req, res) => {
       country = "Rwanda"
     } = req.body;
 
-    // ─── Validation ──────────────────────────────────────────────
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -77,7 +96,6 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // ─── Check if user exists ────────────────────────────────────
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
@@ -86,15 +104,12 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // ─── Hash password ───────────────────────────────────────────
-    const salt = await bcrypt.genSalt(12);
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ─── Generate email verification token ──────────────────────
     const verification = generateVerificationToken();
-    const verificationExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const verificationExpiry = Date.now() + 24 * 60 * 60 * 1000;
 
-    // ─── Create user ─────────────────────────────────────────────
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -110,15 +125,26 @@ export const registerUser = async (req, res) => {
       tokenVersion: 1
     });
 
-    // ─── Send verification email (only in production) ──────────
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    const hashedRefreshToken = hashToken(refreshToken);
+    const decodedRefresh = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
+    const refreshTokenId = decodedRefresh.valid ? decodedRefresh.decoded.jti : null;
+    
+    await User.findByIdAndUpdate(user._id, {
+      refreshTokenId,
+      refreshTokenHash: hashedRefreshToken,
+      refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
+
     if (process.env.NODE_ENV !== "development") {
       const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
-
-      try {
-        await sendEmail(
-          user.email,
-          "AI Tour - Verify Your Email",
-          `
+      
+      sendEmailAsync(
+        user.email,
+        "AI Tour - Verify Your Email",
+        `
           <h2>Welcome to AI Tour Rwanda! 🇷🇼</h2>
           <p>Hi ${user.name},</p>
           <p>Thank you for registering. Please verify your email address to get started.</p>
@@ -138,31 +164,11 @@ export const registerUser = async (req, res) => {
           <p>If you didn't create an account, please ignore this email.</p>
           <p>Best regards,<br>AI Tour Rwanda Team</p>
         `
-        );
-        console.log(`📧 Verification email sent to ${user.email}`);
-      } catch (emailError) {
-        console.error("❌ Email error:", emailError.message);
-      }
+      );
     } else {
       console.log(`📧 [DEV MODE] User created with auto-verified email: ${user.email}`);
     }
 
-    // ─── Generate tokens ─────────────────────────────────────────
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // ─── Store refresh token securely (hashed) ──────────────────
-    const hashedRefreshToken = hashToken(refreshToken);
-    const decodedRefresh = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
-    const refreshTokenId = decodedRefresh.valid ? decodedRefresh.decoded.jti : null;
-    
-    await user.setRefreshToken(
-      refreshTokenId,
-      hashedRefreshToken,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    );
-
-    // ─── Response ────────────────────────────────────────────────
     res.status(201).json({
       success: true,
       message: process.env.NODE_ENV === "development" 
@@ -211,10 +217,11 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpire = undefined;
-    await user.save({ validateBeforeSave: false });
+    await User.findByIdAndUpdate(user._id, {
+      isEmailVerified: true,
+      emailVerificationToken: undefined,
+      emailVerificationExpire: undefined
+    });
 
     res.status(200).json({
       success: true,
@@ -261,17 +268,16 @@ export const resendVerificationEmail = async (req, res) => {
       });
     }
 
-    // ─── Generate new token ──────────────────────────────────────
     const verification = generateVerificationToken();
 
-    user.emailVerificationToken = verification.hashedToken;
-    user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
-    await user.save({ validateBeforeSave: false });
+    await User.findByIdAndUpdate(user._id, {
+      emailVerificationToken: verification.hashedToken,
+      emailVerificationExpire: Date.now() + 24 * 60 * 60 * 1000
+    });
 
-    // ─── Send email ──────────────────────────────────────────────
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
 
-    await sendEmail(
+    sendEmailAsync(
       user.email,
       "AI Tour - Verify Your Email",
       `
@@ -309,7 +315,7 @@ export const resendVerificationEmail = async (req, res) => {
 };
 
 // =========================
-// ✅ LOGIN USER
+// ✅ LOGIN USER - FULLY FIXED (No parallel saves)
 // =========================
 
 export const loginUser = async (req, res) => {
@@ -323,8 +329,9 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // ─── Find user with password ─────────────────────────────────
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password +refreshTokenHash +refreshTokenId +tokenVersion");
+    const user = await User.findOne({ 
+      email: email.toLowerCase() 
+    }).select("+password +refreshTokenHash +refreshTokenId +tokenVersion");
 
     if (!user) {
       return res.status(401).json({
@@ -333,7 +340,6 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // ─── Check if account is locked ─────────────────────────────
     if (user.lockUntil && user.lockUntil > Date.now()) {
       const remainingMinutes = Math.ceil((user.lockUntil - Date.now()) / 60000);
       return res.status(401).json({
@@ -342,13 +348,26 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // ─── Check password ──────────────────────────────────────────
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      await user.incrementLoginAttempts();
-      const remainingAttempts = 5 - user.loginAttempts;
-
+      const MAX_LOGIN_ATTEMPTS = 5;
+      const LOCK_TIME = 15 * 60 * 1000;
+      
+      const newAttempts = (user.loginAttempts || 0) + 1;
+      let updateData = { loginAttempts: newAttempts };
+      
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+        updateData = {
+          loginAttempts: 0,
+          lockUntil: new Date(Date.now() + LOCK_TIME)
+        };
+      }
+      
+      await User.findByIdAndUpdate(user._id, updateData);
+      
+      const remainingAttempts = Math.max(0, MAX_LOGIN_ATTEMPTS - newAttempts);
+      
       if (remainingAttempts > 0) {
         return res.status(401).json({
           success: false,
@@ -362,40 +381,38 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // ─── Check if email is verified (skip in dev) ──────────────
+    // Check if email is verified (skip in dev)
     if (!user.isEmailVerified && process.env.NODE_ENV !== "development") {
       const verification = generateVerificationToken();
-      user.emailVerificationToken = verification.hashedToken;
-      user.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
-      await user.save({ validateBeforeSave: false });
+      
+      await User.findByIdAndUpdate(user._id, {
+        emailVerificationToken: verification.hashedToken,
+        emailVerificationExpire: Date.now() + 24 * 60 * 60 * 1000
+      });
 
       const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verification.token}`;
 
-      try {
-        await sendEmail(
-          user.email,
-          "AI Tour - Verify Your Email",
-          `
-            <h2>Please Verify Your Email</h2>
-            <p>Hi ${user.name},</p>
-            <p>Please verify your email address to access your account.</p>
-            <p>
-              <a href="${verificationUrl}" style="
-                display: inline-block;
-                padding: 12px 30px;
-                background: #0D9488;
-                color: white;
-                text-decoration: none;
-                border-radius: 8px;
-              ">
-                Verify Email
-              </a>
-            </p>
-          `
-        );
-      } catch (emailError) {
-        console.error("❌ Email error:", emailError.message);
-      }
+      sendEmailAsync(
+        user.email,
+        "AI Tour - Verify Your Email",
+        `
+          <h2>Please Verify Your Email</h2>
+          <p>Hi ${user.name},</p>
+          <p>Please verify your email address to access your account.</p>
+          <p>
+            <a href="${verificationUrl}" style="
+              display: inline-block;
+              padding: 12px 30px;
+              background: #0D9488;
+              color: white;
+              text-decoration: none;
+              border-radius: 8px;
+            ">
+              Verify Email
+            </a>
+          </p>
+        `
+      );
 
       return res.status(403).json({
         success: false,
@@ -404,38 +421,50 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // ─── Reset login attempts ────────────────────────────────────
-    await user.resetLoginAttempts();
-
-    // ─── Update last login ──────────────────────────────────────
+    // ✅ SINGLE ATOMIC UPDATE - Reset login attempts and update last login
     const clientIP = getClientIP(req);
-    await user.updateLastLogin(clientIP);
+    
+    await User.findByIdAndUpdate(user._id, {
+      loginAttempts: 0,
+      lockUntil: null,
+      lastLogin: new Date(),
+      lastLoginIP: clientIP
+    });
 
-    // ─── Check for existing refresh token (reuse detection) ─────
+    // Check for existing refresh token (reuse detection)
     if (user.refreshTokenId) {
       const isBlacklisted = await isTokenBlacklisted(user.refreshTokenId);
       if (!isBlacklisted) {
-        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60);
-        await user.blacklistToken(user.refreshTokenId, 'login_reuse');
+        await Promise.all([
+          blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60),
+          User.findByIdAndUpdate(user._id, {
+            $push: {
+              tokenBlacklist: {
+                tokenId: user.refreshTokenId,
+                revokedAt: new Date(),
+                reason: 'login_reuse'
+              }
+            }
+          })
+        ]);
       }
     }
 
-    // ─── Generate new tokens ─────────────────────────────────────
+    // Generate new tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // ─── Store refresh token securely (hashed) ──────────────────
+    // Store refresh token
     const hashedRefreshToken = hashToken(refreshToken);
     const decodedRefresh = verifyToken(refreshToken, TOKEN_TYPES.REFRESH);
     const refreshTokenId = decodedRefresh.valid ? decodedRefresh.decoded.jti : null;
     
-    await user.setRefreshToken(
+    await User.findByIdAndUpdate(user._id, {
       refreshTokenId,
-      hashedRefreshToken,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    );
+      refreshTokenHash: hashedRefreshToken,
+      refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
 
-    // ─── Response ────────────────────────────────────────────────
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -454,7 +483,7 @@ export const loginUser = async (req, res) => {
 };
 
 // =========================
-// ✅ REFRESH TOKEN
+// ✅ REFRESH TOKEN - OPTIMIZED
 // =========================
 
 export const refreshToken = async (req, res) => {
@@ -514,7 +543,15 @@ export const refreshToken = async (req, res) => {
 
     const hashedToken = hashToken(token);
     if (!user.verifyRefreshToken(hashedToken)) {
-      await user.blacklistToken(decoded.jti, 'reuse_attempt');
+      await User.findByIdAndUpdate(user._id, {
+        $push: {
+          tokenBlacklist: {
+            tokenId: decoded.jti,
+            revokedAt: new Date(),
+            reason: 'reuse_attempt'
+          }
+        }
+      });
       return res.status(401).json({
         success: false,
         message: "Invalid refresh token. Please log in again.",
@@ -530,8 +567,18 @@ export const refreshToken = async (req, res) => {
       });
     }
 
-    await user.blacklistToken(decoded.jti, 'refresh_used');
-    await blacklistToken(decoded.jti, 7 * 24 * 60 * 60);
+    await Promise.all([
+      User.findByIdAndUpdate(user._id, {
+        $push: {
+          tokenBlacklist: {
+            tokenId: decoded.jti,
+            revokedAt: new Date(),
+            reason: 'refresh_used'
+          }
+        }
+      }),
+      blacklistToken(decoded.jti, 7 * 24 * 60 * 60)
+    ]);
 
     const accessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
@@ -540,11 +587,11 @@ export const refreshToken = async (req, res) => {
     const decodedNewRefresh = verifyToken(newRefreshToken, TOKEN_TYPES.REFRESH);
     const newRefreshTokenId = decodedNewRefresh.valid ? decodedNewRefresh.decoded.jti : null;
     
-    await user.setRefreshToken(
-      newRefreshTokenId,
-      hashedNewRefreshToken,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    );
+    await User.findByIdAndUpdate(user._id, {
+      refreshTokenId: newRefreshTokenId,
+      refreshTokenHash: hashedNewRefreshToken,
+      refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
 
     res.status(200).json({
       success: true,
@@ -564,7 +611,7 @@ export const refreshToken = async (req, res) => {
 };
 
 // =========================
-// ✅ LOGOUT
+// ✅ LOGOUT - OPTIMIZED
 // =========================
 
 export const logout = async (req, res) => {
@@ -582,10 +629,25 @@ export const logout = async (req, res) => {
 
     if (user) {
       if (user.refreshTokenId) {
-        await user.blacklistToken(user.refreshTokenId, 'logout');
-        await blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60);
+        await Promise.all([
+          User.findByIdAndUpdate(user._id, {
+            $push: {
+              tokenBlacklist: {
+                tokenId: user.refreshTokenId,
+                revokedAt: new Date(),
+                reason: 'logout'
+              }
+            }
+          }),
+          blacklistToken(user.refreshTokenId, 7 * 24 * 60 * 60)
+        ]);
       }
-      await user.clearRefreshToken();
+      
+      await User.findByIdAndUpdate(user._id, {
+        refreshTokenId: undefined,
+        refreshTokenHash: undefined,
+        refreshTokenExpiry: undefined
+      });
     }
 
     res.clearCookie("token");
@@ -606,7 +668,7 @@ export const logout = async (req, res) => {
 };
 
 // =========================
-// ✅ FORGOT PASSWORD
+// ✅ FORGOT PASSWORD - OPTIMIZED
 // =========================
 
 export const forgotPassword = async (req, res) => {
@@ -631,13 +693,14 @@ export const forgotPassword = async (req, res) => {
 
     const reset = generateResetToken();
 
-    user.resetPasswordToken = reset.hashedToken;
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
-    await user.save({ validateBeforeSave: false });
+    await User.findByIdAndUpdate(user._id, {
+      resetPasswordToken: reset.hashedToken,
+      resetPasswordExpire: Date.now() + 15 * 60 * 1000
+    });
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${reset.token}`;
 
-    await sendEmail(
+    sendEmailAsync(
       user.email,
       "AI Tour - Password Reset",
       `
@@ -676,7 +739,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 // =========================
-// ✅ RESET PASSWORD
+// ✅ RESET PASSWORD - OPTIMIZED
 // =========================
 
 export const resetPassword = async (req, res) => {
@@ -725,18 +788,21 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(12);
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    user.password = hashedPassword;
-    user.passwordChangedAt = new Date();
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    await user.invalidateAllRefreshTokens();
-    await user.incrementTokenVersion();
-    await user.save();
+    await User.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      passwordChangedAt: new Date(),
+      resetPasswordToken: undefined,
+      resetPasswordExpire: undefined,
+      refreshTokenId: undefined,
+      refreshTokenHash: undefined,
+      refreshTokenExpiry: undefined,
+      $inc: { tokenVersion: 1 }
+    });
 
-    await sendEmail(
+    sendEmailAsync(
       user.email,
       "AI Tour - Password Changed",
       `
@@ -762,7 +828,7 @@ export const resetPassword = async (req, res) => {
 };
 
 // =========================
-// ✅ CHANGE PASSWORD
+// ✅ CHANGE PASSWORD - OPTIMIZED
 // =========================
 
 export const changePassword = async (req, res) => {
@@ -807,14 +873,17 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(12);
+    const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    user.password = hashedPassword;
-    user.passwordChangedAt = new Date();
-    await user.invalidateAllRefreshTokens();
-    await user.incrementTokenVersion();
-    await user.save();
+    await User.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      passwordChangedAt: new Date(),
+      refreshTokenId: undefined,
+      refreshTokenHash: undefined,
+      refreshTokenExpiry: undefined,
+      $inc: { tokenVersion: 1 }
+    });
 
     res.status(200).json({
       success: true,
